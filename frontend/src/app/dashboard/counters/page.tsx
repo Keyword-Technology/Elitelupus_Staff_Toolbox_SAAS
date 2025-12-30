@@ -13,18 +13,12 @@ import {
 import toast from 'react-hot-toast';
 
 interface CounterStats {
-  sits: {
-    total: number;
-    today: number;
-    week: number;
-    month: number;
-  };
-  tickets: {
-    total: number;
-    today: number;
-    week: number;
-    month: number;
-  };
+  total_sits: number;
+  total_tickets: number;
+  today_sits: number;
+  today_tickets: number;
+  weekly_sits: number;
+  weekly_tickets: number;
 }
 
 interface HistoryEntry {
@@ -95,14 +89,14 @@ export default function CountersPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <CounterCard
           title="Sits"
-          count={stats?.sits.total || 0}
-          todayCount={stats?.sits.today || 0}
+          count={stats?.total_sits || 0}
+          todayCount={stats?.today_sits || 0}
           type="sit"
         />
         <CounterCard
           title="Tickets"
-          count={stats?.tickets.total || 0}
-          todayCount={stats?.tickets.today || 0}
+          count={stats?.total_tickets || 0}
+          todayCount={stats?.today_tickets || 0}
           type="ticket"
         />
       </div>
@@ -111,65 +105,65 @@ export default function CountersPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Today's Sits"
-          value={stats?.sits.today || 0}
+          value={stats?.today_sits || 0}
           icon={ClockIcon}
           color="blue"
         />
         <StatCard
           title="This Week's Sits"
-          value={stats?.sits.week || 0}
+          value={stats?.weekly_sits || 0}
           icon={CalendarIcon}
           color="green"
         />
         <StatCard
           title="Today's Tickets"
-          value={stats?.tickets.today || 0}
+          value={stats?.today_tickets || 0}
           icon={ClockIcon}
           color="purple"
         />
         <StatCard
           title="This Week's Tickets"
-          value={stats?.tickets.week || 0}
+          value={stats?.weekly_tickets || 0}
           icon={CalendarIcon}
           color="orange"
         />
       </div>
 
-      {/* Monthly Overview */}
+      {/* Weekly Overview */}
       <div className="bg-dark-card rounded-lg border border-dark-border p-6">
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <ChartBarIcon className="w-5 h-5 text-primary-400" />
-          Monthly Overview
+          Weekly Overview
         </h2>
         <div className="grid grid-cols-2 gap-8">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400">Monthly Sits</span>
+              <span className="text-gray-400">Weekly Sits</span>
               <span className="text-2xl font-bold text-white">
-                {stats?.sits.month || 0}
+                {stats?.weekly_sits || 0}
               </span>
             </div>
             <div className="h-2 bg-dark-bg rounded-full overflow-hidden">
               <div
                 className="h-full bg-blue-500 transition-all duration-500"
                 style={{
-                  width: `${Math.min(100, ((stats?.sits.month || 0) / 100) * 100)}%`,
+                  width: `${Math.min(100, ((stats?.weekly_sits || 0) / 50) * 100)}%`,
                 }}
               />
             </div>
           </div>
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400">Monthly Tickets</span>
+              <span className="text-gray-400">Weekly Tickets</span>
               <span className="text-2xl font-bold text-white">
-                {stats?.tickets.month || 0}
+                {stats?.weekly_tickets || 0}
               </span>
             </div>
             <div className="h-2 bg-dark-bg rounded-full overflow-hidden">
               <div
                 className="h-full bg-purple-500 transition-all duration-500"
                 style={{
-                  width: `${Math.min(100, ((stats?.tickets.month || 0) / 100) * 100)}%`,
+                  width: `${Math.min(100, ((stats?.weekly_tickets || 0) / 50) * 100)}%`,
                 }}
               />
             </div>
