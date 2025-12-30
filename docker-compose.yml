@@ -8,10 +8,14 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: elitelupus
-      POSTGRES_USER: ${POSTGRES_USER:-elitelupus}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_USER: elitelupus
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_HOST_AUTH_METHOD: md5
+      POSTGRES_INITDB_ARGS: "--auth-host=md5 --auth-local=md5"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
     networks:
       - elitelupus_network
     healthcheck:
@@ -28,6 +32,8 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
+    ports:
+      - "6379:6379"
     networks:
       - elitelupus_network
     healthcheck:
