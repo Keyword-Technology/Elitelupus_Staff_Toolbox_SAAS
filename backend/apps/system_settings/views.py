@@ -1,18 +1,16 @@
 import os
-from rest_framework import generics, status, permissions
+
+from django.conf import settings
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.conf import settings
 
-from .models import SystemSetting, ManagedServer, SettingAuditLog
-from .serializers import (
-    SystemSettingSerializer,
-    SystemSettingCreateSerializer,
-    ManagedServerSerializer,
-    ManagedServerCreateSerializer,
-    SettingAuditLogSerializer,
-    EnvironmentVariableSerializer,
-)
+from .models import ManagedServer, SettingAuditLog, SystemSetting
+from .serializers import (EnvironmentVariableSerializer,
+                          ManagedServerCreateSerializer,
+                          ManagedServerSerializer, SettingAuditLogSerializer,
+                          SystemSettingCreateSerializer,
+                          SystemSettingSerializer)
 
 
 class IsAdminUser(permissions.BasePermission):

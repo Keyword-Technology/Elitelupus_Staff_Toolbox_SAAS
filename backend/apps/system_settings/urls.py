@@ -1,14 +1,9 @@
 from django.urls import path
-from .views import (
-    EnvironmentVariableListView,
-    EnvironmentVariableUpdateView,
-    SystemSettingListView,
-    SystemSettingDetailView,
-    ManagedServerListView,
-    ManagedServerDetailView,
-    SyncManagedServersView,
-    SettingAuditLogListView,
-)
+
+from .views import (EnvironmentVariableListView, EnvironmentVariableUpdateView,
+                    ManagedServerDetailView, ManagedServerListView,
+                    SettingAuditLogListView, SyncManagedServersView,
+                    SystemSettingDetailView, SystemSettingListView)
 
 urlpatterns = [
     # Environment Variables
