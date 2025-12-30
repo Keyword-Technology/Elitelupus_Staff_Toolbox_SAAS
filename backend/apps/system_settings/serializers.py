@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import SystemSetting, ManagedServer, SettingAuditLog
+
+from .models import ManagedServer, SettingAuditLog, SystemSetting
 
 
 class SystemSettingSerializer(serializers.ModelSerializer):

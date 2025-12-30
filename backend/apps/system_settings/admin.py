@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import SystemSetting, ManagedServer, SettingAuditLog
+
+from .models import ManagedServer, SettingAuditLog, SystemSetting
 
 
 @admin.register(SystemSetting)
