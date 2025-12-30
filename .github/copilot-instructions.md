@@ -273,12 +273,11 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8000
 
 ## Game Server Configuration
 
-The application monitors these Garry's Mod servers:
+The application monitors this Garry's Mod server:
 
 | Server | IP | Port |
 |--------|-----|------|
-| Server 1 | 194.69.160.33 | 27083 |
-| Server 2 | 193.243.190.12 | 27046 |
+| Server 1 | 193.243.190.23 | 27015 |
 
 ## Troubleshooting
 
