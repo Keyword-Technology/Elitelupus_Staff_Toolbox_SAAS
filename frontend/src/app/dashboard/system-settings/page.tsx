@@ -76,10 +76,10 @@ export default function SystemSettingsPage() {
   const [serverForm, setServerForm] = useState({
     name: '',
     ip_address: '',
-    port: 27015,
+    port: 27015 as number | null,
     description: '',
     is_active: true,
-    display_order: 0,
+    display_order: 0 as number | null,
     query_port: null as number | null,
   });
   
@@ -647,8 +647,8 @@ export default function SystemSettingsPage() {
                     </label>
                     <input
                       type="number"
-                      value={serverForm.port}
-                      onChange={(e) => setServerForm({ ...serverForm, port: parseInt(e.target.value) })}
+                      value={serverForm.port ?? ''}
+                      onChange={(e) => setServerForm({ ...serverForm, port: safeInt(e.target.value, null) ?? null })}
                       className="input w-full"
                       placeholder="27015"
                       required
@@ -674,8 +674,8 @@ export default function SystemSettingsPage() {
                     </label>
                     <input
                       type="number"
-                      value={serverForm.display_order}
-                      onChange={(e) => setServerForm({ ...serverForm, display_order: parseInt(e.target.value) })}
+                      value={serverForm.display_order ?? ''}
+                      onChange={(e) => setServerForm({ ...serverForm, display_order: safeInt(e.target.value, null) ?? null })}
                       className="input w-full"
                     />
                   </div>
@@ -685,8 +685,8 @@ export default function SystemSettingsPage() {
                     </label>
                     <input
                       type="number"
-                      value={serverForm.query_port || ''}
-                      onChange={(e) => setServerForm({ ...serverForm, query_port: e.target.value ? parseInt(e.target.value) : null })}
+                      value={serverForm.query_port ?? ''}
+                      onChange={(e) => setServerForm({ ...serverForm, query_port: safeInt(e.target.value, null) })}
                       className="input w-full"
                       placeholder="Same as port"
                     />
