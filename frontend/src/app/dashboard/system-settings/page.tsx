@@ -62,6 +62,7 @@ export default function SystemSettingsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('environment');
   const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
   
   // Environment Variables State
   const [envVars, setEnvVars] = useState<EnvironmentVariable[]>([]);
@@ -84,36 +85,49 @@ export default function SystemSettingsPage() {
   
   // Audit Logs State
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+
+  // Helper to normalize paginated/non-paginated arrays
+  const toArray = <T,>(payload: any): T[] => {
+    if (Array.isArray(payload)) return payload as T[];
+    if (Array.isArray(payload?.results)) return payload.results as T[];
+    return [];
+  };
   
   // Check if user has admin access
   useEffect(() => {
     if (user && !hasMinRole(70)) {
-      router.push('/dashboard');
+      setAccessDenied(true);
       toast.error('You do not have permission to access system settings');
+      router.push('/dashboard');
+      return;
+    }
+    if (user && hasMinRole(70)) {
+      setAccessDenied(false);
     }
   }, [user, hasMinRole, router]);
 
   useEffect(() => {
-    if (hasMinRole(70)) {
+    if (user && hasMinRole(70) && !accessDenied) {
       fetchData();
     }
-  }, [activeTab, hasMinRole]);
+  }, [activeTab, user, hasMinRole, accessDenied]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       if (activeTab === 'environment') {
         const res = await systemAPI.envList();
-        setEnvVars(res.data);
+        setEnvVars(toArray<EnvironmentVariable>(res.data));
       } else if (activeTab === 'servers') {
         const res = await systemAPI.servers();
-        setServers(res.data);
+        setServers(toArray<ManagedServer>(res.data));
       } else if (activeTab === 'audit') {
         const res = await systemAPI.auditLogs();
-        setAuditLogs(res.data);
+        setAuditLogs(toArray<AuditLog>(res.data));
       }
     } catch (error) {
       toast.error('Failed to load data');
+      console.error('Failed to fetch data:', error);
     } finally {
       setLoading(false);
     }
@@ -178,14 +192,27 @@ export default function SystemSettingsPage() {
     setShowServerModal(true);
   };
 
+  const safeInt = (value: string | number | null, fallback: number | null) => {
+    if (value === null || value === undefined || value === '') return fallback;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : fallback;
+  };
+
   const handleSaveServer = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...serverForm,
+        port: safeInt(serverForm.port, 27015) ?? 27015,
+        display_order: safeInt(serverForm.display_order, 0) ?? 0,
+        query_port: safeInt(serverForm.query_port, null),
+      };
+
       if (editingServer) {
-        await systemAPI.updateServer(editingServer.id, serverForm);
+        await systemAPI.updateServer(editingServer.id, payload);
         toast.success('Server updated');
       } else {
-        await systemAPI.createServer(serverForm);
+        await systemAPI.createServer(payload);
         toast.success('Server created');
       }
       setShowServerModal(false);
@@ -229,7 +256,17 @@ export default function SystemSettingsPage() {
     return labels[category] || category;
   };
 
-  if (!hasMinRole(70)) {
+  // Show loading while checking access
+  if (!user || loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
+      </div>
+    );
+  }
+
+  // Access denied - user doesn't have permission
+  if (accessDenied || !hasMinRole(70)) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">

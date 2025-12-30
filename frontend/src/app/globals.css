@@ -69,3 +69,64 @@ body {
 .counter-btn-remove {
   @apply bg-red-600 hover:bg-red-700 text-white;
 }
+
+/* Form inputs */
+.input {
+  @apply w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg;
+  @apply text-white placeholder-gray-500;
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+  @apply transition-all duration-200;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+textarea,
+select {
+  @apply bg-dark-bg border border-dark-border rounded-lg;
+  @apply text-white placeholder-gray-500;
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+  @apply transition-all duration-200;
+  @apply px-3 py-2;
+}
+
+textarea {
+  @apply resize-none;
+}
+
+select {
+  @apply appearance-none bg-no-repeat;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+}
+
+/* Buttons */
+.btn-primary {
+  @apply px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg;
+  @apply transition-colors duration-200;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-secondary {
+  @apply px-4 py-2 bg-dark-border hover:bg-gray-700 text-white font-medium rounded-lg;
+  @apply transition-colors duration-200;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* Checkboxes */
+input[type="checkbox"] {
+  @apply w-4 h-4 rounded border-dark-border bg-dark-bg;
+  @apply text-primary-500 focus:ring-primary-500 focus:ring-offset-0;
+  @apply cursor-pointer;
+}
+
+/* Radio buttons */
+input[type="radio"] {
+  @apply w-4 h-4 border-dark-border bg-dark-bg;
+  @apply text-primary-500 focus:ring-primary-500 focus:ring-offset-0;
+  @apply cursor-pointer;
+}
+
