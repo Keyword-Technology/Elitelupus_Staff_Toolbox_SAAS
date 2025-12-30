@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'apps.servers',
     'apps.templates_manager',
     'apps.rules',
+    'apps.system_settings',
 ]
 
 MIDDLEWARE = [

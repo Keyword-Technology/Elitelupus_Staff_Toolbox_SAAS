@@ -26,6 +26,7 @@ urlpatterns = [
     path('api/servers/', include('apps.servers.urls')),
     path('api/templates/', include('apps.templates_manager.urls')),
     path('api/rules/', include('apps.rules.urls')),
+    path('api/system/', include('apps.system_settings.urls')),
     
     # Social Auth
     path('auth/', include('social_django.urls', namespace='social')),
