@@ -181,3 +181,6 @@ backend/media/
 # PWA generated files
 frontend/public/sw.js
 frontend/public/workbox-*.js
+backend/celerybeat-schedule.dir
+backend/celerybeat-schedule.bak
+backend/celerybeat-schedule.dat
