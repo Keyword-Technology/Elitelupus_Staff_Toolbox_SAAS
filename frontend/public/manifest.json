@@ -1,0 +1,47 @@
+{
+  "name": "Elitelupus Staff Toolbox",
+  "short_name": "Staff Toolbox",
+  "description": "Staff management application for Elitelupus gaming servers",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0f0f0f",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Counters",
+      "short_name": "Counters",
+      "url": "/dashboard/counters",
+      "description": "View sit and ticket counters"
+    },
+    {
+      "name": "Server Status",
+      "short_name": "Servers",
+      "url": "/dashboard/servers",
+      "description": "Check game server status"
+    },
+    {
+      "name": "Leaderboard",
+      "short_name": "Leaders",
+      "url": "/dashboard/leaderboard",
+      "description": "View staff leaderboard"
+    }
+  ],
+  "prefer_related_applications": false
+}

@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     # Third party apps
     'rest_framework',
     'rest_framework_simplejwt',
+    'drf_spectacular',
     'corsheaders',
     'channels',
     'social_django',
@@ -181,6 +182,33 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# DRF Spectacular Settings (OpenAPI/Swagger)
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Elitelupus Staff Toolbox API',
+    'DESCRIPTION': 'REST API for Elitelupus Staff Toolbox SAAS - Staff management, counters, server status, and more.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': r'/api/',
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': False,
+    },
+    'SECURITY': [
+        {'Bearer': []},
+    ],
+    'TAGS': [
+        {'name': 'Authentication', 'description': 'User authentication and registration'},
+        {'name': 'Staff', 'description': 'Staff roster and management'},
+        {'name': 'Counters', 'description': 'Sit/Ticket counter operations'},
+        {'name': 'Servers', 'description': 'Game server status monitoring'},
+        {'name': 'Templates', 'description': 'Refund templates and Steam lookup'},
+        {'name': 'Rules', 'description': 'Server rules management'},
+    ],
 }
 
 # JWT Settings
