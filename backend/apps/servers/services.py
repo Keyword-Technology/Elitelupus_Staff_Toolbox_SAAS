@@ -120,7 +120,7 @@ class ServerQueryService:
                 'max_players': server.max_players,
                 'is_online': server.is_online,
                 'staff_online': ServerPlayer.objects.filter(server=server, is_staff=True).count(),
-                'last_query': server.last_query,
+                'last_query': server.last_query.isoformat() if server.last_query else None,
                 'error': status.get('error'),
             })
         
