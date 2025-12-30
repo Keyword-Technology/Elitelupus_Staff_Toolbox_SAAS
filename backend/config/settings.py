@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'channels',
     'social_django',
+    'django_celery_beat',
     
     # Local apps
     'apps.accounts',

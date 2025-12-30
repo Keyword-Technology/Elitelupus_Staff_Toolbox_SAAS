@@ -131,3 +131,53 @@ dmypy.json
 Elitelupus Staff Toolbox V1.exe
 *.exe
 Elitelupus Staff Toolbox V1.zip
+
+# Node.js / Next.js
+node_modules/
+.next/
+out/
+.nuxt/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Next.js build outputs
+.vercel
+
+# Testing
+coverage/
+.nyc_output/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# SSL certificates (for nginx)
+nginx/ssl/
+
+# Local env files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+frontend/.env.local
+
+# Static and media files (generated)
+backend/staticfiles/
+backend/media/
+
+# PWA generated files
+frontend/public/sw.js
+frontend/public/workbox-*.js

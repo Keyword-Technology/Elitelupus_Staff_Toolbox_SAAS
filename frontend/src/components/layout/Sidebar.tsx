@@ -12,6 +12,7 @@ import {
   UserGroupIcon,
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
+  TrophyIcon,
 } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 
@@ -22,7 +23,7 @@ const navigation = [
   { name: 'Templates', href: '/dashboard/templates', icon: DocumentTextIcon },
   { name: 'Rules', href: '/dashboard/rules', icon: BookOpenIcon },
   { name: 'Staff Roster', href: '/dashboard/staff', icon: UserGroupIcon },
-  { name: 'Leaderboard', href: '/dashboard/leaderboard', icon: ChartBarIcon },
+  { name: 'Leaderboard', href: '/dashboard/leaderboard', icon: TrophyIcon },
 ];
 
 const adminNavigation = [
