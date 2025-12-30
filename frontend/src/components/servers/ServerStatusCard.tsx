@@ -1,0 +1,97 @@
+'use client';
+
+import { UsersIcon, MapIcon, SignalIcon, SignalSlashIcon } from '@heroicons/react/24/outline';
+
+interface Server {
+  id: number;
+  name: string;
+  server_name: string;
+  map_name: string;
+  current_players: number;
+  max_players: number;
+  is_online: boolean;
+  staff_online: number;
+}
+
+interface ServerStatusCardProps {
+  server: Server;
+}
+
+export function ServerStatusCard({ server }: ServerStatusCardProps) {
+  const playerPercentage = server.max_players > 0 
+    ? (server.current_players / server.max_players) * 100 
+    : 0;
+
+  return (
+    <div className="bg-dark-card rounded-lg p-6 border border-dark-border">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          {server.is_online ? (
+            <SignalIcon className="w-6 h-6 text-green-500" />
+          ) : (
+            <SignalSlashIcon className="w-6 h-6 text-red-500" />
+          )}
+          <div>
+            <h3 className="text-lg font-semibold text-white">{server.name}</h3>
+            <p className="text-sm text-gray-400">{server.server_name || 'Unknown'}</p>
+          </div>
+        </div>
+        <span
+          className={`px-2 py-1 text-xs font-medium rounded-full ${
+            server.is_online
+              ? 'bg-green-500/20 text-green-400'
+              : 'bg-red-500/20 text-red-400'
+          }`}
+        >
+          {server.is_online ? 'Online' : 'Offline'}
+        </span>
+      </div>
+
+      {server.is_online && (
+        <>
+          <div className="flex items-center gap-2 text-gray-400 text-sm mb-4">
+            <MapIcon className="w-4 h-4" />
+            <span>{server.map_name || 'Unknown Map'}</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-400 flex items-center gap-2">
+                <UsersIcon className="w-4 h-4" />
+                Players
+              </span>
+              <span className="text-white font-medium">
+                {server.current_players} / {server.max_players}
+              </span>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="h-2 bg-dark-bg rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 ${
+                  playerPercentage > 90
+                    ? 'bg-red-500'
+                    : playerPercentage > 70
+                    ? 'bg-yellow-500'
+                    : 'bg-green-500'
+                }`}
+                style={{ width: `${playerPercentage}%` }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-400">Staff Online</span>
+              <span className="text-primary-400 font-medium">{server.staff_online}</span>
+            </div>
+          </div>
+        </>
+      )}
+
+      {!server.is_online && (
+        <div className="text-center py-4">
+          <p className="text-gray-500">Server is currently offline</p>
+        </div>
+      )}
+    </div>
+  );
+}

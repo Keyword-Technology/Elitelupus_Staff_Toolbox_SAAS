@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 18, 18, 18;
+  --background-end-rgb: 18, 18, 18;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+  min-height: 100vh;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Staff role colors */
+.role-manager { color: #990000; }
+.role-staff-manager { color: #F04000; }
+.role-assistant-sm { color: #8900F0; }
+.role-snr-admin { color: #d207d3; }
+.role-admin { color: #FA1E8A; }
+.role-snr-moderator { color: #15c000; }
+.role-moderator { color: #4a86e8; }
+.role-snr-operator { color: #38761d; }
+.role-operator { color: #93c47d; }
+.role-t-staff { color: #b6d7a8; }
+
+/* Counter buttons */
+.counter-btn {
+  @apply px-6 py-3 text-lg font-semibold rounded-lg transition-all duration-200;
+  @apply active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.counter-btn-add {
+  @apply bg-green-600 hover:bg-green-700 text-white;
+}
+
+.counter-btn-remove {
+  @apply bg-red-600 hover:bg-red-700 text-white;
+}
