@@ -17,7 +17,7 @@
     "axios": "^1.6.2",
     "zustand": "^4.4.7",
     "socket.io-client": "^4.6.1",
-    "date-fns": "^3.0.6",
+    "date-fns": "^2.30.0",
     "date-fns-tz": "^2.0.0",
     "clsx": "^2.0.0",
     "tailwind-merge": "^2.2.0",
