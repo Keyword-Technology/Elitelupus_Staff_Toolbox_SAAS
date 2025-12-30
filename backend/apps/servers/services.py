@@ -1,12 +1,13 @@
+import logging
+
 import a2s
+from apps.staff.models import StaffRoster
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.conf import settings
 from django.utils import timezone
-import logging
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
 
 from .models import GameServer, ServerPlayer, ServerStatusLog
-from apps.staff.models import StaffRoster
 
 logger = logging.getLogger(__name__)
 
@@ -102,12 +103,26 @@ class ServerQueryService:
             )
     
     def query_all_servers(self):
-        """Query all active servers."""
+        """Query all active servers and return a list payload safe for WebSocket serialization."""
         servers = GameServer.objects.filter(is_active=True)
-        results = {}
+        results = []
         
         for server in servers:
-            results[server.id] = self.query_server(server)
+            status = self.query_server(server)
+
+            # Build a JSON-serializable payload with string keys only (msgpack rejects int keys).
+            results.append({
+                'id': server.id,
+                'name': server.name,
+                'server_name': server.server_name,
+                'map_name': server.map_name,
+                'current_players': server.current_players,
+                'max_players': server.max_players,
+                'is_online': server.is_online,
+                'staff_online': ServerPlayer.objects.filter(server=server, is_staff=True).count(),
+                'last_query': server.last_query,
+                'error': status.get('error'),
+            })
         
         # Broadcast update
         self._broadcast_server_update(results)
