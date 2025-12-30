@@ -90,9 +90,14 @@ class TimezonesView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
-        return Response({
-            'timezones': pytz.common_timezones
-        })
+        timezones = [
+            {
+                'value': tz,
+                'label': tz.replace('_', ' ')
+            }
+            for tz in pytz.common_timezones
+        ]
+        return Response(timezones)
 
 
 class SocialLinkStatusView(APIView):

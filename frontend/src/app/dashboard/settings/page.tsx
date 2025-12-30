@@ -70,9 +70,12 @@ export default function SettingsPage() {
         authAPI.timezones(),
       ]);
       setSocialStatus(socialRes.data);
-      setTimezones(tzRes.data);
+      // Ensure we have an array, fallback to a safe default
+      const tzData = Array.isArray(tzRes.data) ? tzRes.data : [];
+      setTimezones(tzData);
     } catch (error) {
       toast.error('Failed to load settings');
+      console.error('Settings fetch error:', error);
     } finally {
       setLoading(false);
     }
