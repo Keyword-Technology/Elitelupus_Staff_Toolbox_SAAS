@@ -64,18 +64,18 @@ Roles are ordered by priority (lower = higher authority):
 | Role | Priority | Color |
 |------|----------|-------|
 | SYSADMIN | 0 | #FF0000 |
-| Community Manager | 10 | #E74C3C |
-| Head Admin | 20 | #9B59B6 |
-| Super Admin | 30 | #3498DB |
-| Senior Admin | 40 | #2ECC71 |
-| Admin | 50 | #F1C40F |
-| Senior Moderator | 60 | #E67E22 |
-| Moderator | 70 | #1ABC9C |
-| Trial Moderator | 80 | #95A5A6 |
-| Senior Staff | 90 | #7F8C8D |
-| Staff | 100 | #BDC3C7 |
-| T-Mod | 110 | #AAB7B8 |
-| T-Staff | 120 | #D5DBDB |
+| Manager | 10 | #990000 |
+| Staff Manager | 20 | #F04000 |
+| Assistant Staff Manager | 30 | #8900F0 |
+| Meta Manager | 40 | #8900F0 |
+| Event Manager | 50 | #8900F0 |
+| Senior Admin | 60 | #d207d3 |
+| Admin | 70 | #FA1E8A |
+| Senior Moderator | 80 | #15c000 |
+| Moderator | 90 | #4a86e8 |
+| Senior Operator | 100 | #38761d |
+| Operator | 110 | #93c47d |
+| T-Staff | 120 | #b6d7a8 |
 
 ### 3. Sit/Ticket Counters
 - Real-time synchronized counters across all devices
@@ -273,11 +273,12 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8000
 
 ## Game Server Configuration
 
-The application monitors this Garry's Mod server:
+The application monitors these Garry's Mod servers:
 
 | Server | IP | Port |
 |--------|-----|------|
-| Server 1 | 193.243.190.23 | 27015 |
+| Server 1 | 194.69.160.33 | 27083 |
+| Server 2 | 193.243.190.12 | 27046 |
 
 ## Troubleshooting
 

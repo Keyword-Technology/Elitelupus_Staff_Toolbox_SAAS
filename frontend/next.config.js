@@ -8,12 +8,14 @@ const withPWA = require('next-pwa')({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: 'standalone',
   images: {
     domains: [
       'cdn.discordapp.com',
       'avatars.steamstatic.com',
       'steamcdn-a.akamaihd.net',
     ],
+    unoptimized: process.env.NODE_ENV === 'production',
   },
   async rewrites() {
     return [

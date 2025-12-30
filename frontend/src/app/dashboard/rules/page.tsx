@@ -1,0 +1,358 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { rulesAPI } from '@/lib/api';
+import {
+  BookOpenIcon,
+  MagnifyingGlassIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  BriefcaseIcon,
+} from '@heroicons/react/24/outline';
+import toast from 'react-hot-toast';
+
+interface RuleCategory {
+  id: number;
+  name: string;
+  description: string;
+  order: number;
+  rules: Rule[];
+}
+
+interface Rule {
+  id: number;
+  number: string;
+  title: string;
+  content: string;
+  severity: string;
+  punishment: string;
+}
+
+interface JobRule {
+  id: number;
+  job_name: string;
+  rules: string;
+  can_raid: boolean;
+  can_mug: boolean;
+  can_kidnap: boolean;
+  special_notes: string;
+}
+
+export default function RulesPage() {
+  const [categories, setCategories] = useState<RuleCategory[]>([]);
+  const [jobRules, setJobRules] = useState<JobRule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Rule[]>([]);
+  const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
+  const [activeTab, setActiveTab] = useState<'general' | 'jobs'>('general');
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const [categoriesRes, jobsRes] = await Promise.all([
+        rulesAPI.categories(),
+        rulesAPI.jobs(),
+      ]);
+      setCategories(categoriesRes.data.results || categoriesRes.data);
+      setJobRules(jobsRes.data.results || jobsRes.data);
+    } catch (error) {
+      toast.error('Failed to load rules');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const res = await rulesAPI.search(searchQuery);
+      setSearchResults(res.data.results || res.data);
+    } catch (error) {
+      toast.error('Search failed');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const toggleCategory = (id: number) => {
+    setExpandedCategories((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+    );
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity.toLowerCase()) {
+      case 'low':
+        return 'bg-green-500/20 text-green-400';
+      case 'medium':
+        return 'bg-yellow-500/20 text-yellow-400';
+      case 'high':
+        return 'bg-orange-500/20 text-orange-400';
+      case 'severe':
+        return 'bg-red-500/20 text-red-400';
+      default:
+        return 'bg-gray-500/20 text-gray-400';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-white">Server Rules</h1>
+        <p className="text-gray-400 mt-1">
+          Complete reference for Elitelupus DarkRP server rules
+        </p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-4 border-b border-dark-border">
+        <button
+          onClick={() => setActiveTab('general')}
+          className={`pb-3 px-1 font-medium transition-colors ${
+            activeTab === 'general'
+              ? 'text-primary-400 border-b-2 border-primary-400'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          <BookOpenIcon className="w-5 h-5 inline mr-2" />
+          General Rules
+        </button>
+        <button
+          onClick={() => setActiveTab('jobs')}
+          className={`pb-3 px-1 font-medium transition-colors ${
+            activeTab === 'jobs'
+              ? 'text-primary-400 border-b-2 border-primary-400'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          <BriefcaseIcon className="w-5 h-5 inline mr-2" />
+          Job-Specific Rules
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="bg-dark-card rounded-lg border border-dark-border p-4">
+        <div className="flex gap-4">
+          <div className="relative flex-1">
+            <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="Search rules..."
+              className="input w-full pl-10"
+            />
+          </div>
+          <button
+            onClick={handleSearch}
+            disabled={searching}
+            className="btn-primary"
+          >
+            {searching ? 'Searching...' : 'Search'}
+          </button>
+        </div>
+
+        {/* Search Results */}
+        {searchResults.length > 0 && (
+          <div className="mt-4 space-y-3">
+            <h3 className="text-sm font-medium text-gray-400">
+              Found {searchResults.length} results
+            </h3>
+            {searchResults.map((rule) => (
+              <div
+                key={rule.id}
+                className="p-4 bg-dark-bg rounded-lg border border-dark-border"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-primary-400 font-mono">
+                    {rule.number}
+                  </span>
+                  <span
+                    className={`text-xs px-2 py-1 rounded ${getSeverityColor(
+                      rule.severity
+                    )}`}
+                  >
+                    {rule.severity}
+                  </span>
+                </div>
+                <h4 className="text-white font-medium">{rule.title}</h4>
+                <p className="text-gray-400 text-sm mt-1">{rule.content}</p>
+                {rule.punishment && (
+                  <p className="text-red-400 text-sm mt-2">
+                    Punishment: {rule.punishment}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* General Rules Content */}
+      {activeTab === 'general' && (
+        <div className="space-y-4">
+          {categories.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No rules available</p>
+          ) : (
+            categories.map((category) => (
+              <div
+                key={category.id}
+                className="bg-dark-card rounded-lg border border-dark-border overflow-hidden"
+              >
+                <button
+                  onClick={() => toggleCategory(category.id)}
+                  className="w-full p-4 flex items-center justify-between text-left hover:bg-dark-bg transition-colors"
+                >
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">
+                      {category.name}
+                    </h3>
+                    {category.description && (
+                      <p className="text-gray-400 text-sm mt-1">
+                        {category.description}
+                      </p>
+                    )}
+                  </div>
+                  {expandedCategories.includes(category.id) ? (
+                    <ChevronDownIcon className="w-5 h-5 text-gray-400" />
+                  ) : (
+                    <ChevronRightIcon className="w-5 h-5 text-gray-400" />
+                  )}
+                </button>
+
+                {expandedCategories.includes(category.id) && (
+                  <div className="border-t border-dark-border p-4 space-y-4">
+                    {category.rules?.length === 0 ? (
+                      <p className="text-gray-500 text-sm">
+                        No rules in this category
+                      </p>
+                    ) : (
+                      category.rules?.map((rule) => (
+                        <div
+                          key={rule.id}
+                          className="p-4 bg-dark-bg rounded-lg"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-primary-400 font-mono font-medium">
+                              {rule.number}
+                            </span>
+                            <span
+                              className={`text-xs px-2 py-1 rounded ${getSeverityColor(
+                                rule.severity
+                              )}`}
+                            >
+                              {rule.severity}
+                            </span>
+                          </div>
+                          <h4 className="text-white font-medium">
+                            {rule.title}
+                          </h4>
+                          <p className="text-gray-400 text-sm mt-2">
+                            {rule.content}
+                          </p>
+                          {rule.punishment && (
+                            <div className="mt-3 pt-3 border-t border-dark-border">
+                              <p className="text-red-400 text-sm">
+                                <span className="font-medium">Punishment:</span>{' '}
+                                {rule.punishment}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Job-Specific Rules Content */}
+      {activeTab === 'jobs' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {jobRules.length === 0 ? (
+            <p className="text-gray-500 text-center py-8 col-span-full">
+              No job rules available
+            </p>
+          ) : (
+            jobRules.map((job) => (
+              <div
+                key={job.id}
+                className="bg-dark-card rounded-lg border border-dark-border p-4"
+              >
+                <h3 className="text-lg font-semibold text-white mb-3">
+                  {job.job_name}
+                </h3>
+                
+                {/* Permissions */}
+                <div className="flex gap-2 mb-3">
+                  <span
+                    className={`text-xs px-2 py-1 rounded ${
+                      job.can_raid
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-red-500/20 text-red-400'
+                    }`}
+                  >
+                    {job.can_raid ? '✓' : '✗'} Raid
+                  </span>
+                  <span
+                    className={`text-xs px-2 py-1 rounded ${
+                      job.can_mug
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-red-500/20 text-red-400'
+                    }`}
+                  >
+                    {job.can_mug ? '✓' : '✗'} Mug
+                  </span>
+                  <span
+                    className={`text-xs px-2 py-1 rounded ${
+                      job.can_kidnap
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-red-500/20 text-red-400'
+                    }`}
+                  >
+                    {job.can_kidnap ? '✓' : '✗'} Kidnap
+                  </span>
+                </div>
+
+                <div className="text-gray-400 text-sm whitespace-pre-wrap">
+                  {job.rules}
+                </div>
+
+                {job.special_notes && (
+                  <div className="mt-3 pt-3 border-t border-dark-border">
+                    <p className="text-yellow-400 text-sm">
+                      <span className="font-medium">Note:</span>{' '}
+                      {job.special_notes}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

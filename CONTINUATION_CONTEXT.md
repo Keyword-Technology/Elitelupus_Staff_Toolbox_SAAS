@@ -16,7 +16,7 @@ Convert the existing Python Tkinter desktop application into a full SaaS web app
 
 ---
 
-## ✅ COMPLETED
+## ✅ COMPLETED (100%)
 
 ### Backend (100% Complete)
 All Django backend files have been created:
@@ -41,16 +41,17 @@ backend/
 └── manage.py            ✅
 ```
 
-### Frontend (Partial - ~50% Complete)
-Core infrastructure is done:
+### Frontend (100% Complete)
+All Next.js frontend files have been created:
 
 ```
 frontend/
 ├── package.json              ✅
 ├── tsconfig.json             ✅
-├── next.config.js            ✅
+├── next.config.js            ✅ (with standalone output for Docker)
 ├── tailwind.config.js        ✅
 ├── postcss.config.js         ✅
+├── Dockerfile                ✅
 ├── src/
 │   ├── app/
 │   │   ├── globals.css       ✅
@@ -61,7 +62,14 @@ frontend/
 │   │   ├── auth/callback/page.tsx ✅
 │   │   └── dashboard/
 │   │       ├── layout.tsx    ✅
-│   │       └── page.tsx      ✅
+│   │       ├── page.tsx      ✅
+│   │       ├── counters/page.tsx    ✅
+│   │       ├── servers/page.tsx     ✅
+│   │       ├── templates/page.tsx   ✅
+│   │       ├── rules/page.tsx       ✅
+│   │       ├── staff/page.tsx       ✅
+│   │       ├── leaderboard/page.tsx ✅
+│   │       └── settings/page.tsx    ✅
 │   ├── components/
 │   │   ├── providers.tsx     ✅
 │   │   ├── layout/
@@ -76,6 +84,17 @@ frontend/
 │   │   └── WebSocketContext.tsx ✅
 │   └── lib/
 │       └── api.ts            ✅
+└── public/
+    ├── manifest.json         ✅
+    └── icons/
+        └── icon.svg          ✅
+```
+
+### Docker Configuration (100% Complete)
+```
+docker-compose.yml            ✅ (PostgreSQL, Redis, Backend, Frontend, Nginx, Celery)
+nginx/nginx.conf              ✅ (Reverse proxy with SSL support)
+.env.example                  ✅ (Environment variables template)
 ```
 
 ### Documentation
@@ -83,51 +102,47 @@ frontend/
 
 ---
 
-## ❌ NOT COMPLETED
+## 🚀 HOW TO RUN
 
-### Frontend Pages Needed
-```
-frontend/src/app/dashboard/
-├── counters/page.tsx      ❌  (Dedicated counter page with full stats)
-├── servers/page.tsx       ❌  (Server status page)
-├── templates/page.tsx     ❌  (Template maker with Steam lookup)
-├── rules/page.tsx         ❌  (Server rules display)
-├── staff/page.tsx         ❌  (Staff roster from Google Sheets)
-├── leaderboard/page.tsx   ❌  (Counter leaderboard)
-└── settings/page.tsx      ❌  (User settings, link accounts)
-```
+### Development Mode
+```bash
+# Start with Docker Compose
+docker-compose up --build
 
-### Frontend Components Needed
-```
-frontend/src/components/
-├── templates/
-│   └── TemplateForm.tsx   ❌
-├── rules/
-│   └── RulesDisplay.tsx   ❌
-├── staff/
-│   └── StaffRosterTable.tsx ❌
-└── leaderboard/
-    └── LeaderboardTable.tsx ❌
+# Access:
+# - Frontend: http://localhost:3000
+# - Backend API: http://localhost:8000
+# - Admin: http://localhost:8000/admin/
 ```
 
-### Docker Configuration
-```
-docker-compose.yml         ❌  (orchestration for backend, frontend, postgres, redis)
-frontend/Dockerfile        ❌
-```
-
-### PWA Assets
-```
-frontend/public/
-├── manifest.json          ❌
-├── icons/
-│   ├── icon-192x192.png   ❌
-│   └── icon-512x512.png   ❌
-└── sw.js                  ❌  (service worker - handled by next-pwa)
+### Production Mode
+```bash
+# Start with production profile (includes Nginx, Celery)
+docker-compose --profile production up -d
 ```
 
-### Delete Old Python Files
-After completion, delete these legacy files:
+### Manual Development (without Docker)
+```bash
+# Backend
+cd backend
+python -m venv venv
+source venv/bin/activate  # or venv\Scripts\activate on Windows
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py createsuperuser
+daphne -b 0.0.0.0 -p 8000 config.asgi:application
+
+# Frontend (new terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## 🧹 CLEANUP: Old Python Files to Delete
+
+After verifying the SaaS application works, delete these legacy files:
 - `main.py`
 - `Sit_Counter.py`
 - `Server_Status.py`
@@ -138,7 +153,7 @@ After completion, delete these legacy files:
 - `bard_utils.py`
 - `steamid_finder_io.py`
 - `Useful_Links.py`
-- `OCR_SteamID/` folder
+- `OCR_SteamID/` folder (if exists)
 - `resources/` folder (except what's needed)
 
 ---
@@ -147,13 +162,14 @@ After completion, delete these legacy files:
 
 ### Role Hierarchy (Priority - lower = more authority)
 ```
-SYSADMIN: 0, Community Manager: 10, Head Admin: 20, Super Admin: 30,
-Senior Admin: 40, Admin: 50, Senior Moderator: 60, Moderator: 70,
-Trial Moderator: 80, Senior Staff: 90, Staff: 100, T-Mod: 110, T-Staff: 120
+SYSADMIN: 0, Manager: 10, Staff Manager: 20, Assistant Staff Manager: 30,
+Meta Manager: 40, Event Manager: 50, Senior Admin: 60, Admin: 70,
+Senior Moderator: 80, Moderator: 90, Senior Operator: 100, Operator: 110, T-Staff: 120
 ```
 
 ### Game Servers to Monitor
-- Server 1: `193.243.190.23:27015`
+- Server 1: `194.69.160.33:27083`
+- Server 2: `193.243.190.12:27046`
 
 ### Google Sheets Staff Roster
 - Sheet ID: `1SSn3GXggr84dOYfQZzeHiRI0B1vaDkGynUyYHWfXIBo`
@@ -161,26 +177,6 @@ Trial Moderator: 80, Senior Staff: 90, Staff: 100, T-Mod: 110, T-Staff: 120
 ### WebSocket Endpoints
 - Counters: `ws://host/ws/counters/`
 - Servers: `ws://host/ws/servers/`
-
----
-
-## Prompt to Continue
-
-Copy and paste this to continue in a new session:
-
-```
-Continue building the Elitelupus Staff Toolbox SaaS application. 
-
-Read the CONTINUATION_CONTEXT.md file for full context on what's completed and what remains.
-
-Priority tasks:
-1. Create remaining frontend pages (counters, servers, templates, rules, staff, leaderboard, settings)
-2. Create docker-compose.yml for deployment
-3. Add PWA manifest and icons
-4. Delete old Python files when complete
-
-The backend is 100% complete. Focus on completing the frontend pages and Docker setup.
-```
 
 ---
 
@@ -196,4 +192,6 @@ The backend is 100% complete. Focus on completing the frontend pages and Docker 
 | Auth Context | `frontend/src/contexts/AuthContext.tsx` |
 | WebSocket Context | `frontend/src/contexts/WebSocketContext.tsx` |
 | Tailwind Config | `frontend/tailwind.config.js` |
+| Docker Compose | `docker-compose.yml` |
+| Nginx Config | `nginx/nginx.conf` |
 | Instructions | `.github/copilot-instructions.md` |
