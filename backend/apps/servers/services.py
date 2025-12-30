@@ -111,11 +111,13 @@ class ServerQueryService:
             status = self.query_server(server)
 
             # Build a JSON-serializable payload with string keys only (msgpack rejects int keys).
+            server_name = server.server_name or server.name
+            map_name = server.map_name or 'Unknown'
             results.append({
                 'id': server.id,
                 'name': server.name,
-                'server_name': server.server_name,
-                'map_name': server.map_name,
+                'server_name': server_name,
+                'map_name': map_name,
                 'current_players': server.current_players,
                 'max_players': server.max_players,
                 'is_online': server.is_online,

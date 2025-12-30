@@ -1,14 +1,11 @@
-from rest_framework import generics, status, permissions
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import GameServer, ServerPlayer, ServerStatusLog
-from .serializers import (
-    GameServerSerializer,
-    ServerPlayerSerializer,
-    StaffDistributionSerializer,
-    ServerStatusLogSerializer,
-)
+from .serializers import (GameServerSerializer, ServerPlayerSerializer,
+                          ServerStatusLogSerializer,
+                          StaffDistributionSerializer)
 from .services import ServerQueryService
 
 
@@ -39,11 +36,14 @@ class ServerStatusView(APIView):
                 server=server, is_staff=True
             ).count()
             
+            server_name = server.server_name or server.name
+            map_name = server.map_name or 'Unknown'
+            
             result.append({
                 'id': server.id,
                 'name': server.name,
-                'server_name': server.server_name,
-                'map_name': server.map_name,
+                'server_name': server_name,
+                'map_name': map_name,
                 'current_players': server.current_players,
                 'max_players': server.max_players,
                 'is_online': server.is_online,
