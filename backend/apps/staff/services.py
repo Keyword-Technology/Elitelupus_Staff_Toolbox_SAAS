@@ -48,41 +48,78 @@ class StaffSyncService:
         staff_list = []
         reader = csv.reader(StringIO(csv_content))
         
-        # Skip header row
+        # Read header row
         headers = next(reader, None)
         if not headers:
+            logger.error("No headers found in CSV")
             return staff_list
         
-        # Expected columns from "Staff Roster" Google Sheet:
-        # Column 0: Empty, Column 1: Number (99), Column 2: Rank, Column 3: Timezone, 
-        # Column 4: Time, Column 5: Name, Column 6: SteamID, Column 7: DiscordID, Column 8: Discord Tag
-        for row in reader:
-            # Check if row has enough columns and has a valid rank (column 2)
-            if len(row) >= 9 and len(row) > 2 and row[2].strip():
+        # Normalize headers (lowercase, strip whitespace)
+        normalized_headers = [h.strip().lower().replace('"', '') for h in headers]
+        logger.info(f"CSV Headers: {normalized_headers}")
+        
+        # Find column indices by header name (flexible to column order changes)
+        def find_column(possible_names):
+            """Find column index by checking multiple possible header names."""
+            for name in possible_names:
                 try:
-                    rank = row[2].strip().replace('"', '')
-                    
-                    # Skip header rows or invalid data
-                    if rank.lower() in ['rank', 'staff rank', 'rank manager', '']:
-                        continue
-                    
-                    staff_data = {
-                        'rank': rank,
-                        'timezone': row[3].strip().replace('"', '').replace('Timezone ', '') if len(row) > 3 else '',
-                        'active_time': row[4].strip().replace('"', '').replace('Time ', '') if len(row) > 4 else '',
-                        'name': row[5].strip().replace('"', '').replace('Name ', '') if len(row) > 5 else '',
-                        'steam_id': self._parse_steam_id(row[6].replace('SteamID ', '').strip()) if len(row) > 6 else None,
-                        'discord_id': row[7].strip().replace('"', '').replace('DiscordID ', '') if len(row) > 7 else None,
-                        'discord_tag': row[8].strip().replace('"', '').replace('Discord Tag ', '') if len(row) > 8 else None,
-                    }
-                    
-                    # Only add if we have at least a name and one identifier
-                    if staff_data['name'] and (staff_data['steam_id'] or staff_data['discord_id']):
-                        staff_list.append(staff_data)
-                        logger.debug(f"Parsed staff member: {staff_data['name']} ({staff_data['rank']})")
-                except (IndexError, ValueError) as e:
-                    logger.warning(f"Error parsing row: {row}, error: {e}")
+                    return normalized_headers.index(name.lower())
+                except ValueError:
                     continue
+            return None
+        
+        # Map expected field names to their column indices
+        col_rank = find_column(['rank', 'staff rank', 'role'])
+        col_timezone = find_column(['timezone', 'tz', 'time zone'])
+        col_time = find_column(['time', 'active time', 'availability'])
+        col_name = find_column(['name', 'username', 'staff name', 'ign'])
+        col_steam = find_column(['steamid', 'steam id', 'steam_id', 'steam'])
+        col_discord_id = find_column(['discordid', 'discord id', 'discord_id'])
+        col_discord_tag = find_column(['discord tag', 'discord', 'discord name', 'discord_tag'])
+        
+        # Log discovered column positions
+        logger.info(f"Column mapping: rank={col_rank}, timezone={col_timezone}, time={col_time}, "
+                   f"name={col_name}, steam={col_steam}, discord_id={col_discord_id}, discord_tag={col_discord_tag}")
+        
+        # Verify required columns exist
+        if col_rank is None or col_name is None:
+            logger.error("Missing required columns: 'rank' or 'name' not found in headers")
+            return staff_list
+        
+        # Parse data rows
+        for row_num, row in enumerate(reader, start=2):  # Start at 2 (1 for header + 1)
+            if not row or len(row) < max(filter(None, [col_rank, col_name])) + 1:
+                continue
+            
+            try:
+                rank = row[col_rank].strip().replace('"', '') if col_rank is not None else ''
+                
+                # Skip header rows or invalid data
+                if not rank or rank.lower() in ['rank', 'staff rank', 'rank manager', 'role']:
+                    continue
+                
+                name = row[col_name].strip().replace('"', '') if col_name is not None else ''
+                
+                staff_data = {
+                    'rank': rank,
+                    'timezone': row[col_timezone].strip().replace('"', '') if col_timezone is not None and len(row) > col_timezone else '',
+                    'active_time': row[col_time].strip().replace('"', '') if col_time is not None and len(row) > col_time else '',
+                    'name': name,
+                    'steam_id': self._parse_steam_id(row[col_steam].strip()) if col_steam is not None and len(row) > col_steam else None,
+                    'discord_id': row[col_discord_id].strip().replace('"', '') if col_discord_id is not None and len(row) > col_discord_id else None,
+                    'discord_tag': row[col_discord_tag].strip().replace('"', '') if col_discord_tag is not None and len(row) > col_discord_tag else None,
+                }
+                
+                # Only add if we have at least a name and one identifier
+                if staff_data['name'] and (staff_data['steam_id'] or staff_data['discord_id']):
+                    staff_list.append(staff_data)
+                    logger.debug(f"Parsed staff member: {staff_data['name']} ({staff_data['rank']})")
+                else:
+                    logger.debug(f"Skipped row {row_num}: missing name or identifiers")
+                    
+            except (IndexError, ValueError) as e:
+                logger.warning(f"Error parsing row {row_num}: {row}, error: {e}")
+                continue
         
         logger.info(f"Parsed {len(staff_list)} staff members from CSV")
         return staff_list
