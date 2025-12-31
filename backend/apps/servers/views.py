@@ -126,6 +126,8 @@ class PlayerLookupView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        from .services import normalize_name
+        
         steam_id = request.query_params.get('steam_id')
         player_names = request.query_params.get('player_names', '').split(',')
         player_names = [name.strip() for name in player_names if name.strip()]
@@ -142,15 +144,28 @@ class PlayerLookupView(APIView):
         if steam_id:
             players = ServerPlayer.objects.filter(steam_id__iexact=steam_id).select_related('server')
         
-        # If not found by Steam ID, try by player names
+        # If not found by Steam ID, try by player names (with flexible matching)
         if not players.exists() and player_names:
             from django.db.models import Q
 
             # Build a query to match any of the player names (case-insensitive)
             name_query = Q()
             for name in player_names:
+                # Exact match
                 name_query |= Q(name__iexact=name)
-            players = ServerPlayer.objects.filter(name_query).select_related('server')
+                
+                # Also try normalized version (without numbers)
+                normalized = normalize_name(name)
+                if normalized != name.lower():
+                    # Find all players whose normalized name matches
+                    all_players = ServerPlayer.objects.select_related('server')
+                    for player in all_players:
+                        if normalize_name(player.name) == normalized:
+                            players = players | ServerPlayer.objects.filter(id=player.id)
+            
+            # Apply exact name matches
+            if name_query:
+                players = players | ServerPlayer.objects.filter(name_query).select_related('server')
         
         if not players.exists():
             return Response({
