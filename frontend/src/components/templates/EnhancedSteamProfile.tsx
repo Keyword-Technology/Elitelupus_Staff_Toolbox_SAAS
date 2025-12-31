@@ -31,9 +31,25 @@ interface SteamProfileData {
     persona_state?: number;
     persona_state_text?: string;
     steam_id_3?: string;
+    steam_id_2?: string;
     custom_url?: string;
+    vanity_url?: string;
+    account_id?: string;
     country_code?: string;
+    state_code?: string;
     game_extra_info?: string;
+    comment_permission?: boolean;
+    last_logoff?: string;
+    // Enhanced scraped data
+    fivem_hex?: string;
+    invite_url?: string;
+    invite_url_short?: string;
+    online_status?: string;
+    estimated_value?: string;
+    rating_value?: number;
+    rating_count?: number;
+    scraped_description?: string;
+    last_scraped_at?: string;
   };
   bans: {
     vac_bans: number;
@@ -140,8 +156,10 @@ export default function EnhancedSteamProfile({ profile }: Props) {
       <div className="bg-dark-card rounded-lg border border-dark-border p-6">
         <div className="flex items-start gap-6">
           <img
-            src={profile.profile.avatar_url || 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'}
-            alt={profile.profile.name}
+            src={profile.profile.avatar_url && profile.profile.avatar_url.trim() !== '' 
+              ? profile.profile.avatar_url 
+              : 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'}
+            alt={profile.profile.name || 'Steam Profile'}
             className="w-24 h-24 rounded-lg"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
@@ -256,7 +274,7 @@ export default function EnhancedSteamProfile({ profile }: Props) {
               
               <div>
                 <p className="text-gray-400">name</p>
-                <p className="text-white">{profile.profile.name}</p>
+                <p className="text-white">{profile.profile.name || 'Unknown'}</p>
               </div>
               
               {profile.profile.real_name && (
@@ -316,12 +334,12 @@ export default function EnhancedSteamProfile({ profile }: Props) {
                 </div>
               )}
               
-              {profile.profile.rating_value !== undefined && profile.profile.rating_count !== undefined && (
+              {(profile.profile.rating_value != null || profile.profile.rating_count != null) && (
                 <div>
                   <p className="text-gray-400">community rating</p>
                   <p className="text-white">
-                    ⭐ {profile.profile.rating_value?.toFixed(2)}/5.0 
-                    <span className="text-gray-400 text-xs ml-1">({profile.profile.rating_count} votes)</span>
+                    ⭐ {profile.profile.rating_value?.toFixed(2) || '0'}/5.0 
+                    <span className="text-gray-400 text-xs ml-1">({profile.profile.rating_count || 0} votes)</span>
                   </p>
                 </div>
               )}
@@ -342,7 +360,7 @@ export default function EnhancedSteamProfile({ profile }: Props) {
             </div>
 
             {/* Past IGN Names */}
-            {profile.search_history && profile.search_history.length > 1 && (
+            {profile.search_history && profile.search_history.length > 0 && (
               <div className="mt-4 p-3 bg-dark-bg rounded-lg border border-dark-border">
                 <p className="text-gray-400 text-sm mb-2 flex items-center gap-2">
                   <ClockIcon className="w-4 h-4" />
@@ -350,11 +368,12 @@ export default function EnhancedSteamProfile({ profile }: Props) {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {profile.search_history
+                    .filter((h) => h.persona_name && h.persona_name.trim() !== '')
                     .filter((h, i, arr) => 
                       // Remove duplicates
                       arr.findIndex(x => x.persona_name === h.persona_name) === i
                     )
-                    .slice(0, 5)
+                    .slice(0, 10)
                     .map((history, i) => (
                       <span
                         key={i}
@@ -364,10 +383,13 @@ export default function EnhancedSteamProfile({ profile }: Props) {
                         {history.persona_name}
                       </span>
                     ))}
-                  {profile.search_history.length > 5 && (
+                  {profile.search_history.filter(h => h.persona_name && h.persona_name.trim() !== '').length > 10 && (
                     <span className="px-2 py-1 text-gray-500 text-xs">
-                      +{profile.search_history.length - 5} more
+                      +{profile.search_history.filter(h => h.persona_name && h.persona_name.trim() !== '').length - 10} more
                     </span>
+                  )}
+                  {profile.search_history.filter(h => h.persona_name && h.persona_name.trim() !== '').length === 0 && (
+                    <span className="text-gray-500 text-xs">No name history available</span>
                   )}
                 </div>
               </div>

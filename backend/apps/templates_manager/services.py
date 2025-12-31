@@ -111,26 +111,38 @@ class SteamLookupService:
         
         # Update scraped data from steamid.pro
         if scraped_data:
-            # Use scraped avatar if Steam API didn't provide one
-            if not search_record.avatar_url and scraped_data.get('avatar_url'):
+            # Always use scraped avatar if available (higher quality)
+            if scraped_data.get('avatar_url'):
                 search_record.avatar_url = scraped_data['avatar_url']
             
             # Use scraped display name if Steam API didn't provide one
             if not search_record.persona_name and scraped_data.get('display_name'):
                 search_record.persona_name = scraped_data['display_name']
             
-            # Enhanced steamid.pro fields
-            search_record.vanity_url = scraped_data.get('vanity_url', '')
-            search_record.account_id = scraped_data.get('account_id', '')
-            search_record.steam_id_2 = scraped_data.get('steam_id_2', '')
-            search_record.invite_url = scraped_data.get('invite_url', '')
-            search_record.invite_url_short = scraped_data.get('invite_url_short', '')
-            search_record.fivem_hex = scraped_data.get('fivem_hex', '')
-            search_record.online_status = scraped_data.get('online_status', '')
-            search_record.estimated_value = scraped_data.get('estimated_value', '')
-            search_record.rating_value = scraped_data.get('rating_value')
-            search_record.rating_count = scraped_data.get('rating_count')
-            search_record.scraped_description = scraped_data.get('description', '')
+            # Enhanced steamid.pro fields - always store these
+            if scraped_data.get('vanity_url'):
+                search_record.vanity_url = scraped_data['vanity_url']
+            if scraped_data.get('account_id'):
+                search_record.account_id = scraped_data['account_id']
+            if scraped_data.get('steam_id_2'):
+                search_record.steam_id_2 = scraped_data['steam_id_2']
+            if scraped_data.get('invite_url'):
+                search_record.invite_url = scraped_data['invite_url']
+            if scraped_data.get('invite_url_short'):
+                search_record.invite_url_short = scraped_data['invite_url_short']
+            if scraped_data.get('fivem_hex'):
+                search_record.fivem_hex = scraped_data['fivem_hex']
+            if scraped_data.get('online_status'):
+                search_record.online_status = scraped_data['online_status']
+            if scraped_data.get('estimated_value'):
+                search_record.estimated_value = scraped_data['estimated_value']
+            if scraped_data.get('rating_value') is not None:
+                search_record.rating_value = scraped_data['rating_value']
+            if scraped_data.get('rating_count') is not None:
+                search_record.rating_count = scraped_data['rating_count']
+            if scraped_data.get('description'):
+                search_record.scraped_description = scraped_data['description']
+            
             search_record.last_scraped_at = timezone.now()
             search_record.scrape_data = scraped_data  # Store raw scraped data
             

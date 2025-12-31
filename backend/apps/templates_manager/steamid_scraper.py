@@ -167,15 +167,28 @@ class SteamIDProScraper:
             # Find header-player section
             header = soup.find('div', class_='header-player')
             if header:
-                # Avatar image
+                # Avatar image - try multiple selectors
                 avatar_img = header.find('img', id='img-uploaded')
-                if avatar_img and not data.get('avatar_url'):
-                    data['avatar_url'] = avatar_img.get('src', '')
+                if not avatar_img:
+                    # Fallback: find any avatar image in header
+                    avatar_img = header.find('img', class_='avatar-xl')
+                if not avatar_img:
+                    # Fallback: find any img with steamstatic in src
+                    avatar_img = header.find('img', src=re.compile(r'avatars\.steamstatic\.com'))
+                
+                if avatar_img:
+                    avatar_url = avatar_img.get('src', '')
+                    if avatar_url and 'steamstatic.com' in avatar_url:
+                        data['avatar_url'] = avatar_url
+                        logger.info(f"Found avatar URL: {avatar_url}")
                 
                 # Display name from h1
-                h1 = header.find('h1', class_='mb-0 text-white')
-                if h1 and not data.get('display_name'):
+                h1 = header.find('h1')
+                if not h1:
+                    h1 = header.find('h1', class_='mb-0')
+                if h1:
                     data['display_name'] = h1.get_text(strip=True)
+                    logger.info(f"Found display name: {data['display_name']}")
                 
                 # Player info list (level, status)
                 player_info = header.find('ul', class_='player-info')
@@ -193,6 +206,15 @@ class SteamIDProScraper:
                         # Extract online status
                         elif text in ['online', 'offline', 'in-game']:
                             data['online_status'] = text
+            else:
+                logger.warning("header-player div not found")
+                
+                # Fallback: try to find avatar anywhere on page
+                avatar_img = soup.find('img', src=re.compile(r'avatars\.steamstatic\.com.*_full'))
+                if avatar_img:
+                    data['avatar_url'] = avatar_img.get('src', '')
+                    logger.info(f"Found avatar via fallback: {data['avatar_url']}")
+                    
         except Exception as e:
             logger.debug(f"Header extraction failed: {e}")
         
