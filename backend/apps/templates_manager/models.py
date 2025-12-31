@@ -28,6 +28,24 @@ class SteamProfileSearch(models.Model):
     real_name = models.CharField(max_length=255, blank=True)
     location = models.CharField(max_length=100, blank=True)
     
+    # Additional Steam profile data
+    steam_id_3 = models.CharField(max_length=50, blank=True, verbose_name='SteamID3')
+    custom_url = models.CharField(max_length=255, blank=True, verbose_name='Custom URL')
+    persona_state = models.IntegerField(default=0, verbose_name='Persona State')  # 0=Offline, 1=Online, etc.
+    persona_state_flags = models.IntegerField(default=0, blank=True)
+    last_logoff = models.DateTimeField(null=True, blank=True)
+    comment_permission = models.BooleanField(default=False)
+    
+    # Game info
+    game_id = models.CharField(max_length=50, blank=True)
+    game_server_ip = models.CharField(max_length=50, blank=True)
+    game_extra_info = models.CharField(max_length=255, blank=True)
+    
+    # Country info
+    country_code = models.CharField(max_length=10, blank=True)
+    state_code = models.CharField(max_length=10, blank=True)
+    city_id = models.IntegerField(null=True, blank=True)
+    
     # Extended data from steamid.io / steamid.pro
     account_created = models.DateTimeField(null=True, blank=True)
     vac_bans = models.IntegerField(default=0)

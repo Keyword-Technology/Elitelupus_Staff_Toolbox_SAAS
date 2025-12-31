@@ -102,11 +102,32 @@ export interface SteamProfile {
     avatar_url: string;
     profile_state: string;
     real_name?: string;
+    
+    // Steam IDs
+    steam_id_3?: string;
+    custom_url?: string;
+    
+    // Status
+    persona_state: number;
+    persona_state_text: string;
+    last_logoff?: string;
+    
+    // Location
     location?: string;
+    country_code?: string;
+    state_code?: string;
+    
+    // Game info
+    game_id?: string;
+    game_extra_info?: string;
+    game_server_ip?: string;
+    
+    // Account details
     is_private: boolean;
     is_limited: boolean;
     level?: number;
     account_created?: string;
+    comment_permission: boolean;
   };
   bans: {
     vac_bans: number;

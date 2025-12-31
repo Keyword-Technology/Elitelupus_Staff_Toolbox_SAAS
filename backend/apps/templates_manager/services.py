@@ -66,6 +66,30 @@ class SteamLookupService:
             search_record.is_private = profile_data.get('communityvisibilitystate', 1) != 3
             search_record.is_limited = profile_data.get('islimitedaccount', False)
             
+            # Additional Steam profile fields
+            search_record.steam_id_3 = self._convert_to_steam_id_3(steam_id_64)
+            search_record.custom_url = profile_data.get('profileurl', '').split('/')[-2] if profile_data.get('profileurl') else ''
+            search_record.persona_state = profile_data.get('personastate', 0)
+            search_record.persona_state_flags = profile_data.get('personastateflags', 0)
+            search_record.comment_permission = profile_data.get('commentpermission', False)
+            
+            # Last logoff
+            if 'lastlogoff' in profile_data:
+                search_record.last_logoff = datetime.fromtimestamp(
+                    profile_data['lastlogoff'],
+                    tz=timezone.utc
+                )
+            
+            # Game info (if currently playing)
+            search_record.game_id = profile_data.get('gameid', '')
+            search_record.game_server_ip = profile_data.get('gameserverip', '')
+            search_record.game_extra_info = profile_data.get('gameextrainfo', '')
+            
+            # Location info
+            search_record.country_code = profile_data.get('loccountrycode', '')
+            search_record.state_code = profile_data.get('locstatecode', '')
+            search_record.city_id = profile_data.get('loccityid', None)
+            
             # Account creation date
             if 'timecreated' in profile_data:
                 search_record.account_created = datetime.fromtimestamp(
@@ -184,6 +208,28 @@ class SteamLookupService:
         except (ValueError, TypeError):
             return steam_id_64
     
+    def _convert_to_steam_id_3(self, steam_id_64):
+        """Convert Steam ID 64 to SteamID3 [U:1:XXXXX] format."""
+        try:
+            steam_id_int = int(steam_id_64)
+            account_id = steam_id_int - 76561197960265728
+            return f"[U:1:{account_id}]"
+        except (ValueError, TypeError):
+            return ""
+    
+    def _get_persona_state_text(self, state):
+        """Convert persona state integer to readable text."""
+        states = {
+            0: 'Offline',
+            1: 'Online',
+            2: 'Busy',
+            3: 'Away',
+            4: 'Snooze',
+            5: 'Looking to trade',
+            6: 'Looking to play',
+        }
+        return states.get(state, 'Unknown')
+    
     def _fetch_steam_api_data(self, steam_id_64):
         """Fetch profile data from Steam API."""
         if not self.steam_api_key:
@@ -282,16 +328,38 @@ class SteamLookupService:
     def _build_profile_dict(self, search_record):
         """Build profile dictionary from search record."""
         return {
+            # Basic info
             'name': search_record.persona_name,
             'profile_url': search_record.profile_url,
             'avatar_url': search_record.avatar_url,
             'profile_state': search_record.profile_state,
             'real_name': search_record.real_name,
+            
+            # Steam IDs
+            'steam_id_3': search_record.steam_id_3,
+            'custom_url': search_record.custom_url if search_record.custom_url and not search_record.custom_url.isdigit() else None,
+            
+            # Status
+            'persona_state': search_record.persona_state,
+            'persona_state_text': self._get_persona_state_text(search_record.persona_state),
+            'last_logoff': search_record.last_logoff,
+            
+            # Location
             'location': search_record.location,
+            'country_code': search_record.country_code,
+            'state_code': search_record.state_code,
+            
+            # Game info (if playing)
+            'game_id': search_record.game_id,
+            'game_extra_info': search_record.game_extra_info,
+            'game_server_ip': search_record.game_server_ip,
+            
+            # Account details
             'is_private': search_record.is_private,
             'is_limited': search_record.is_limited,
             'level': search_record.level,
             'account_created': search_record.account_created,
+            'comment_permission': search_record.comment_permission,
         }
     
     def _serialize_templates(self, templates, template_type):

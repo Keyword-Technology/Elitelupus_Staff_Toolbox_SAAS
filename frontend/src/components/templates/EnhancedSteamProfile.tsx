@@ -28,6 +28,12 @@ interface SteamProfileData {
     is_limited: boolean;
     level?: number;
     account_created?: string;
+    persona_state?: number;
+    persona_state_text?: string;
+    steam_id_3?: string;
+    custom_url?: string;
+    country_code?: string;
+    game_extra_info?: string;
   };
   bans: {
     vac_bans: number;
@@ -162,42 +168,89 @@ export default function EnhancedSteamProfile({ profile }: Props) {
                 {profile.profile.real_name && (
                   <p className="text-gray-400 mt-1">{profile.profile.real_name}</p>
                 )}
+                
+                {/* Status */}
+                <div className="flex items-center gap-2 mt-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    profile.profile.persona_state === 1 ? 'bg-green-500' : 
+                    profile.profile.persona_state === 0 ? 'bg-gray-500' : 
+                    'bg-yellow-500'
+                  }`} />
+                  <span className="text-sm text-gray-400">
+                    {profile.profile.persona_state_text || 'Unknown'}
+                  </span>
+                  {profile.profile.game_extra_info && (
+                    <span className="text-sm text-green-400">
+                      Playing {profile.profile.game_extra_info}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-              <div>
-                <p className="text-gray-400 text-sm">Steam ID</p>
-                <p className="text-white font-mono text-sm">{profile.steam_id}</p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Steam64</p>
-                <p className="text-white font-mono text-sm">{profile.steam_id_64}</p>
-              </div>
-              {profile.profile.level && (
+            {/* Steam IDs Section */}
+            <div className="mt-4 p-3 bg-dark-bg rounded border border-dark-border">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
                 <div>
-                  <p className="text-gray-400 text-sm">Level</p>
-                  <p className="text-white font-semibold">{profile.profile.level}</p>
+                  <span className="text-gray-400">steamID:</span>{' '}
+                  <span className="text-white font-mono">{profile.steam_id}</span>
                 </div>
-              )}
-              {profile.profile.location && (
+                {profile.profile.steam_id_3 && (
+                  <div>
+                    <span className="text-gray-400">steamID3:</span>{' '}
+                    <span className="text-white font-mono">{profile.profile.steam_id_3}</span>
+                  </div>
+                )}
                 <div>
-                  <p className="text-gray-400 text-sm flex items-center gap-1">
-                    <GlobeAltIcon className="w-3 h-3" />
-                    Location
-                  </p>
-                  <p className="text-white">{profile.profile.location}</p>
+                  <span className="text-gray-400">steamID64:</span>{' '}
+                  <span className="text-white font-mono">{profile.steam_id_64}</span>
                 </div>
-              )}
+                <div>
+                  <span className="text-gray-400">customURL:</span>{' '}
+                  <span className="text-white font-mono">
+                    {profile.profile.custom_url || 'not set'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Profile Details Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-4 text-sm">
+              <div>
+                <p className="text-gray-400">profile state</p>
+                <p className="text-white">{profile.profile.profile_state}</p>
+              </div>
+              
               {profile.profile.account_created && (
                 <div>
-                  <p className="text-gray-400 text-sm flex items-center gap-1">
-                    <CalendarIcon className="w-3 h-3" />
-                    Created
+                  <p className="text-gray-400">profile created</p>
+                  <p className="text-white">
+                    {format(new Date(profile.profile.account_created), 'MMMM d, yyyy')}
                   </p>
-                  <p className="text-white text-sm">
-                    {format(new Date(profile.profile.account_created), 'MMM d, yyyy')}
-                  </p>
+                </div>
+              )}
+              
+              <div>
+                <p className="text-gray-400">name</p>
+                <p className="text-white">{profile.profile.name}</p>
+              </div>
+              
+              <div>
+                <p className="text-gray-400">location</p>
+                <p className="text-white">
+                  {profile.profile.country_code || profile.profile.location || 'not set'}
+                </p>
+              </div>
+              
+              <div>
+                <p className="text-gray-400">status</p>
+                <p className="text-white">{profile.profile.persona_state_text?.toLowerCase() || 'unknown'}</p>
+              </div>
+              
+              {profile.profile.level && (
+                <div>
+                  <p className="text-gray-400">level</p>
+                  <p className="text-white font-semibold">{profile.profile.level}</p>
                 </div>
               )}
             </div>
