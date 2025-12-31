@@ -51,8 +51,13 @@ services:
       - DEBUG=${DEBUG:-False}
       - SECRET_KEY=${SECRET_KEY:-change-this-to-a-secure-key}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
-      - DATABASE_URL=postgres://elitelupus:changeme@db:5432/elitelupus
-      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_DB=elitelupus
+      - POSTGRES_USER=elitelupus
+      - POSTGRES_PASSWORD=changeme
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - STEAM_API_KEY=${STEAM_API_KEY:-}
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID:-}
       - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET:-}
@@ -127,8 +132,13 @@ services:
     environment:
       - DEBUG=${DEBUG:-False}
       - SECRET_KEY=${SECRET_KEY:-change-this-to-a-secure-key}
-      - DATABASE_URL=postgres://elitelupus:changeme@db:5432/elitelupus
-      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_DB=elitelupus
+      - POSTGRES_USER=elitelupus
+      - POSTGRES_PASSWORD=changeme
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - STEAM_API_KEY=${STEAM_API_KEY:-}
     # volumes:  # Commented out for production - no local mounts needed
     #   - ./backend:/app
@@ -151,8 +161,13 @@ services:
     environment:
       - DEBUG=${DEBUG:-False}
       - SECRET_KEY=${SECRET_KEY:-change-this-to-a-secure-key}
-      - DATABASE_URL=postgres://elitelupus:changeme@db:5432/elitelupus
-      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_DB=elitelupus
+      - POSTGRES_USER=elitelupus
+      - POSTGRES_PASSWORD=changeme
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     # volumes:  # Commented out for production - no local mounts needed
     #   - ./backend:/app
     depends_on:
