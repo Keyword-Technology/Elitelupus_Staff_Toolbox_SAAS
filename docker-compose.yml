@@ -112,7 +112,6 @@ services:
     restart: unless-stopped
     ports:
       - "280:80"
-      - "2443:443"
     volumes:
       - backend_static:/var/www/static:ro
       - backend_media:/var/www/media:ro
