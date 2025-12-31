@@ -1,7 +1,7 @@
 from django.conf import settings
 from rest_framework import serializers
 
-from .models import StaffRoster, StaffSyncLog, ServerSession, ServerSessionAggregate
+from .models import StaffRoster, StaffSyncLog, ServerSession, ServerSessionAggregate, StaffHistoryEvent
 
 
 class StaffRosterSerializer(serializers.ModelSerializer):
@@ -208,6 +208,9 @@ class StaffDetailsSerializer(serializers.ModelSerializer):
     # Recent sessions
     recent_sessions = serializers.SerializerMethodField()
     
+    # History timeline
+    history_events = serializers.SerializerMethodField()
+    
     class Meta:
         model = StaffRoster
         fields = [
@@ -215,7 +218,7 @@ class StaffDetailsSerializer(serializers.ModelSerializer):
             'steam_id', 'discord_id', 'discord_tag', 'timezone', 'is_active',
             'total_server_time', 'total_sessions', 'avg_session_duration',
             'last_server_join', 'server_time_breakdown',
-            'sit_count', 'ticket_count', 'recent_sessions'
+            'sit_count', 'ticket_count', 'recent_sessions', 'history_events'
         ]
     
     def get_total_server_time(self, obj):
@@ -307,3 +310,44 @@ class StaffDetailsSerializer(serializers.ModelSerializer):
         """Get recent server sessions."""
         sessions = ServerSession.objects.filter(staff=obj)[:10]
         return ServerSessionSerializer(sessions, many=True).data
+    
+    def get_history_events(self, obj):
+        """Get staff history timeline events."""
+        events = StaffHistoryEvent.objects.filter(staff=obj)[:20]
+        return StaffHistoryEventSerializer(events, many=True).data
+
+
+class StaffHistoryEventSerializer(serializers.ModelSerializer):
+    """Serializer for staff history events."""
+    
+    staff_name = serializers.CharField(source='staff.name', read_only=True)
+    event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
+    event_description = serializers.ReadOnlyField()
+    is_promotion = serializers.ReadOnlyField()
+    is_demotion = serializers.ReadOnlyField()
+    
+    old_rank_color = serializers.SerializerMethodField()
+    new_rank_color = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = StaffHistoryEvent
+        fields = [
+            'id', 'staff', 'staff_name', 'event_type', 'event_type_display',
+            'old_rank', 'new_rank', 'old_rank_priority', 'new_rank_priority',
+            'old_rank_color', 'new_rank_color',
+            'event_date', 'notes', 'auto_detected', 'created_by',
+            'event_description', 'is_promotion', 'is_demotion', 'created_at'
+        ]
+        read_only_fields = ['created_at', 'auto_detected']
+    
+    def get_old_rank_color(self, obj):
+        """Get color for old rank."""
+        if obj.old_rank:
+            return settings.STAFF_ROLE_COLORS.get(obj.old_rank, '#808080')
+        return None
+    
+    def get_new_rank_color(self, obj):
+        """Get color for new rank."""
+        if obj.new_rank:
+            return settings.STAFF_ROLE_COLORS.get(obj.new_rank, '#808080')
+        return None

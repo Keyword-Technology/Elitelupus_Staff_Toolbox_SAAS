@@ -223,3 +223,96 @@ class ServerSessionAggregate(models.Model):
         if hours > 0:
             return f"{hours}h {minutes}m"
         return f"{minutes}m"
+
+
+class StaffHistoryEvent(models.Model):
+    """Track staff member history events (joins, promotions, demotions, removals)."""
+    
+    EVENT_TYPES = [
+        ('joined', 'Joined Staff'),
+        ('promoted', 'Promoted'),
+        ('demoted', 'Demoted'),
+        ('role_change', 'Role Changed'),
+        ('left', 'Left Staff'),
+        ('removed', 'Removed'),
+        ('rejoined', 'Rejoined Staff'),
+    ]
+    
+    staff = models.ForeignKey(
+        StaffRoster,
+        on_delete=models.CASCADE,
+        related_name='history_events',
+        verbose_name='Staff Member'
+    )
+    
+    event_type = models.CharField(
+        max_length=20,
+        choices=EVENT_TYPES,
+        verbose_name='Event Type'
+    )
+    
+    # Role information
+    old_rank = models.CharField(max_length=50, blank=True, null=True, verbose_name='Old Rank')
+    new_rank = models.CharField(max_length=50, blank=True, null=True, verbose_name='New Rank')
+    old_rank_priority = models.IntegerField(null=True, blank=True, verbose_name='Old Rank Priority')
+    new_rank_priority = models.IntegerField(null=True, blank=True, verbose_name='New Rank Priority')
+    
+    # Event metadata
+    event_date = models.DateTimeField(verbose_name='Event Date')
+    notes = models.TextField(blank=True, verbose_name='Notes')
+    
+    # Auto-detected or manual
+    auto_detected = models.BooleanField(default=True, verbose_name='Auto Detected')
+    
+    # Created by (for manual entries)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='staff_events_created',
+        verbose_name='Created By'
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-event_date']
+        indexes = [
+            models.Index(fields=['staff', 'event_date']),
+            models.Index(fields=['event_type', 'event_date']),
+        ]
+        verbose_name = 'Staff History Event'
+        verbose_name_plural = 'Staff History Events'
+    
+    def __str__(self):
+        return f"{self.staff.name} - {self.get_event_type_display()} on {self.event_date.strftime('%Y-%m-%d')}"
+    
+    @property
+    def is_promotion(self):
+        """Check if this is a promotion (lower priority = higher rank)."""
+        if self.event_type in ['promoted', 'role_change'] and self.old_rank_priority and self.new_rank_priority:
+            return self.new_rank_priority < self.old_rank_priority
+        return self.event_type == 'promoted'
+    
+    @property
+    def is_demotion(self):
+        """Check if this is a demotion (higher priority = lower rank)."""
+        if self.event_type in ['demoted', 'role_change'] and self.old_rank_priority and self.new_rank_priority:
+            return self.new_rank_priority > self.old_rank_priority
+        return self.event_type == 'demoted'
+    
+    @property
+    def event_description(self):
+        """Generate human-readable event description."""
+        if self.event_type == 'joined':
+            return f"Joined as {self.new_rank}"
+        elif self.event_type == 'rejoined':
+            return f"Rejoined as {self.new_rank}"
+        elif self.event_type in ['promoted', 'demoted', 'role_change']:
+            if self.old_rank and self.new_rank:
+                return f"{self.old_rank} → {self.new_rank}"
+            return self.get_event_type_display()
+        elif self.event_type in ['left', 'removed']:
+            return f"Left staff (was {self.old_rank})" if self.old_rank else "Left staff"
+        return self.get_event_type_display()
