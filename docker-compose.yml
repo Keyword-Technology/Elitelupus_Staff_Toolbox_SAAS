@@ -107,8 +107,9 @@ services:
       - "280:80"
       - "2443:443"
     volumes:
-      - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
-      # - ./nginx/ssl:/etc/nginx/ssl:ro  # Uncomment for production with SSL
+      # Uncomment after pushing nginx config files to remote:
+      # - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+      # - ./nginx/ssl:/etc/nginx/ssl:ro  # For production with SSL
       - backend_static:/var/www/static:ro
       - backend_media:/var/www/media:ro
     depends_on:
