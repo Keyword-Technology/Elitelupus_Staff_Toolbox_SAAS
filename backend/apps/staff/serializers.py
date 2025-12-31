@@ -254,27 +254,27 @@ class StaffDetailsSerializer(serializers.ModelSerializer):
         """Get total time spent on all servers (all time)."""
         from django.db.models import Sum
         total = ServerSession.objects.filter(
-            staff=obj,
+            staff=obj.staff,
             leave_time__isnull=False
         ).aggregate(total=Sum('duration'))['total'] or 0
         return total
     
     def get_total_sessions(self, obj):
         """Get total number of sessions."""
-        return ServerSession.objects.filter(staff=obj).count()
+        return ServerSession.objects.filter(staff=obj.staff).count()
     
     def get_avg_session_duration(self, obj):
         """Get average session duration."""
         from django.db.models import Avg
         avg = ServerSession.objects.filter(
-            staff=obj,
+            staff=obj.staff,
             leave_time__isnull=False
         ).aggregate(avg=Avg('duration'))['avg'] or 0
         return int(avg)
     
     def get_last_server_join(self, obj):
         """Get last time staff member joined a server."""
-        last_session = ServerSession.objects.filter(staff=obj).first()
+        last_session = ServerSession.objects.filter(staff=obj.staff).first()
         return last_session.join_time.isoformat() if last_session else None
     
     def get_server_time_breakdown(self, obj):
@@ -287,7 +287,7 @@ class StaffDetailsSerializer(serializers.ModelSerializer):
         
         for server in servers:
             stats = ServerSession.objects.filter(
-                staff=obj,
+                staff=obj.staff,
                 server=server,
                 leave_time__isnull=False
             ).aggregate(
@@ -309,12 +309,12 @@ class StaffDetailsSerializer(serializers.ModelSerializer):
     
     def get_sit_count(self, obj):
         """Get total sit count from counters."""
-        if not obj.user:
+        if not obj.staff.user:
             return 0
         
         from apps.counters.models import Counter
         counter = Counter.objects.filter(
-            user=obj.user,
+            user=obj.staff.user,
             counter_type='sit',
             period_type='total'
         ).first()
@@ -323,12 +323,12 @@ class StaffDetailsSerializer(serializers.ModelSerializer):
     
     def get_ticket_count(self, obj):
         """Get total ticket count from counters."""
-        if not obj.user:
+        if not obj.staff.user:
             return 0
         
         from apps.counters.models import Counter
         counter = Counter.objects.filter(
-            user=obj.user,
+            user=obj.staff.user,
             counter_type='ticket',
             period_type='total'
         ).first()
@@ -337,12 +337,12 @@ class StaffDetailsSerializer(serializers.ModelSerializer):
     
     def get_recent_sessions(self, obj):
         """Get recent server sessions."""
-        sessions = ServerSession.objects.filter(staff=obj)[:10]
+        sessions = ServerSession.objects.filter(staff=obj.staff)[:10]
         return ServerSessionSerializer(sessions, many=True).data
     
     def get_history_events(self, obj):
         """Get staff history timeline events."""
-        events = StaffHistoryEvent.objects.filter(staff=obj)[:20]
+        events = StaffHistoryEvent.objects.filter(staff=obj.staff)[:20]
         return StaffHistoryEventSerializer(events, many=True).data
 
 
