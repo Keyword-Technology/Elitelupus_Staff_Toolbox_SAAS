@@ -30,8 +30,8 @@ class StaffSyncService:
     
     @property
     def sheet_url(self):
-        # Using sheet name - can also use gid={self.SHEET_GID} instead of sheet={self.SHEET_NAME}
-        return f"https://docs.google.com/spreadsheets/d/{self.sheet_id}/gviz/tq?tqx=out:csv&sheet={self.SHEET_NAME}"
+        # Using gid to specifically target the Staff Roster sheet tab
+        return f"https://docs.google.com/spreadsheets/d/{self.sheet_id}/gviz/tq?tqx=out:csv&gid={self.SHEET_GID}"
     
     def fetch_sheet_data(self):
         """Fetch data from Google Sheets as CSV."""
@@ -44,166 +44,117 @@ class StaffSyncService:
             raise
     
     def parse_csv_data(self, csv_content):
-        """Parse CSV content into list of dictionaries."""
+        """Parse CSV content into list of dictionaries.
+        
+        The Google Sheet exports with a quirky format:
+        - Row 0 has headers merged with first data row: "Rank Manager", "Timezone GMT", etc.
+        - Row 1+ has just values: "Manager", "GMT", etc.
+        - Each row can have TWO staff members (columns 2-8 and 11-17)
+        """
         staff_list = []
         reader = csv.reader(StringIO(csv_content))
+        rows = list(reader)
         
-        # Find the header row - look for row containing "Rank" and "Name"
-        headers = None
-        normalized_headers = []
-        rows_to_skip = 0
-        all_rows_debug = []
-        
-        for row_num, row in enumerate(reader):
-            # Debug: log first 5 rows
-            if row_num < 5:
-                all_rows_debug.append(row)
-            
-            if not row:
-                rows_to_skip += 1
-                continue
-            
-            # Check if this row contains header keywords
-            row_lower = [str(cell).strip().lower().replace(' ', '') for cell in row if cell and str(cell).strip()]
-            # More flexible check - just need rank and name (steamid might be "steam id" or "steamid")
-            if 'rank' in row_lower and 'name' in row_lower:
-                headers = row
-                normalized_headers = [h.strip().lower().replace('"', '') for h in headers]
-                logger.info(f"Found header row at position {row_num + 1}")
-                logger.info(f"CSV Headers: {normalized_headers}")
-                break
-            else:
-                rows_to_skip += 1
-        
-        if not headers:
-            logger.error("Could not find header row with 'rank' and 'name' columns")
-            logger.error(f"First 5 rows of CSV: {all_rows_debug}")
+        if not rows:
+            logger.error("No data found in CSV")
             return staff_list
         
-        # Find column indices by header name (flexible to column order changes)
-        def find_column(possible_names):
-            """Find column index by checking multiple possible header names."""
-            for name in possible_names:
+        # Fixed column positions based on sheet structure:
+        # Only use Set 1: columns 2-8 (Rank, Timezone, Time, Name, SteamID, DiscordID, Discord Tag)
+        # Set 2 (columns 11+) contains stale/duplicate data - ignore it
+        COLUMN_SETS = [
+            {'rank': 2, 'timezone': 3, 'time': 4, 'name': 5, 'steam': 6, 'discord_id': 7, 'discord_tag': 8},
+        ]
+        
+        # Helper to strip prefix from merged header+value cells (e.g., "Rank Manager" -> "Manager")
+        def strip_prefix(value, prefix):
+            """Strip prefix from value if present (case-insensitive)."""
+            if not value:
+                return ''
+            value = value.strip().replace('"', '')
+            if value.lower().startswith(prefix.lower() + ' '):
+                return value[len(prefix) + 1:].strip()
+            return value
+        
+        for row_num, row in enumerate(rows):
+            if not row or len(row) < 7:
+                continue
+            
+            # Process both column sets (two staff members per row potentially)
+            for col_set in COLUMN_SETS:
+                if len(row) <= col_set['rank']:
+                    continue
+                
                 try:
-                    return normalized_headers.index(name.lower())
-                except ValueError:
-                    continue
-            return None
-        
-        # Map expected field names to their column indices
-        col_rank = find_column(['rank', 'staff rank', 'role'])
-        col_timezone = find_column(['timezone', 'tz', 'time zone'])
-        col_time = find_column(['time', 'active time', 'availability'])
-        col_name = find_column(['name', 'username', 'staff name', 'ign'])
-        col_steam = find_column(['steamid', 'steam id', 'steam_id', 'steam'])
-        col_discord_id = find_column(['discordid', 'discord id', 'discord_id'])
-        col_discord_tag = find_column(['discord tag', 'discord', 'discord name', 'discord_tag'])
-        
-        # Log discovered column positions
-        logger.info(f"Column mapping: rank={col_rank}, timezone={col_timezone}, time={col_time}, "
-                   f"name={col_name}, steam={col_steam}, discord_id={col_discord_id}, discord_tag={col_discord_tag}")
-        
-        # Verify required columns exist
-        if col_rank is None or col_name is None:
-            logger.error("Missing required columns: 'rank' or 'name' not found in headers")
-            return staff_list
-        
-        # Parse data rows
-        for row_num, row in enumerate(reader, start=2):  # Start at 2 (1 for header + 1)
-            if not row or len(row) < max(filter(None, [col_rank, col_name])) + 1:
-                continue
-            
-            try:
-                rank = row[col_rank].strip().replace('"', '') if col_rank is not None else ''
-                
-                # Skip header rows or invalid data
-                if not rank or rank.lower() in ['rank', 'staff rank', 'rank manager', 'role']:
-                    continue
-                
-                name = row[col_name].strip().replace('"', '') if col_name is not None else ''
-                
-                staff_data = {
-                    'rank': rank,
-                    'timezone': row[col_timezone].strip().replace('"', '') if col_timezone is not None and len(row) > col_timezone else '',
-                    'active_time': row[col_time].strip().replace('"', '') if col_time is not None and len(row) > col_time else '',
-                    'name': name,
-                    'steam_id': self._parse_steam_id(row[col_steam].strip()) if col_steam is not None and len(row) > col_steam else None,
-                    'discord_id': row[col_discord_id].strip().replace('"', '') if col_discord_id is not None and len(row) > col_discord_id else None,
-                    'discord_tag': row[col_discord_tag].strip().replace('"', '') if col_discord_tag is not None and len(row) > col_discord_tag else None,
-                }
-                
-                # Only add if we have at least a name and one identifier
-                if staff_data['name'] and (staff_data['steam_id'] or staff_data['discord_id']):
-                    staff_list.append(staff_data)
-                    logger.debug(f"Parsed staff member: {staff_data['name']} ({staff_data['rank']})")
-                else:
-                    logger.debug(f"Skipped row {row_num}: missing name or identifiers")
+                    # Get raw values
+                    raw_rank = row[col_set['rank']] if len(row) > col_set['rank'] else ''
+                    raw_timezone = row[col_set['timezone']] if len(row) > col_set['timezone'] else ''
+                    raw_time = row[col_set['time']] if col_set['time'] is not None and len(row) > col_set['time'] else ''
+                    raw_name = row[col_set['name']] if len(row) > col_set['name'] else ''
+                    raw_steam = row[col_set['steam']] if len(row) > col_set['steam'] else ''
+                    raw_discord_id = row[col_set['discord_id']] if len(row) > col_set['discord_id'] else ''
+                    raw_discord_tag = row[col_set['discord_tag']] if len(row) > col_set['discord_tag'] else ''
                     
-            except (IndexError, ValueError) as e:
-                logger.warning(f"Error parsing row {row_num}: {row}, error: {e}")
-                continue
-        
-        logger.info(f"Parsed {len(staff_list)} staff members from CSV")
-        return staff_list
-    
-    def _parse_combined_format(self, csv_content):
-        """Parse CSV where each row contains multiple staff members with 'field value' pairs horizontally."""
-        staff_list = []
-        reader = csv.reader(StringIO(csv_content))
-        
-        for row_num, row in enumerate(reader, start=1):
-            if not row or len(row) < 4:  # Need at least rank, name, and an ID
-                continue
-            
-            # Process the row and split into individual staff members
-            # Staff data repeats horizontally: rank, timezone, time, name, steamid, discordid, discord tag, [repeat]
-            current_staff = None
-            
-            for cell in row:
-                if not cell or not cell.strip():
-                    continue
-                
-                cell_lower = cell.strip().lower()
-                
-                # Start a new staff member when we see 'rank'
-                if cell_lower.startswith('rank '):
-                    # Save previous staff member if complete
-                    if current_staff and current_staff['rank'] and current_staff['name'] and (current_staff['steam_id'] or current_staff['discord_id']):
-                        staff_list.append(current_staff)
-                        logger.debug(f"Parsed staff member: {current_staff['name']} ({current_staff['rank']})")
+                    # For row 0, strip the header prefix; for other rows, use as-is
+                    if row_num == 0:
+                        rank = strip_prefix(raw_rank, 'Rank')
+                        timezone = strip_prefix(raw_timezone, 'Timezone')
+                        active_time = strip_prefix(raw_time, 'Time')
+                        name = strip_prefix(raw_name, 'Name')
+                        steam_id = strip_prefix(raw_steam, 'SteamID')
+                        discord_id = strip_prefix(raw_discord_id, 'DiscordID')
+                        discord_tag = strip_prefix(raw_discord_tag, 'Discord Tag')
+                    else:
+                        rank = raw_rank.strip().replace('"', '')
+                        timezone = raw_timezone.strip().replace('"', '')
+                        active_time = raw_time.strip().replace('"', '')
+                        name = raw_name.strip().replace('"', '')
+                        steam_id = raw_steam.strip().replace('"', '')
+                        discord_id = raw_discord_id.strip().replace('"', '')
+                        discord_tag = raw_discord_tag.strip().replace('"', '')
                     
-                    # Start new staff member
-                    current_staff = {
-                        'rank': cell.strip()[5:].strip(),  # Remove 'rank '
-                        'timezone': '',
-                        'active_time': '',
-                        'name': '',
-                        'steam_id': None,
-                        'discord_id': None,
-                        'discord_tag': None,
+                    # Skip empty entries or header-only entries
+                    if not rank or not name:
+                        continue
+                    if rank.lower() in ['rank', 'staff rank', 'role']:
+                        continue
+                    
+                    # Parse steam ID
+                    parsed_steam_id = self._parse_steam_id(steam_id) if steam_id else None
+                    
+                    staff_data = {
+                        'rank': rank,
+                        'timezone': timezone,
+                        'active_time': active_time,
+                        'name': name,
+                        'steam_id': parsed_steam_id,
+                        'discord_id': discord_id if discord_id else None,
+                        'discord_tag': discord_tag if discord_tag else None,
                     }
-                elif current_staff:
-                    # Add fields to current staff member
-                    if cell_lower.startswith('timezone '):
-                        current_staff['timezone'] = cell.strip()[9:].strip()
-                    elif cell_lower.startswith('time '):
-                        current_staff['active_time'] = cell.strip()[5:].strip()
-                    elif cell_lower.startswith('name '):
-                        current_staff['name'] = cell.strip()[5:].strip()
-                    elif cell_lower.startswith('steamid '):
-                        current_staff['steam_id'] = self._parse_steam_id(cell.strip()[8:])
-                    elif cell_lower.startswith('discordid '):
-                        current_staff['discord_id'] = cell.strip()[10:].strip()
-                    elif cell_lower.startswith('discord tag '):
-                        current_staff['discord_tag'] = cell.strip()[12:].strip()
-            
-            # Don't forget the last staff member in the row
-            if current_staff and current_staff['rank'] and current_staff['name'] and (current_staff['steam_id'] or current_staff['discord_id']):
-                staff_list.append(current_staff)
-                logger.debug(f"Parsed staff member: {current_staff['name']} ({current_staff['rank']})")
+                    
+                    # Only add if we have at least a name and one identifier
+                    if staff_data['name'] and (staff_data['steam_id'] or staff_data['discord_id']):
+                        staff_list.append(staff_data)
+                        logger.debug(f"Parsed staff member: {staff_data['name']} ({staff_data['rank']})")
+                    
+                except (IndexError, ValueError) as e:
+                    logger.warning(f"Error parsing row {row_num}, column set {col_set}: {e}")
+                    continue
         
-        logger.info(f"Parsed {len(staff_list)} staff members from combined format CSV")
-        return staff_list
+        # Deduplicate by steam_id (keep first occurrence)
+        seen_steam_ids = set()
+        unique_staff = []
+        for staff in staff_list:
+            steam_id = staff.get('steam_id')
+            if steam_id and steam_id in seen_steam_ids:
+                logger.debug(f"Skipping duplicate: {staff['name']} ({steam_id})")
+                continue
+            if steam_id:
+                seen_steam_ids.add(steam_id)
+            unique_staff.append(staff)
+        
+        logger.info(f"Parsed {len(unique_staff)} unique staff members from CSV (removed {len(staff_list) - len(unique_staff)} duplicates)")
+        return unique_staff
     
     def _parse_steam_id(self, steam_id_raw):
         """Parse and clean Steam ID."""
