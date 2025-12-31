@@ -1,8 +1,9 @@
 """
 Migrate existing search history to past_names field
 """
+from apps.templates_manager.models import (SteamProfileHistory,
+                                           SteamProfileSearch)
 from django.core.management.base import BaseCommand
-from apps.templates_manager.models import SteamProfileSearch, SteamProfileHistory
 
 
 class Command(BaseCommand):
