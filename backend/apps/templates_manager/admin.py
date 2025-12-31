@@ -1,7 +1,9 @@
 from django.contrib import admin
 
-from .models import (RefundTemplate, ResponseTemplate, SteamProfileHistory,
-                     SteamProfileSearch, TemplateCategory)
+from .models import (BanExtensionTemplate, PlayerReportTemplate,
+                     RefundTemplate, ResponseTemplate,
+                     StaffApplicationResponse, SteamProfileHistory,
+                     SteamProfileSearch, TemplateCategory, TemplateComment)
 
 
 @admin.register(SteamProfileSearch)
@@ -87,3 +89,64 @@ class ResponseTemplateAdmin(admin.ModelAdmin):
     list_filter = ['category', 'is_active']
     search_fields = ['name', 'content']
     ordering = ['category', 'name']
+
+
+@admin.register(BanExtensionTemplate)
+class BanExtensionTemplateAdmin(admin.ModelAdmin):
+    """Admin for ban extension templates."""
+    list_display = [
+        'player_ign', 'ban_reason_short', 'status', 'is_active_ban',
+        'submitted_by', 'created_at'
+    ]
+    list_filter = ['status', 'created_at']
+    search_fields = ['player_ign', 'steam_id', 'steam_id_64', 'ban_reason']
+    readonly_fields = ['created_at', 'updated_at']
+    ordering = ['-created_at']
+    
+    def ban_reason_short(self, obj):
+        return obj.ban_reason[:50] + '...' if len(obj.ban_reason) > 50 else obj.ban_reason
+    ban_reason_short.short_description = 'Ban Reason'
+    
+    def is_active_ban(self, obj):
+        return obj.is_active_ban
+    is_active_ban.boolean = True
+    is_active_ban.short_description = 'Active Ban'
+
+
+@admin.register(PlayerReportTemplate)
+class PlayerReportTemplateAdmin(admin.ModelAdmin):
+    """Admin for player report templates."""
+    list_display = [
+        'player_ign', 'status', 'action_taken', 'handled_by', 'created_at'
+    ]
+    list_filter = ['status', 'action_taken', 'created_at']
+    search_fields = ['player_ign', 'steam_id', 'steam_id_64', 'report_reason']
+    readonly_fields = ['created_at', 'updated_at']
+    ordering = ['-created_at']
+
+
+@admin.register(StaffApplicationResponse)
+class StaffApplicationResponseAdmin(admin.ModelAdmin):
+    """Admin for staff application responses."""
+    list_display = [
+        'applicant_name', 'rating', 'recommend_hire', 'reviewed_by', 'created_at'
+    ]
+    list_filter = ['rating', 'recommend_hire', 'created_at']
+    search_fields = ['applicant_name', 'discord_username', 'steam_id_64']
+    readonly_fields = ['created_at', 'updated_at', 'rating_stars']
+    ordering = ['-created_at']
+
+
+@admin.register(TemplateComment)
+class TemplateCommentAdmin(admin.ModelAdmin):
+    """Admin for template comments."""
+    list_display = ['template_type', 'template_id', 'author', 'comment_preview', 'created_at']
+    list_filter = ['template_type', 'created_at']
+    search_fields = ['comment', 'author__username']
+    readonly_fields = ['created_at', 'updated_at']
+    ordering = ['-created_at']
+    
+    def comment_preview(self, obj):
+        return obj.comment[:75] + '...' if len(obj.comment) > 75 else obj.comment
+    comment_preview.short_description = 'Comment'
+

@@ -134,9 +134,13 @@ export default function EnhancedSteamProfile({ profile }: Props) {
       <div className="bg-dark-card rounded-lg border border-dark-border p-6">
         <div className="flex items-start gap-6">
           <img
-            src={profile.profile.avatar_url || '/default-avatar.png'}
+            src={profile.profile.avatar_url || 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg'}
             alt={profile.profile.name}
             className="w-24 h-24 rounded-lg"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg';
+            }}
           />
           <div className="flex-1">
             <div className="flex items-start justify-between">
@@ -151,8 +155,7 @@ export default function EnhancedSteamProfile({ profile }: Props) {
                   )}
                   {profile.profile.is_limited && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-yellow-900/50 text-yellow-400 rounded">
-              <ArrowTopRightOnSquareIcon className="w-4 h-4" />
-              View Steam Profileunt
+                      Limited Account
                     </span>
                   )}
                 </h2>
@@ -160,8 +163,8 @@ export default function EnhancedSteamProfile({ profile }: Props) {
                   <p className="text-gray-400 mt-1">{profile.profile.real_name}</p>
                 )}
               </div>
-              {onClose && (
-            
+            </div>
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
               <div>
                 <p className="text-gray-400 text-sm">Steam ID</p>
@@ -205,7 +208,8 @@ export default function EnhancedSteamProfile({ profile }: Props) {
               rel="noopener noreferrer"
               className="mt-4 inline-flex items-center gap-2 text-primary-400 hover:text-primary-300 transition-colors"
             >
-              View Steam Profile →
+              <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+              View Steam Profile
             </a>
           </div>
         </div>

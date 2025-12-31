@@ -59,6 +59,7 @@ class SteamLookupService:
             search_record.persona_name = profile_data.get('personaname', '')
             search_record.profile_url = profile_data.get('profileurl', '')
             search_record.avatar_url = profile_data.get('avatarfull', '')
+            print(f"Setting avatar_url to: {search_record.avatar_url}")
             search_record.profile_state = self._get_profile_state(profile_data)
             search_record.real_name = profile_data.get('realname', '')
             search_record.location = profile_data.get('loccountrycode', '')
@@ -98,11 +99,25 @@ class SteamLookupService:
             changes_detected=changes
         )
         
-        # Get related refund templates
-        from .models import RefundTemplate
-        related_templates = RefundTemplate.objects.filter(
+        # Get ALL related templates
+        from .models import (BanExtensionTemplate, PlayerReportTemplate,
+                             RefundTemplate, StaffApplicationResponse)
+        
+        refund_templates = RefundTemplate.objects.filter(
             steam_id_64=steam_id_64
-        ).select_related('created_by').order_by('-created_at')[:10]
+        ).select_related('created_by').order_by('-created_at')
+        
+        ban_extensions = BanExtensionTemplate.objects.filter(
+            steam_id_64=steam_id_64
+        ).select_related('submitted_by', 'approved_by').order_by('-ban_expires_at', '-created_at')
+        
+        player_reports = PlayerReportTemplate.objects.filter(
+            steam_id_64=steam_id_64
+        ).select_related('handled_by').order_by('-created_at')
+        
+        staff_apps = StaffApplicationResponse.objects.filter(
+            steam_id_64=steam_id_64
+        ).select_related('reviewed_by').order_by('-created_at')
         
         # Get search history
         search_history = SteamProfileHistory.objects.filter(
@@ -128,7 +143,12 @@ class SteamLookupService:
                 'last_searched_by': user.username if user else None,
             },
             'changes': changes,
-            'related_templates': self._serialize_templates(related_templates),
+            'related_templates': {
+                'refunds': self._serialize_templates(refund_templates, 'refund'),
+                'ban_extensions': self._serialize_templates(ban_extensions, 'ban_extension'),
+                'player_reports': self._serialize_templates(player_reports, 'player_report'),
+                'staff_applications': self._serialize_templates(staff_apps, 'staff_application'),
+            },
             'search_history': self._serialize_history(search_history),
         }
     
@@ -182,7 +202,14 @@ class SteamLookupService:
             if response.status_code == 200:
                 data = response.json()
                 players = data.get('response', {}).get('players', [])
-                return players[0] if players else None
+                if players:
+                    player = players[0]
+                    print(f"Steam API Response for {steam_id_64}:")
+                    print(f"  - avatarfull: {player.get('avatarfull')}")
+                    print(f"  - avatar: {player.get('avatar')}")
+                    print(f"  - avatarmedium: {player.get('avatarmedium')}")
+                    return player
+                return None
         except Exception as e:
             print(f"Error fetching Steam API data: {e}")
         
@@ -267,17 +294,59 @@ class SteamLookupService:
             'account_created': search_record.account_created,
         }
     
-    def _serialize_templates(self, templates):
-        """Serialize related refund templates."""
-        return [{
-            'id': t.id,
-            'ticket_number': t.ticket_number,
-            'status': t.status,
-            'player_ign': t.player_ign,
-            'created_by': t.created_by.username if t.created_by else None,
-            'created_at': t.created_at,
-            'items_lost': t.items_lost[:100] + '...' if len(t.items_lost) > 100 else t.items_lost,
-        } for t in templates]
+    def _serialize_templates(self, templates, template_type):
+        """Serialize related templates based on type."""
+        result = []
+        
+        for t in templates:
+            base = {
+                'id': t.id,
+                'type': template_type,
+                'created_at': t.created_at,
+                'updated_at': t.updated_at,
+            }
+            
+            if template_type == 'refund':
+                base.update({
+                    'ticket_number': t.ticket_number,
+                    'status': t.status,
+                    'player_ign': t.player_ign,
+                    'server': t.server,
+                    'items_lost': t.items_lost[:100] + '...' if len(t.items_lost) > 100 else t.items_lost,
+                    'created_by': t.created_by.username if t.created_by else None,
+                })
+            elif template_type == 'ban_extension':
+                base.update({
+                    'player_ign': t.player_ign,
+                    'ban_reason': t.ban_reason[:100] + '...' if len(t.ban_reason) > 100 else t.ban_reason,
+                    'status': t.status,
+                    'current_ban_time': t.current_ban_time,
+                    'required_ban_time': t.required_ban_time,
+                    'is_active_ban': t.is_active_ban,
+                    'ban_expires_at': t.ban_expires_at,
+                    'submitted_by': t.submitted_by.username if t.submitted_by else None,
+                })
+            elif template_type == 'player_report':
+                base.update({
+                    'player_ign': t.player_ign,
+                    'status': t.status,
+                    'action_taken': t.action_taken,
+                    'case_link': t.case_link,
+                    'decision_reason': t.decision_reason[:100] + '...' if len(t.decision_reason) > 100 else t.decision_reason,
+                    'handled_by': t.handled_by.username if t.handled_by else None,
+                })
+            elif template_type == 'staff_application':
+                base.update({
+                    'applicant_name': t.applicant_name,
+                    'rating': t.rating,
+                    'rating_stars': t.rating_stars,
+                    'recommend_hire': t.recommend_hire,
+                    'reviewed_by': t.reviewed_by.username if t.reviewed_by else None,
+                })
+            
+            result.append(base)
+        
+        return result
     
     def _serialize_history(self, history):
         """Serialize search history."""

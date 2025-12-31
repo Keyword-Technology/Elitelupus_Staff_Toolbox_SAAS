@@ -1,7 +1,9 @@
 from rest_framework import serializers
 
-from .models import (RefundTemplate, ResponseTemplate, SteamProfileHistory,
-                     SteamProfileSearch, TemplateCategory)
+from .models import (BanExtensionTemplate, PlayerReportTemplate,
+                     RefundTemplate, ResponseTemplate,
+                     StaffApplicationResponse, SteamProfileHistory,
+                     SteamProfileSearch, TemplateCategory, TemplateComment)
 
 
 class SteamProfileSearchSerializer(serializers.ModelSerializer):
@@ -103,3 +105,51 @@ class SteamProfileSerializer(serializers.Serializer):
     changes = serializers.DictField()
     related_templates = serializers.ListField()
     search_history = serializers.ListField()
+
+
+class BanExtensionTemplateSerializer(serializers.ModelSerializer):
+    """Serializer for ban extension templates."""
+    
+    submitted_by_name = serializers.CharField(source='submitted_by.display_name', read_only=True)
+    approved_by_name = serializers.CharField(source='approved_by.display_name', read_only=True, allow_null=True)
+    is_active_ban = serializers.BooleanField(read_only=True)
+    
+    class Meta:
+        model = BanExtensionTemplate
+        fields = '__all__'
+        read_only_fields = ['submitted_by', 'created_at', 'updated_at']
+
+
+class PlayerReportTemplateSerializer(serializers.ModelSerializer):
+    """Serializer for player report templates."""
+    
+    handled_by_name = serializers.CharField(source='handled_by.display_name', read_only=True)
+    
+    class Meta:
+        model = PlayerReportTemplate
+        fields = '__all__'
+        read_only_fields = ['handled_by', 'created_at', 'updated_at']
+
+
+class StaffApplicationResponseSerializer(serializers.ModelSerializer):
+    """Serializer for staff application responses."""
+    
+    reviewed_by_name = serializers.CharField(source='reviewed_by.display_name', read_only=True)
+    rating_stars = serializers.CharField(read_only=True)
+    
+    class Meta:
+        model = StaffApplicationResponse
+        fields = '__all__'
+        read_only_fields = ['reviewed_by', 'created_at', 'updated_at']
+
+
+class TemplateCommentSerializer(serializers.ModelSerializer):
+    """Serializer for template comments."""
+    
+    author_name = serializers.CharField(source='author.display_name', read_only=True)
+    
+    class Meta:
+        model = TemplateComment
+        fields = '__all__'
+        read_only_fields = ['author', 'created_at', 'updated_at']
+
