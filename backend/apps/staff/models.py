@@ -14,6 +14,22 @@ class StaffRoster(models.Model):
     discord_id = models.CharField(max_length=50, blank=True, null=True)
     discord_tag = models.CharField(max_length=100, blank=True, null=True)
     
+    # Discord presence
+    discord_status = models.CharField(
+        max_length=20, 
+        blank=True, 
+        null=True,
+        choices=[
+            ('online', 'Online'),
+            ('idle', 'Idle'),
+            ('dnd', 'Do Not Disturb'),
+            ('offline', 'Offline'),
+        ]
+    )
+    discord_custom_status = models.CharField(max_length=200, blank=True, null=True)
+    discord_activity = models.CharField(max_length=200, blank=True, null=True)
+    discord_status_updated = models.DateTimeField(null=True, blank=True)
+    
     # Link to user account if exists
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,

@@ -1,9 +1,12 @@
+import asyncio
+
 from apps.accounts.permissions import IsManager
 from django.conf import settings
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .discord_service import get_bot_instance, sync_discord_statuses
 from .models import StaffRoster, StaffSyncLog
 from .serializers import (RolePrioritySerializer, StaffRosterSerializer,
                           StaffSyncLogSerializer)
@@ -129,3 +132,41 @@ class MyStaffProfileView(APIView):
             {'message': 'No staff profile found'},
             status=status.HTTP_404_NOT_FOUND
         )
+
+
+class DiscordStatusSyncView(APIView):
+    """Manually trigger Discord status sync."""
+    permission_classes = [permissions.IsAuthenticated, IsManager]
+
+    def post(self, request):
+        try:
+            bot = get_bot_instance()
+            if not bot.is_running:
+                return Response(
+                    {'error': 'Discord bot is not running'},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE
+                )
+            
+            # Run async sync
+            asyncio.run(sync_discord_statuses())
+            
+            return Response({
+                'message': 'Discord status sync completed successfully'
+            })
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class DiscordBotStatusView(APIView):
+    """Get Discord bot status."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        bot = get_bot_instance()
+        return Response({
+            'is_running': bot.is_running,
+            'guild_id': bot.guild_id,
+        })

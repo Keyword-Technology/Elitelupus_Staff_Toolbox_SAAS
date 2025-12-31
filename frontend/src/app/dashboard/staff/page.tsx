@@ -12,6 +12,7 @@ import {
   ChevronDownIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import DiscordStatusBadge from '@/components/staff/DiscordStatusBadge';
 
 interface StaffMember {
   id: number;
@@ -22,6 +23,11 @@ interface StaffMember {
   role_priority: number;
   steam_id: string;
   discord_id: string;
+  discord_tag: string;
+  discord_status?: 'online' | 'idle' | 'dnd' | 'offline' | null;
+  discord_custom_status?: string | null;
+  discord_activity?: string | null;
+  discord_status_updated?: string | null;
   joined_date: string;
   timezone: string;
   is_active: boolean;
@@ -300,13 +306,16 @@ export default function StaffPage() {
                 <th className="text-left p-4 text-gray-400 font-medium">
                   Online
                 </th>
+                <th className="text-left p-4 text-gray-400 font-medium">
+                  Discord Status
+                </th>
               </tr>
             </thead>
             <tbody>
               {filteredStaff.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="text-center py-8 text-gray-500"
                   >
                     No staff members found
@@ -378,6 +387,19 @@ export default function StaffPage() {
                           <span className="w-2 h-2 rounded-full bg-gray-600" />
                           <span className="text-gray-500 text-sm">Offline</span>
                         </div>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      {member.discord_id ? (
+                        <DiscordStatusBadge
+                          status={member.discord_status}
+                          customStatus={member.discord_custom_status}
+                          activity={member.discord_activity}
+                          showText={true}
+                          size="sm"
+                        />
+                      ) : (
+                        <span className="text-gray-500 text-sm">Not linked</span>
                       )}
                     </td>
                   </tr>

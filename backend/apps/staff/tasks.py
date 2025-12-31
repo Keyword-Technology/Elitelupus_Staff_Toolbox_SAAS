@@ -1,6 +1,7 @@
 """
 Celery tasks for staff roster management.
 """
+import asyncio
 import logging
 
 from celery import shared_task
@@ -33,6 +34,28 @@ def sync_staff_roster():
         
     except Exception as e:
         logger.error(f"Error syncing staff roster: {e}")
+        return {'success': False, 'error': str(e)}
+
+
+@shared_task
+def sync_discord_statuses_task():
+    """Sync Discord statuses for all staff members."""
+    from .discord_service import get_bot_instance, sync_discord_statuses
+    
+    try:
+        bot = get_bot_instance()
+        if not bot.is_running:
+            logger.warning("Discord bot is not running, skipping status sync")
+            return {'success': False, 'error': 'Bot not running'}
+        
+        # Run async function
+        asyncio.run(sync_discord_statuses())
+        
+        logger.info("Discord status sync completed")
+        return {'success': True}
+        
+    except Exception as e:
+        logger.error(f"Error syncing Discord statuses: {e}")
         return {'success': False, 'error': str(e)}
 
 

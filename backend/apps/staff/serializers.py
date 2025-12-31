@@ -21,6 +21,9 @@ class StaffRosterSerializer(serializers.ModelSerializer):
     server_name = serializers.SerializerMethodField()
     server_id = serializers.SerializerMethodField()
     
+    # Discord status fields
+    discord_status_display = serializers.CharField(source='discord_status', read_only=True)
+    
     # LOA fields (set to default values for now since not in model)
     is_on_loa = serializers.SerializerMethodField()
     loa_end_date = serializers.SerializerMethodField()
@@ -33,12 +36,14 @@ class StaffRosterSerializer(serializers.ModelSerializer):
             'id', 'username', 'display_name', 'role', 'role_color', 'role_priority',
             'rank', 'timezone', 'active_time', 'name',
             'steam_id', 'discord_id', 'discord_tag',
+            'discord_status', 'discord_status_display', 'discord_custom_status', 
+            'discord_activity', 'discord_status_updated',
             'is_active', 'is_on_loa', 'loa_end_date',
             'user_id', 'user_avatar', 'last_synced',
             'joined_date', 'last_activity',
             'is_online', 'server_name', 'server_id'
         ]
-        read_only_fields = ['last_synced']
+        read_only_fields = ['last_synced', 'discord_status_updated']
     
     def get_is_online(self, obj):
         """Check if staff member is currently online on any server."""
