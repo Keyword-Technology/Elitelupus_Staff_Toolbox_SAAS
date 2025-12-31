@@ -1,6 +1,7 @@
-from django.contrib.auth import get_user_model
-from django.conf import settings
 import logging
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -13,12 +14,16 @@ def create_or_link_user(backend, user, response, *args, **kwargs):
     """
     social = kwargs.get('social')
     is_new = kwargs.get('is_new', False)
+    details = kwargs.get('details', {})
     
     if backend.name == 'steam':
-        steam_id_64 = response.get('player', {}).get('steamid')
-        steam_name = response.get('player', {}).get('personaname')
-        steam_avatar = response.get('player', {}).get('avatarfull')
-        steam_profile = response.get('player', {}).get('profileurl')
+        # For Steam, player data comes from details (populated by get_user_details)
+        # The response is a SuccessResponse object, not a dict
+        player = details.get('player', {})
+        steam_id_64 = player.get('steamid') or kwargs.get('uid')
+        steam_name = player.get('personaname') or details.get('username')
+        steam_avatar = player.get('avatarfull') or player.get('avatar')
+        steam_profile = player.get('profileurl')
         
         # Convert SteamID64 to SteamID
         steam_id = convert_steam_id_64_to_steam_id(steam_id_64)
