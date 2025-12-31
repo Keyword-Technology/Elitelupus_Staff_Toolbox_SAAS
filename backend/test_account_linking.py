@@ -4,6 +4,7 @@ This script simulates the linking process without actually creating OAuth sessio
 """
 import os
 import sys
+
 import django
 
 # Setup Django
@@ -11,8 +12,8 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
-from django.contrib.auth import get_user_model
 from apps.staff.models import StaffRoster
+from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
