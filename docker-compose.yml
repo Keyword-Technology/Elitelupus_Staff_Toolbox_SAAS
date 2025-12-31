@@ -61,7 +61,7 @@ services:
       - GOOGLE_SHEETS_CREDENTIALS=${GOOGLE_SHEETS_CREDENTIALS:-}
       - STAFF_ROSTER_SHEET_ID=${STAFF_ROSTER_SHEET_ID:-1SSn3GXggr84dOYfQZzeHiRI0B1vaDkGynUyYHWfXIBo}
     volumes:
-      - ./backend:/app
+      # - ./backend:/app  # Development only - comment out for production
       - backend_static:/app/staticfiles
       - backend_media:/app/media
     ports:
@@ -131,7 +131,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - STEAM_API_KEY=${STEAM_API_KEY:-}
     volumes:
-      - ./backend:/app
+      # - ./backend:/app  # Development only - comment out for production
     depends_on:
       db:
         condition: service_healthy
@@ -154,7 +154,7 @@ services:
       - DATABASE_URL=postgres://${POSTGRES_USER:-elitelupus}:${POSTGRES_PASSWORD:-changeme}@db:5432/elitelupus
       - REDIS_URL=redis://redis:6379/0
     volumes:
-      - ./backend:/app
+      # - ./backend:/app  # Development only - comment out for production
     depends_on:
       db:
         condition: service_healthy
