@@ -103,7 +103,7 @@ class SteamProfileSerializer(serializers.Serializer):
     bans = serializers.DictField()
     search_stats = serializers.DictField()
     changes = serializers.DictField()
-    related_templates = serializers.ListField()
+    related_templates = serializers.DictField()  # Changed from ListField to DictField
     search_history = serializers.ListField()
 
 
