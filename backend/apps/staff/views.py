@@ -234,7 +234,7 @@ class StaffDetailsView(generics.RetrieveAPIView):
     """Get comprehensive staff member details including time tracking."""
     serializer_class = StaffDetailsSerializer
     permission_classes = [permissions.IsAuthenticated, IsStaffManager]
-    queryset = StaffRoster.objects.filter(is_active=True)
+    queryset = StaffRoster.objects.all()  # Include inactive/legacy staff
 
 
 class StaffSessionsView(generics.ListAPIView):
