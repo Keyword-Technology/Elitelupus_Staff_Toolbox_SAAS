@@ -64,10 +64,10 @@ export default function RulesPage() {
   const fetchData = async () => {
     try {
       const [categoriesRes, jobsRes] = await Promise.all([
-        rulesAPI.categories(),
+        rulesAPI.all(),
         rulesAPI.jobs(),
       ]);
-      setCategories(categoriesRes.data.results || categoriesRes.data);
+      setCategories(categoriesRes.data);
       setJobRules(jobsRes.data.results || jobsRes.data);
     } catch (error) {
       toast.error('Failed to load rules');
