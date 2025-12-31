@@ -10,10 +10,17 @@ export const metadata: Metadata = {
   title: 'Elitelupus Staff Toolbox',
   description: 'Staff management toolbox for Elitelupus gaming community',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/icons/icon.svg',
+    apple: '/icons/icon.svg',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'Staff Toolbox',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
   },
   formatDetection: {
     telephone: false,
