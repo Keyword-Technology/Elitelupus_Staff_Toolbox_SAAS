@@ -178,13 +178,17 @@ class StaffListView(generics.ListAPIView):
 
 class LegacyStaffListView(generics.ListAPIView):
     """List all legacy staff members (former staff)."""
-    serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return User.objects.filter(
-            is_legacy_staff=True
-        ).order_by('staff_left_at', 'username')
+        from apps.staff.models import Staff
+        return Staff.objects.filter(
+            staff_status='inactive'
+        ).order_by('staff_left_at', 'name')
+    
+    def get_serializer_class(self):
+        from apps.staff.serializers import LegacyStaffSerializer
+        return LegacyStaffSerializer
 
 
 class UserDetailView(generics.RetrieveUpdateAPIView):

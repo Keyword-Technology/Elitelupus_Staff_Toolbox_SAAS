@@ -1,8 +1,40 @@
 from django.conf import settings
 from rest_framework import serializers
 
-from .models import (ServerSession, ServerSessionAggregate, StaffHistoryEvent,
-                     StaffRoster, StaffSyncLog)
+from .models import (ServerSession, ServerSessionAggregate, Staff,
+                     StaffHistoryEvent, StaffRoster, StaffSyncLog)
+
+
+class LegacyStaffSerializer(serializers.ModelSerializer):
+    """Serializer for legacy/inactive staff members."""
+    
+    # Map backend field names to frontend expectations
+    role = serializers.CharField(source='current_role', read_only=True)
+    role_color = serializers.SerializerMethodField()
+    role_priority = serializers.IntegerField(source='current_role_priority', read_only=True)
+    username = serializers.CharField(source='name', read_only=True)
+    display_name = serializers.CharField(source='name', read_only=True)
+    user_id = serializers.IntegerField(source='user.id', read_only=True, allow_null=True)
+    user_avatar = serializers.URLField(source='user.avatar_url', read_only=True, allow_null=True)
+    
+    # Status fields
+    status_display = serializers.CharField(source='get_staff_status_display', read_only=True)
+    
+    class Meta:
+        model = Staff
+        fields = [
+            'steam_id', 'username', 'display_name', 'role', 'role_color', 'role_priority',
+            'discord_id', 'discord_tag', 'staff_status', 'status_display',
+            'user_id', 'user_avatar', 'first_joined', 'last_seen',
+            'staff_since', 'staff_left_at'
+        ]
+        read_only_fields = fields
+    
+    def get_role_color(self, obj):
+        """Get color for current role."""
+        if obj.current_role:
+            return settings.STAFF_ROLE_COLORS.get(obj.current_role, '#808080')
+        return '#808080'
 
 
 class StaffRosterSerializer(serializers.ModelSerializer):
