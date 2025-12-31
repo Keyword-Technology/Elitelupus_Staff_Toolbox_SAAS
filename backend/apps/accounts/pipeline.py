@@ -157,6 +157,12 @@ def sync_staff_role(backend, user, response, *args, **kwargs):
             user.role_priority = settings.STAFF_ROLE_PRIORITIES.get(user.role, 999)
             user.is_active_staff = True
             user.is_active = True  # Activate user if in roster
+            
+            # Pull timezone from staff roster if available and user doesn't have one set
+            if staff_data.get('timezone') and (not user.timezone or user.timezone == 'UTC'):
+                user.timezone = staff_data.get('timezone')
+                logger.info(f"Set timezone for {user.username} from roster: {user.timezone}")
+            
             user.save()
             logger.info(f"Synced staff role for {user.username}: {user.role}")
         else:

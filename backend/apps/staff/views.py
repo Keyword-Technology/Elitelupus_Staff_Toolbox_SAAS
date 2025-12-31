@@ -20,8 +20,16 @@ class StaffRosterListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        # Exclude Builder role and inactive staff
-        queryset = StaffRoster.objects.filter(is_active=True).exclude(rank='Builder')
+        # By default, show only active staff (excluding Builder role)
+        # Allow showing inactive/legacy staff with ?show_inactive=true
+        show_inactive = self.request.query_params.get('show_inactive', 'false').lower() == 'true'
+        
+        if show_inactive:
+            # Show all staff including inactive (but still exclude Builder role)
+            queryset = StaffRoster.objects.exclude(rank='Builder')
+        else:
+            # Default: only active staff
+            queryset = StaffRoster.objects.filter(is_active=True).exclude(rank='Builder')
         
         # Filter by rank if provided
         rank = self.request.query_params.get('rank')

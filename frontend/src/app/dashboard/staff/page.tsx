@@ -169,16 +169,25 @@ export default function StaffPage() {
             Synced from Google Sheets • {staff.length} staff members
           </p>
         </div>
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="btn-primary flex items-center gap-2"
-        >
-          <ArrowPathIcon
-            className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`}
-          />
-          {syncing ? 'Syncing...' : 'Sync Now'}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => router.push('/dashboard/staff/legacy')}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <ClockIcon className="w-4 h-4" />
+            Legacy Staff
+          </button>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="btn-primary flex items-center gap-2"
+          >
+            <ArrowPathIcon
+              className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`}
+            />
+            {syncing ? 'Syncing...' : 'Sync Now'}
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -301,15 +310,6 @@ export default function StaffPage() {
                     {renderSortIcon('timezone')}
                   </div>
                 </th>
-                <th 
-                  onClick={() => handleSort('is_active')}
-                  className="text-left p-4 text-gray-400 font-medium cursor-pointer hover:text-gray-300 transition-colors group"
-                >
-                  <div className="flex items-center gap-2">
-                    Status
-                    {renderSortIcon('is_active')}
-                  </div>
-                </th>
                 <th className="text-left p-4 text-gray-400 font-medium">
                   Online
                 </th>
@@ -325,7 +325,7 @@ export default function StaffPage() {
               {filteredStaff.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={7}
                     className="text-center py-8 text-gray-500"
                   >
                     No staff members found
@@ -368,21 +368,6 @@ export default function StaffPage() {
                         <GlobeAltIcon className="w-4 h-4" />
                         {member.timezone || 'Not set'}
                       </div>
-                    </td>
-                    <td className="p-4">
-                      {member.is_on_loa ? (
-                        <span className="px-2 py-1 rounded text-xs font-medium bg-yellow-500/20 text-yellow-400">
-                          On LOA
-                        </span>
-                      ) : member.is_active ? (
-                        <span className="px-2 py-1 rounded text-xs font-medium bg-green-500/20 text-green-400">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 rounded text-xs font-medium bg-red-500/20 text-red-400">
-                          Inactive
-                        </span>
-                      )}
                     </td>
                     <td className="p-4">
                       {member.is_online ? (
