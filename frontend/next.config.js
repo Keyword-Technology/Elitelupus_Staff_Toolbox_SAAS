@@ -1,3 +1,4 @@
+const path = require('path');
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
@@ -24,6 +25,11 @@ const nextConfig = {
         destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/:path*`,
       },
     ];
+  },
+  webpack: (config) => {
+    // Ensure the @ alias works during Docker/Portainer builds
+    config.resolve.alias['@'] = path.resolve(__dirname, 'src');
+    return config;
   },
 };
 
