@@ -1,177 +1,241 @@
 # Legacy Staff System Implementation
 
 ## Overview
-When a staff member is removed from the Google Sheets staff roster, they are now automatically moved to "legacy staff" status instead of being deleted or simply marked inactive. This preserves their account and history while appropriately revoking their staff privileges.
+When a staff member is removed from the Google Sheets staff roster, their **StaffRoster entry is preserved** (marked as `is_active=False`) instead of being deleted. This maintains complete history, audit trails, and all associated data (promotions, actions, server sessions, etc.). The linked User account is also flagged as legacy staff for future reference.
 
 ## Key Features
 
-### 1. **Staff Removal → Legacy Staff**
+### 1. **Staff Removal → Inactive StaffRoster Entry**
 When a staff member is removed from the roster:
-- **Not deleted** - Their account remains in the User table
-- **Marked as legacy** - `is_legacy_staff = True`
-- **Demoted to User** - Role changed to 'User' (priority 999)
-- **Staff status removed** - `is_active_staff = False`
+- **StaffRoster entry preserved** - Marked `is_active = False` (never deleted)
+- **User account updated** - `is_legacy_staff = True`, `is_active_staff = False`
 - **Timestamp recorded** - `staff_left_at` set to removal time
-- **Account stays active** - `is_active = True` (can still login)
-- **History preserved** - StaffHistoryEvent created with 'removed' type
+- **Account stays active** - User can still login (but no staff privileges)
+- **History preserved** - All StaffHistoryEvents, ServerSessions, and actions remain linked
+- **Audit trail** - StaffHistoryEvent created with 'removed' (displayed as "Demoted")
 
-### 2. **Re-adding Legacy Staff → Promotion to SYSADMIN**
-When a legacy staff member is re-added to the roster:
-- **Promoted to SYSADMIN** - Automatically given highest role
-- **Legacy status cleared** - `is_legacy_staff = False`
-- **Active staff restored** - `is_active_staff = True`
-- **Timestamp cleared** - `staff_left_at = None`
-- **Full privileges** - Priority set to 0 (SYSADMIN level)
+### 2. **Re-adding to Roster**
+When a staff member is re-added to the roster:
+- **Existing StaffRoster reactivated** - `is_active = True` (if entry exists)
+- **New entry created** - If no previous entry exists
+- **Promotes to SYSADMIN** - If user has `is_legacy_staff = True`
+- **Updates role otherwise** - Sets role to match roster entry
+- **Legacy status cleared** - `is_legacy_staff = False`, `staff_left_at = None`
+- **History event** - "Rejoined Staff" event created (if previously inactive)
 
-## Database Changes
+## Database Schema
 
-### User Model (apps/accounts/models.py)
-New fields added:
+### StaffRoster Model
 ```python
-is_legacy_staff = models.BooleanField(default=False)  # Former staff not in roster
-staff_left_at = models.DateTimeField(null=True, blank=True)  # When removed from roster
+class StaffRoster(models.Model):
+    # ... other fields ...
+    is_active = models.BooleanField(default=True)  # False when removed from sheet
+    user = models.OneToOneField(User, null=True)   # Link to user account
 ```
 
-### Migration
-Created: `apps/accounts/migrations/0002_user_is_legacy_staff_user_staff_left_at.py`
+### User Model  
+```python
+class User(AbstractUser):
+    is_active_staff = models.BooleanField(default=False)      # Currently active staff
+    is_legacy_staff = models.BooleanField(default=False)      # Former staff (removed)
+    staff_left_at = models.DateTimeField(null=True)          # When removed from roster
+```
 
-## Backend Changes
+## Backend Logic
 
-### Service Layer (apps/staff/services.py)
+### Sync Process (apps/staff/services.py)
 
-#### New Method: `_move_to_legacy_staff(roster_entry)`
-Handles moving removed staff to legacy status:
-- Gets or creates a User account for the staff member
-- Sets legacy staff flags and timestamps
-- Demotes to regular User role
-- Preserves Steam/Discord identifiers for future re-linking
+#### Staff Removal Handler
+```python
+# When staff removed from Google Sheet:
+for entry in StaffRoster.objects.filter(is_active=True):
+    if identifier in removed_identifiers:
+        # 1. Mark roster entry inactive (preserves all data)
+        entry.is_active = False
+        entry.save()
+        
+        # 2. Update linked user account
+        if entry.user:
+            entry.user.is_active_staff = False
+            entry.user.is_legacy_staff = True
+            entry.user.staff_left_at = timezone.now()
+            entry.user.save()
+        
+        # 3. Create history event
+        StaffHistoryEvent.objects.create(
+            staff=entry,              # Linked to StaffRoster (preserved!)
+            event_type='removed',
+            old_rank=entry.rank,
+            ...
+        )
+```
 
-#### Updated Method: `_link_to_user(roster_entry)`
-Now checks for legacy staff status:
-- If user has `is_legacy_staff=True`, promotes to SYSADMIN
-- Otherwise, updates role based on roster data
-- Clears legacy flags when re-added
+#### Staff Re-addition Handler
+```python
+def _link_to_user(self, roster_entry):
+    # Find existing user by Steam ID or Discord ID
+    user = User.objects.filter(steam_id=roster_entry.steam_id).first()
+    
+    if user and user.is_legacy_staff:
+        # Returning legacy staff - promote to SYSADMIN
+        user.role = 'SYSADMIN'
+        user.role_priority = 0
+        user.is_active_staff = True
+        user.is_legacy_staff = False
+        user.staff_left_at = None
+        user.save()
+    elif user:
+        # Regular update - match roster role
+        user.role = roster_entry.rank
+        user.is_active_staff = True
+        user.save()
+```
 
-#### Updated Method: `sync_user_access()`
-Modified to handle legacy staff:
-- Moves staff not in roster to legacy instead of deactivating
-- Keeps accounts active for legacy staff
-- Properly tracks state transitions
+## API Endpoints
 
-#### Updated Sync Logic
-In the main `sync_staff_roster()` method:
-- Calls `_move_to_legacy_staff()` before marking roster entry inactive
-- Creates history event with 'removed' type
-- Preserves all audit trail
+### Active Staff
+```
+GET /api/staff/roster/
+```
+Returns only active staff (`is_active=True`)
 
-### API Endpoints
+### Inactive/Legacy Staff
+```
+GET /api/staff/roster/?show_inactive=true
+```
+Returns all staff (both active and inactive)
 
-#### New Endpoint: Legacy Staff List
+**Frontend filtering:**
+```typescript
+const inactiveStaff = response.data.filter((s: StaffMember) => !s.is_active);
+```
+
+### User Legacy Staff List
 ```
 GET /api/auth/staff/legacy/
 ```
-Returns all legacy staff members, ordered by when they left.
-
-**Response Example:**
-```json
-[
-  {
-    "id": 5,
-    "username": "john_doe",
-    "display_name": "John Doe",
-    "role": "User",
-    "role_priority": 999,
-    "is_active_staff": false,
-    "is_legacy_staff": true,
-    "staff_since": "2023-01-15T10:00:00Z",
-    "staff_left_at": "2024-12-31T15:30:00Z",
-    "steam_id": "STEAM_0:1:12345678",
-    "discord_id": "123456789012345678"
-  }
-]
-```
-
-### Admin Interface (apps/accounts/admin.py)
-
-Updated User admin to show:
-- `is_legacy_staff` in list display
-- `staff_left_at` in Staff Info fieldset
-- Filter by legacy staff status
-
-### Serializers (apps/accounts/serializers.py)
-
-Updated `UserSerializer` to include:
-- `is_legacy_staff` (read-only)
-- `staff_left_at` (read-only)
+Returns User accounts with `is_legacy_staff=True`
 
 ## Workflow Examples
 
-### Scenario 1: Staff Member Removed from Roster
+### Scenario 1: Staff Member Removed
 ```
-1. Staff sync detects user "john_doe" no longer in Google Sheet
-2. System calls _move_to_legacy_staff()
-3. User account updated:
-   - is_legacy_staff: false → true
+1. John Doe removed from Google Sheet
+2. Sync detects identifier missing
+3. StaffRoster entry updated:
+   - is_active: true → false
+   - (all other data preserved: rank, history, sessions, etc.)
+4. User account updated:
    - is_active_staff: true → false
-   - role: "Admin" → "User"
-   - role_priority: 70 → 999
+   - is_legacy_staff: false → true
    - staff_left_at: null → "2024-12-31T15:30:00Z"
-   - is_active: remains true
-4. StaffRoster entry marked inactive
-5. StaffHistoryEvent created with type 'removed'
+5. StaffHistoryEvent created:
+   - event_type: 'removed' (displays as "Demoted")
+   - staff: links to preserved StaffRoster entry
 6. User can still login but has no staff privileges
+7. All historical data remains: promotions, actions, server time, etc.
 ```
 
-### Scenario 2: Legacy Staff Re-added to Roster
+### Scenario 2: Legacy Staff Re-added
 ```
-1. Staff sync finds "john_doe" back in Google Sheet
-2. System detects is_legacy_staff=true in _link_to_user()
-3. User account updated:
+1. John Doe added back to Google Sheet
+2. Sync finds existing inactive StaffRoster entry (by Steam/Discord ID)
+3. StaffRoster entry reactivated:
+   - is_active: false → true
+   - rank: updated to match sheet
+4. User detected as is_legacy_staff=true
+5. User account updated:
    - role: "User" → "SYSADMIN"
    - role_priority: 999 → 0
-   - is_legacy_staff: true → false
    - is_active_staff: false → true
-   - staff_left_at: "2024-12-31..." → null
-4. StaffRoster entry created/reactivated
-5. StaffHistoryEvent created with type 'rejoined'
-6. User now has full SYSADMIN privileges
+   - is_legacy_staff: true → false
+   - staff_left_at: "2024..." → null
+6. StaffHistoryEvent created:
+   - event_type: 'rejoined'
+7. User now has SYSADMIN privileges
+8. All historical data still linked (never lost!)
 ```
+
+### Scenario 3: New Staff Member
+```
+1. New person added to Google Sheet
+2. New StaffRoster entry created:
+   - All fields populated from sheet
+   - is_active: true
+3. Attempts to link to User account (by Steam/Discord ID)
+4. If User found: links and updates role
+5. If no User: entry created without user link
+6. StaffHistoryEvent created:
+   - event_type: 'joined'
+```
+
+## Data Preservation
+
+### What's Preserved When Staff Removed:
+✅ **StaffRoster entry** - All fields intact, just marked inactive  
+✅ **User account** - Still exists, can login, marked legacy  
+✅ **StaffHistoryEvents** - All historical events (joined, promoted, demoted, etc.)  
+✅ **ServerSessions** - All game server sessions via foreign key to StaffRoster  
+✅ **Counter history** - All sit/ticket counter data (if linked to User)  
+✅ **Audit trail** - Complete timeline of staff member's career
+
+### What Changes:
+- `StaffRoster.is_active`: `true` → `false`
+- `User.is_active_staff`: `true` → `false`  
+- `User.is_legacy_staff`: `false` → `true`
+- `User.staff_left_at`: `null` → timestamp
+
+### What's NOT Changed:
+- All foreign key relationships intact
+- Historical data preserved
+- User can still login
+- No data deletion occurs
 
 ## Benefits
 
-1. **Data Preservation**: No staff data is ever lost
-2. **Account Continuity**: Users maintain access to their accounts
-3. **Audit Trail**: Complete history of staff status changes
-4. **Security**: Former staff have no elevated privileges
-5. **Re-hiring Friendly**: Easy to restore privileges when staff return
-6. **Automatic Promotion**: Re-added staff get SYSADMIN role automatically
+1. **Complete History**: Never lose staff member data
+2. **Audit Compliance**: Full timeline of all staff changes
+3. **Data Integrity**: Foreign keys remain valid (StaffRoster never deleted)
+4. **Easy Re-hiring**: Automatic SYSADMIN promotion for returning staff
+5. **Analytics**: Can track staff retention, turnover, and patterns
+6. **Investigation Support**: Historical server sessions and actions preserved
 
-## API Usage
+## Frontend Integration
 
-### Get Legacy Staff List
-```bash
-curl -X GET http://localhost:8000/api/auth/staff/legacy/ \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+The frontend already correctly handles inactive staff:
+
+```typescript
+// View legacy staff
+const fetchLegacyStaff = async () => {
+  const response = await staffAPI.roster('?show_inactive=true&ordering=rank_priority');
+  const inactiveStaff = response.data.filter((s: StaffMember) => !s.is_active);
+  setStaff(inactiveStaff);
+};
 ```
 
-### Get Active Staff (excludes legacy)
-```bash
-curl -X GET http://localhost:8000/api/auth/staff/ \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
-```
+**Page:** `/dashboard/staff/legacy`  
+**Shows:** All inactive StaffRoster entries with complete history
 
 ## Admin Usage
 
-1. Navigate to Django Admin → Users
-2. Filter by "Is legacy staff"
-3. View `staff_left_at` timestamp for each legacy staff member
-4. See complete history in StaffHistoryEvent
+1. Navigate to Django Admin → Staff Roster
+2. Filter by "Is active" = No
+3. View complete inactive staff list
+4. Click any entry to see full history and data
+5. All StaffHistoryEvents visible (even for inactive staff)
+
+## Migration Applied
+
+**Migration:** `apps/accounts/migrations/0002_user_is_legacy_staff_user_staff_left_at.py`
+
+Added fields:
+- `User.is_legacy_staff` (BooleanField, default=False)
+- `User.staff_left_at` (DateTimeField, null=True)
 
 ## Future Enhancements
 
-Potential improvements:
-- Frontend UI to display legacy staff list
-- Notification system when legacy staff are re-added
-- Configurable promotion role (instead of always SYSADMIN)
-- Legacy staff badge/indicator in user profiles
-- Statistics on staff retention and turnover
+- Restore specific role instead of always SYSADMIN
+- Legacy staff statistics dashboard
+- Notification when legacy staff return
+- Export legacy staff reports
+- Legacy staff badge/indicator in profiles

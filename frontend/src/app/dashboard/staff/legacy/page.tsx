@@ -63,10 +63,15 @@ export default function LegacyStaffPage() {
       const response = await staffAPI.roster(`?show_inactive=true&ordering=${orderingParam}`);
       
       // Filter to only show inactive staff
-      const inactiveStaff = response.data.filter((s: StaffMember) => !s.is_active);
+      const inactiveStaff = (response.data || []).filter((s: StaffMember) => !s.is_active);
       setStaff(inactiveStaff);
+      
+      if (inactiveStaff.length === 0) {
+        console.log('No inactive staff members found');
+      }
     } catch (error: any) {
-      toast.error('Failed to load legacy staff');
+      console.error('Error loading legacy staff:', error);
+      toast.error(`Failed to load legacy staff: ${error.response?.data?.detail || error.message}`);
     } finally {
       setLoading(false);
     }

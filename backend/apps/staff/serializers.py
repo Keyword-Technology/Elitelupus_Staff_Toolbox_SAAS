@@ -44,7 +44,9 @@ class StaffRosterSerializer(serializers.ModelSerializer):
             'is_active', 'is_on_loa', 'loa_end_date',
             'user_id', 'user_avatar', 'last_synced',
             'joined_date', 'last_activity',
-            'is_online', 'server_name', 'server_id', 'discord_status_display'
+            'is_online', 'server_name', 'server_id', 
+            'discord_status', 'discord_status_display', 'discord_custom_status', 
+            'discord_activity', 'discord_status_updated'
         ]
         read_only_fields = [
             'last_synced', 'discord_status_updated', 'last_seen', 'is_active_in_app',
