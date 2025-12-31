@@ -12,6 +12,7 @@ import {
   UserGroupIcon,
   ArrowRightOnRectangleIcon,
   TrophyIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 
@@ -19,7 +20,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Sit Counter', href: '/dashboard/counters', icon: ChartBarIcon },
   { name: 'Server Status', href: '/dashboard/servers', icon: ServerIcon },
-  { name: 'Templates', href: '/dashboard/templates', icon: DocumentTextIcon },
+  { name: 'Steam Lookup', href: '/dashboard/templates', icon: MagnifyingGlassIcon },
   { name: 'Rules', href: '/dashboard/rules', icon: BookOpenIcon },
   { name: 'Staff Roster', href: '/dashboard/staff', icon: UserGroupIcon },
   { name: 'Leaderboard', href: '/dashboard/leaderboard', icon: TrophyIcon },

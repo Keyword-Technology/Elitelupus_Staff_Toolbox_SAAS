@@ -64,7 +64,6 @@ export default function TemplatesPage() {
   const [lookingUp, setLookingUp] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTemplate, setNewTemplate] = useState({ name: '', content: '' });
-  const [showProfileModal, setShowProfileModal] = useState(false);
 
   useEffect(() => {
     fetchTemplates();
@@ -87,7 +86,6 @@ export default function TemplatesPage() {
     try {
       const res = await templateAPI.steamLookup(steamInput);
       setSteamProfile(res.data);
-      setShowProfileModal(true);
       toast.success('Steam profile found');
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Steam profile not found');
@@ -154,9 +152,9 @@ export default function TemplatesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Template Maker</h1>
+          <h1 className="text-2xl font-bold text-white">Steam Lookup & Actions</h1>
           <p className="text-gray-400 mt-1">
-            Create and manage refund templates with Steam profile lookup
+            Look up Steam profiles, check bans, and manage refund templates
           </p>
         </div>
         <button
@@ -164,7 +162,7 @@ export default function TemplatesPage() {
           className="btn-primary flex items-center gap-2"
         >
           <PlusIcon className="w-4 h-4" />
-          New Template
+          New Refund Template
         </button>
       </div>
 
@@ -190,85 +188,96 @@ export default function TemplatesPage() {
           >
             {lookingUp ? 'Looking up...' : 'Lookup'}
           </button>
+          {steamProfile && (
+            <button
+              onClick={() => setSteamProfile(null)}
+              className="btn-secondary"
+            >
+              Clear
+            </button>
+          )}
         </div>
-
-        {steamProfile && !showProfileModal && (
-          <div className="mt-4 p-4 bg-dark-bg rounded-lg border border-dark-border">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <img
-                  src={steamProfile.profile.avatar_url}
-                  alt={steamProfile.profile.name}
-                  className="w-12 h-12 rounded"
-                />
-                <div>
-                  <p className="text-white font-medium">{steamProfile.profile.name}</p>
-                  <p className="text-gray-400 text-sm font-mono">{steamProfile.steam_id}</p>
-                </div>
-                {steamProfile.bans.vac_bans > 0 && (
-                  <span className="px-2 py-1 text-xs bg-red-900/50 text-red-400 rounded">
-                    {steamProfile.bans.vac_bans} VAC Ban(s)
-                  </span>
-                )}
-                {steamProfile.bans.game_bans > 0 && (
-                  <span className="px-2 py-1 text-xs bg-red-900/50 text-red-400 rounded">
-                    {steamProfile.bans.game_bans} Game Ban(s)
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={() => setShowProfileModal(true)}
-                className="btn-secondary text-sm"
-              >
-                View Full Profile
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Enhanced Profile Modal */}
-      {showProfileModal && steamProfile && (
-        <div className="fixed inset-0 bg-black/80 flex items-start justify-center z-50 overflow-y-auto p-4">
-          <div className="bg-dark-bg rounded-lg max-w-5xl w-full my-8">
-            <div className="p-6">
-              <EnhancedSteamProfile
-                profile={steamProfile}
-                onClose={() => setShowProfileModal(false)}
-              />
+      {/* Enhanced Profile Display - Inline */}
+      {steamProfile && (
+        <EnhancedSteamProfile profile={steamProfile} />
+      )}
+
+      {/* Templates Section - Only show if no profile or collapsed */}
+      {!steamProfile && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Template List */}
+          <div className="lg:col-span-1 space-y-3">
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <DocumentTextIcon className="w-5 h-5 text-primary-400" />
+              Templates
+            </h2>
+            {templates.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No templates yet</p>
+            ) : (
+              templates.map((template) => (
+                <div
+                  key={template.id}
+                  className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                    selectedTemplate?.id === template.id
+                      ? 'bg-primary-500/20 border-primary-500'
+                      : 'bg-dark-card border-dark-border hover:border-gray-600'
+                  }`}
+                  onClick={() => setSelectedTemplate(template)}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-white font-medium">{template.name}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteTemplate(template.id);
+                      }}
+                      className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-gray-500 text-sm mt-1 line-clamp-2">
+                    {template.content.substring(0, 100)}...
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Template Preview */}
+          <div className="lg:col-span-2">
+            <div className="bg-dark-card rounded-lg border border-dark-border p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-white">
+                  {selectedTemplate ? selectedTemplate.name : 'Select a Template'}
+                </h2>
+                {selectedTemplate && (
+                  <button
+                    onClick={() => handleCopyTemplate(selectedTemplate.content)}
+                    className="btn-secondary flex items-center gap-2"
+                  >
+                    <ClipboardDocumentIcon className="w-4 h-4" />
+                    Copy
+                  </button>
+                )}
+              </div>
+              {selectedTemplate ? (
+                <div className="bg-dark-bg rounded-lg p-4">
+                  <pre className="text-gray-300 whitespace-pre-wrap font-mono text-sm">
+                    {selectedTemplate.content}
+                  </pre>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  Select a template from the list to preview
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
-
-      {/* Templates Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Template List */}
-        <div className="lg:col-span-1 space-y-3">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <DocumentTextIcon className="w-5 h-5 text-primary-400" />
-            Templates
-          </h2>
-          {templates.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No templates yet</p>
-          ) : (
-            templates.map((template) => (
-              <div
-                key={template.id}
-                className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                  selectedTemplate?.id === template.id
-                    ? 'bg-primary-500/20 border-primary-500'
-                    : 'bg-dark-card border-dark-border hover:border-gray-600'
-                }`}
-                onClick={() => setSelectedTemplate(template)}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-white font-medium">{template.name}</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteTemplate(template.id);
-                    }}
                     className="p-1 text-gray-400 hover:text-red-400 transition-colors"
                   >
                     <TrashIcon className="w-4 h-4" />

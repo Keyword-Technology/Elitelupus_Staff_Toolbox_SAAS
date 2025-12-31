@@ -8,8 +8,11 @@ import {
   EyeIcon,
   EyeSlashIcon,
   DocumentTextIcon,
+  ClipboardDocumentIcon,
+  ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline';
 import { formatDistanceToNow, format } from 'date-fns';
+import toast from 'react-hot-toast';
 
 interface SteamProfileData {
   steam_id: string;
@@ -61,10 +64,9 @@ interface SteamProfileData {
 
 interface Props {
   profile: SteamProfileData;
-  onClose?: () => void;
 }
 
-export default function EnhancedSteamProfile({ profile, onClose }: Props) {
+export default function EnhancedSteamProfile({ profile }: Props) {
   const hasVACBan = profile.bans.vac_bans > 0;
   const hasGameBan = profile.bans.game_bans > 0;
   const hasCommunityBan = profile.bans.community_banned;
@@ -73,8 +75,61 @@ export default function EnhancedSteamProfile({ profile, onClose }: Props) {
 
   const hasRecentChanges = Object.keys(profile.changes).length > 0;
 
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Quick Actions Bar */}
+      <div className="bg-dark-card rounded-lg border border-dark-border p-4">
+        <h3 className="text-sm font-semibold text-gray-400 mb-3">Quick Actions</h3>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => copyToClipboard(profile.steam_id, 'Steam ID')}
+            className="btn-secondary text-sm flex items-center gap-2"
+          >
+            <ClipboardDocumentIcon className="w-4 h-4" />
+            Copy Steam ID
+          </button>
+          <button
+            onClick={() => copyToClipboard(profile.steam_id_64, 'Steam64')}
+            className="btn-secondary text-sm flex items-center gap-2"
+          >
+            <ClipboardDocumentIcon className="w-4 h-4" />
+            Copy Steam64
+          </button>
+          <a
+            href={profile.profile.profile_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-secondary text-sm flex items-center gap-2"
+          >
+            <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+            Open Steam Profile
+          </a>
+          <a
+            href={`https://steamid.io/lookup/${profile.steam_id_64}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-secondary text-sm flex items-center gap-2"
+          >
+            <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+            View on SteamID.io
+          </a>
+          <a
+            href={`https://steamid.pro/lookup/${profile.steam_id_64}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-secondary text-sm flex items-center gap-2"
+          >
+            <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+            View on SteamID.pro
+          </a>
+        </div>
+      </div>
+
       {/* Header with Avatar and Basic Info */}
       <div className="bg-dark-card rounded-lg border border-dark-border p-6">
         <div className="flex items-start gap-6">
@@ -96,7 +151,8 @@ export default function EnhancedSteamProfile({ profile, onClose }: Props) {
                   )}
                   {profile.profile.is_limited && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-yellow-900/50 text-yellow-400 rounded">
-                      Limited Account
+              <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+              View Steam Profileunt
                     </span>
                   )}
                 </h2>
@@ -105,15 +161,7 @@ export default function EnhancedSteamProfile({ profile, onClose }: Props) {
                 )}
               </div>
               {onClose && (
-                <button
-                  onClick={onClose}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
+            
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
               <div>
                 <p className="text-gray-400 text-sm">Steam ID</p>
