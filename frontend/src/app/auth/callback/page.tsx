@@ -12,9 +12,15 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const handleCallback = async () => {
-      const access = searchParams.get('access');
-      const refresh = searchParams.get('refresh');
-      const error = searchParams.get('error');
+      const params = searchParams;
+      if (!params) {
+        router.push('/login?error=auth_failed');
+        return;
+      }
+
+      const access = params.get('access');
+      const refresh = params.get('refresh');
+      const error = params.get('error');
 
       if (error) {
         router.push(`/login?error=${error}`);
