@@ -107,7 +107,7 @@ export default function EnhancedSteamProfile({ profile }: Props) {
             Copy Steam64
           </button>
           <a
-            href={profile.profile.profile_url}
+            href={profile.profile.profile_url || `https://steamcommunity.com/profiles/${profile.steam_id_64}`}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-secondary text-sm flex items-center gap-2"
@@ -277,36 +277,6 @@ export default function EnhancedSteamProfile({ profile }: Props) {
                 <p className="text-gray-400">comments</p>
                 <p className="text-white">{profile.profile.comment_permission ? 'enabled' : 'disabled'}</p>
               </div>
-              
-              {profile.search_stats && (
-                <>
-                  <div>
-                    <p className="text-gray-400">total searches</p>
-                    <p className="text-white font-semibold">{profile.search_stats.total_searches}</p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-gray-400">first searched</p>
-                    <p className="text-white">
-                      {format(new Date(profile.search_stats.first_searched), 'MMM d, yyyy')}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-gray-400">last searched</p>
-                    <p className="text-white">
-                      {formatDistanceToNow(new Date(profile.search_stats.last_searched), { addSuffix: true })}
-                    </p>
-                  </div>
-                  
-                  {profile.search_stats.last_searched_by && (
-                    <div>
-                      <p className="text-gray-400">searched by</p>
-                      <p className="text-white">{profile.search_stats.last_searched_by}</p>
-                    </div>
-                  )}
-                </>
-              )}
             </div>
 
             {/* Past IGN Names */}
@@ -342,7 +312,7 @@ export default function EnhancedSteamProfile({ profile }: Props) {
             )}
 
             <a
-              href={profile.profile.profile_url}
+              href={profile.profile.profile_url || `https://steamcommunity.com/profiles/${profile.steam_id_64}`}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-4 inline-flex items-center gap-2 text-primary-400 hover:text-primary-300 transition-colors"
@@ -435,7 +405,7 @@ export default function EnhancedSteamProfile({ profile }: Props) {
           <ClockIcon className="w-5 h-5 text-primary-400" />
           Search Statistics
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <p className="text-gray-400 text-sm">Total Searches</p>
             <p className="text-2xl font-bold text-white">{profile.search_stats.total_searches}</p>
@@ -444,6 +414,12 @@ export default function EnhancedSteamProfile({ profile }: Props) {
             <p className="text-gray-400 text-sm">First Searched</p>
             <p className="text-white">
               {formatDistanceToNow(new Date(profile.search_stats.first_searched), { addSuffix: true })}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-400 text-sm">Last Searched</p>
+            <p className="text-white">
+              {formatDistanceToNow(new Date(profile.search_stats.last_searched), { addSuffix: true })}
             </p>
           </div>
           <div>
