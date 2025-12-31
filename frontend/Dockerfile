@@ -15,19 +15,6 @@ RUN npm ci
 # Copy source files (will use cache if package.json unchanged)
 COPY . .
 
-# Debug: Show what files we actually have
-RUN echo "=== Verifying copied files ===" && \
-    ls -la && \
-    echo "=== Checking next.config.js exists ===" && \
-    cat next.config.js | head -10 && \
-    echo "=== Checking tsconfig.json ===" && \
-    cat tsconfig.json | head -10 && \
-    echo "=== Checking src/lib/api.ts ===" && \
-    ls -la src/lib/
-
-# Force layer rebuild on each build by adding build timestamp
-RUN echo "Build timestamp: $(date)" > /tmp/build_timestamp
-
 # Build arguments for environment variables
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
 ARG NEXT_PUBLIC_WS_URL=ws://localhost:8000
