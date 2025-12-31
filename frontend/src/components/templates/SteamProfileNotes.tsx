@@ -169,7 +169,7 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
 
       {/* Create/Edit Form */}
       {(isCreating || editingNote) && (
-        <form onSubmit={handleSubmit} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+        <form onSubmit={handleSubmit} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <div className="space-y-4">
             {/* Note Type & Severity */}
             <div className="grid grid-cols-2 gap-4">
@@ -276,7 +276,7 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg">
                 {error}
               </div>
             )}
@@ -286,7 +286,7 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700"
                 disabled={loading}
               >
                 Cancel
