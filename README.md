@@ -982,13 +982,208 @@ Elitelupus_Staff_Toolbox_SAAS/
 - **`frontend/src/contexts/`**: Global state management (auth, WebSocket)
 - **`nginx/`**: Reverse proxy configuration for production deployment
 
-## Contributing
+## 🧪 Development Guide
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+### Running Tests
+
+#### Backend Tests
+```bash
+cd backend
+
+# Run all tests
+python manage.py test
+
+# Run specific app tests
+python manage.py test apps.counters
+python manage.py test apps.staff
+
+# Run with coverage
+pip install coverage
+coverage run --source='.' manage.py test
+coverage report
+coverage html  # Generate HTML report
+```
+
+#### Frontend Tests
+```bash
+cd frontend
+
+# Install testing dependencies
+npm install --save-dev @testing-library/react @testing-library/jest-dom jest
+
+# Run tests
+npm test
+
+# Run with coverage
+npm test -- --coverage
+```
+
+### Code Style & Linting
+
+#### Backend (Python)
+```bash
+# Format with Black
+black backend/
+
+# Lint with Flake8
+flake8 backend/ --max-line-length=100
+
+# Type checking with mypy
+mypy backend/
+```
+
+#### Frontend (TypeScript)
+```bash
+# Lint
+npm run lint
+
+# Format with Prettier
+npx prettier --write "src/**/*.{ts,tsx}"
+
+# Type check
+npx tsc --noEmit
+```
+
+### Database Management
+
+#### Migrations
+```bash
+# Create migrations
+python manage.py makemigrations
+
+# Apply migrations
+python manage.py migrate
+
+# Rollback migration
+python manage.py migrate app_name 0001_previous_migration
+
+# Show migrations
+python manage.py showmigrations
+
+# SQL for migration
+python manage.py sqlmigrate app_name 0001_migration_name
+```
+
+#### Database Shell
+```bash
+# Django shell with models loaded
+python manage.py shell
+
+# PostgreSQL shell
+docker-compose exec db psql -U elitelupus elitelupus
+```
+
+### VS Code Tasks
+
+The project includes pre-configured VS Code tasks:
+
+- **Start Docker Services**: Starts PostgreSQL and Redis
+- **Stop Docker Services**: Stops database services
+- **Django: Migrate**: Runs database migrations
+- **Django: Make Migrations**: Creates new migrations
+- **Django: Create Superuser**: Creates admin user
+- **Frontend: Install Dependencies**: Installs npm packages
+- **Backend: Install Dependencies**: Installs pip packages
+- **Docker: Build All**: Builds all Docker images
+- **Docker: Up All Services**: Starts full stack
+- **Docker: Down All Services**: Stops and removes containers
+
+Access via: `Ctrl+Shift+P` → `Tasks: Run Task`
+
+### Debugging
+
+#### Backend (Django)
+```json
+// .vscode/launch.json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Django: Debug",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/manage.py",
+      "args": ["runserver", "0.0.0.0:8000"],
+      "django": true,
+      "justMyCode": false
+    },
+    {
+      "name": "Celery: Debug Worker",
+      "type": "python",
+      "request": "launch",
+      "module": "celery",
+      "args": ["-A", "config", "worker", "-P", "solo", "-l", "info"],
+      "cwd": "${workspaceFolder}/backend"
+    }
+  ]
+}
+```
+
+#### Frontend (Next.js)
+```json
+// .vscode/launch.json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Next.js: Debug",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}/frontend",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}
+```
+
+### Common Development Tasks
+
+#### Add New Django App
+```bash
+cd backend
+python manage.py startapp new_app apps/new_app
+
+# Add to INSTALLED_APPS in config/settings.py
+# Create models, views, serializers, URLs
+```
+
+#### Add New Frontend Route
+```bash
+# Create new directory in src/app/
+mkdir -p frontend/src/app/new-route
+
+# Add page.tsx
+touch frontend/src/app/new-route/page.tsx
+```
+
+#### Update Dependencies
+```bash
+# Backend
+pip list --outdated
+pip install -U package_name
+
+# Frontend
+npm outdated
+npm update package_name
+```
+
+### Environment Switching
+
+```bash
+# Development
+export DJANGO_ENV=development
+npm run dev
+
+# Staging
+export DJANGO_ENV=staging
+npm run build
+
+# Production
+export DJANGO_ENV=production
+npm run build && npm start
+```
 
 ## License
 
