@@ -371,7 +371,7 @@ export default function SettingsPage() {
                 </button>
               ) : (
                 <a
-                  href={`${API_URL}/auth/login/steam/`}
+                  href={`${API_URL}/api/auth/login/steam/`}
                   className="btn-primary"
                 >
                   Connect Steam
@@ -413,7 +413,7 @@ export default function SettingsPage() {
                 </button>
               ) : (
                 <a
-                  href={`${API_URL}/auth/login/discord/`}
+                  href={`${API_URL}/api/auth/login/discord/`}
                   className="btn-primary"
                 >
                   Connect Discord
