@@ -106,11 +106,14 @@ class SocialLinkStatusView(APIView):
 
     def get(self, request):
         user = request.user
+        # For steam_name, we use display_name which is set from Steam's personaname
+        # when the user links their Steam account
         return Response({
-            'steam_linked': bool(user.steam_id),
+            'steam_connected': bool(user.steam_id),
             'steam_id': user.steam_id,
+            'steam_name': user.display_name if user.steam_id else None,
             'steam_profile_url': user.steam_profile_url,
-            'discord_linked': bool(user.discord_id),
+            'discord_connected': bool(user.discord_id),
             'discord_id': user.discord_id,
             'discord_username': user.discord_username,
         })
