@@ -52,8 +52,13 @@ class StaffSyncService:
         headers = None
         normalized_headers = []
         rows_to_skip = 0
+        all_rows_debug = []
         
         for row_num, row in enumerate(reader):
+            # Debug: log first 5 rows
+            if row_num < 5:
+                all_rows_debug.append(row)
+            
             if not row:
                 rows_to_skip += 1
                 continue
@@ -72,6 +77,7 @@ class StaffSyncService:
         
         if not headers:
             logger.error("Could not find header row with 'rank' and 'name' columns")
+            logger.error(f"First 5 rows of CSV: {all_rows_debug}")
             return staff_list
         
         # Find column indices by header name (flexible to column order changes)
