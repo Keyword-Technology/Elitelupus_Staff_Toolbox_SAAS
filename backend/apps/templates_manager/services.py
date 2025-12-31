@@ -233,6 +233,7 @@ class SteamLookupService:
         
         # Build response
         return {
+            'id': search_record.id,
             'steam_id': steam_id_converted,
             'steam_id_64': steam_id_64,
             'profile': self._build_profile_dict(search_record),

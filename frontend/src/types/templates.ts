@@ -94,6 +94,7 @@ export interface TemplateComment {
 }
 
 export interface SteamProfile {
+  id?: number;
   steam_id: string;
   steam_id_64: string;
   profile: {

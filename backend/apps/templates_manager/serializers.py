@@ -97,6 +97,7 @@ class SteamProfileLookupSerializer(serializers.Serializer):
 class SteamProfileSerializer(serializers.Serializer):
     """Serializer for enhanced Steam profile data with tracking."""
     
+    id = serializers.IntegerField(required=False)
     steam_id = serializers.CharField()
     steam_id_64 = serializers.CharField()
     

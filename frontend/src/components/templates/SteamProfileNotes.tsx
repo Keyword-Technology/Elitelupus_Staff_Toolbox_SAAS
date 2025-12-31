@@ -17,6 +17,7 @@ import {
 
 interface SteamProfileNotesProps {
   steamId64: string;
+  steamProfileId?: number;
   notes: SteamProfileNote[];
   onNotesUpdate: () => void;
 }
@@ -40,7 +41,7 @@ const SEVERITY_COLORS = {
   4: 'bg-red-100 text-red-800 border-red-200',
 };
 
-export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: SteamProfileNotesProps) {
+export default function SteamProfileNotes({ steamId64, steamProfileId, notes, onNotesUpdate }: SteamProfileNotesProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [editingNote, setEditingNote] = useState<number | null>(null);
   const [formData, setFormData] = useState({
@@ -93,6 +94,13 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
     setError('');
 
     try {
+      // Validate steamProfileId is available
+      if (!steamProfileId) {
+        setError('Steam profile ID not available. Please refresh the page and try again.');
+        setLoading(false);
+        return;
+      }
+
       // Validate expiry_hours is set
       if (!formData.expiry_hours) {
         setError('Please select an expiry time for the note');
@@ -104,6 +112,8 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
       const expiryDate = new Date();
       expiryDate.setHours(expiryDate.getHours() + parseInt(formData.expiry_hours));
       
+      console.log('Creating note with steam_profile ID:', steamProfileId);
+      
       const submitData: any = {
         note_type: formData.note_type,
         title: formData.title,
@@ -111,7 +121,7 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
         severity: formData.severity,
         server: formData.server,
         expires_at: expiryDate.toISOString(),
-        steam_profile: steamId64,
+        steam_profile: steamProfileId,
       };
       
       if (editingNote) {

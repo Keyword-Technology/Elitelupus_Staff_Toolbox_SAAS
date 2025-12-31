@@ -28,6 +28,7 @@ interface RefundTemplate {
 }
 
 interface SteamProfileData {
+  id?: number;
   steam_id: string;
   steam_id_64: string;
   profile: {
@@ -536,6 +537,7 @@ export default function TemplatesPage() {
             <div className="bg-dark-card rounded-lg border border-dark-border p-6">
               <SteamProfileNotes
                 steamId64={steamProfile.steam_id_64}
+                steamProfileId={steamProfile.id}
                 notes={steamNotes}
                 onNotesUpdate={() => fetchSteamNotes(steamProfile.steam_id_64)}
               />
