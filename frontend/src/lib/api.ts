@@ -168,7 +168,7 @@ export const systemAPI = {
   deleteSetting: (id: number) => api.delete(`/system/settings/${id}/`),
   
   // Counter Quotas
-  quotas: () => api.get('/system-settings/quotas/'),
+  quotas: () => api.get('/system/quotas/'),
   
   // Managed Servers
   servers: () => api.get('/system/servers/'),
