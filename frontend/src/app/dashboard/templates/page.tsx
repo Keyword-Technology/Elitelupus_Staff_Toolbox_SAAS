@@ -278,58 +278,6 @@ export default function TemplatesPage() {
           </div>
         </div>
       )}
-                    className="p-1 text-gray-400 hover:text-red-400 transition-colors"
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
-                </div>
-                <p className="text-gray-500 text-sm mt-1 line-clamp-2">
-                  {template.content.substring(0, 100)}...
-                </p>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Template Preview */}
-        <div className="lg:col-span-2">
-          <div className="bg-dark-card rounded-lg border border-dark-border p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">
-                {selectedTemplate ? selectedTemplate.name : 'Select a Template'}
-              </h2>
-              {selectedTemplate && (
-                <button
-                  onClick={() => handleCopyTemplate(selectedTemplate.content)}
-                  className="btn-secondary flex items-center gap-2"
-                >
-                  <ClipboardDocumentIcon className="w-4 h-4" />
-                  Copy
-                </button>
-              )}
-            </div>
-            {selectedTemplate ? (
-              <div className="bg-dark-bg rounded-lg p-4">
-                <pre className="text-gray-300 whitespace-pre-wrap font-mono text-sm">
-                  {selectedTemplate.content}
-                </pre>
-              </div>
-            ) : (
-              <div className="text-center py-12 text-gray-500">
-                Select a template from the list to preview
-              </div>
-            )}
-            {steamProfile && selectedTemplate && (
-              <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <p className="text-blue-400 text-sm">
-                  💡 Steam profile data will be automatically inserted when copying.
-                  Use placeholders: {'{steam_id}'}, {'{steam_id64}'}, {'{steam_name}'}, {'{profile_url}'}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
       {/* Create Modal */}
       {showCreateModal && (
