@@ -83,7 +83,7 @@ class StaffRosterSerializer(serializers.ModelSerializer):
         return obj.last_synced.isoformat() if obj.last_synced else None
     
     def get_last_activity(self, obj):
-        ""Use last_seen if available, otherwise fall back to last_synced
+        """Use last_seen if available, otherwise fall back to last_synced."""
         if obj.last_seen:
             return obj.last_seen.isoformat()
         return obj.last_synced.isoformat() if obj.last_synced else None
@@ -93,8 +93,9 @@ class StaffRosterSerializer(serializers.ModelSerializer):
         if not obj.last_seen:
             return None
         
-        from django.utils import timezone
         from datetime import timedelta
+
+        from django.utils import timezone
         
         now = timezone.now()
         diff = now - obj.last_seen
@@ -116,8 +117,9 @@ class StaffRosterSerializer(serializers.ModelSerializer):
         if not obj.last_seen:
             return False
         
-        from django.utils import timezone
         from datetime import timedelta
+
+        from django.utils import timezone
         
         now = timezone.now()
         return (now - obj.last_seen) < timedelta(minutes=5)
