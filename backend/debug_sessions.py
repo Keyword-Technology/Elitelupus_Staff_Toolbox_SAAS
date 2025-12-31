@@ -1,6 +1,7 @@
-import django
 import os
 import sys
+
+import django
 
 # Setup Django
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -8,7 +9,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
 from apps.servers.models import ServerPlayer
-from apps.staff.models import StaffRoster, ServerSession
+from apps.staff.models import ServerSession, StaffRoster
 
 print("=== ServerPlayer Debug ===")
 staff_players = ServerPlayer.objects.filter(is_staff=True)

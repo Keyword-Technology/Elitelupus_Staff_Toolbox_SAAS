@@ -7,10 +7,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .discord_service import get_bot_instance, sync_discord_statuses
-from .models import StaffRoster, StaffSyncLog, ServerSession, ServerSessionAggregate
-from .serializers import (RolePrioritySerializer, StaffRosterSerializer,
-                          StaffSyncLogSerializer, StaffDetailsSerializer,
-                          ServerSessionSerializer, ServerSessionAggregateSerializer)
+from .models import (ServerSession, ServerSessionAggregate, StaffRoster,
+                     StaffSyncLog)
+from .serializers import (RolePrioritySerializer,
+                          ServerSessionAggregateSerializer,
+                          ServerSessionSerializer, StaffDetailsSerializer,
+                          StaffRosterSerializer, StaffSyncLogSerializer)
 from .services import StaffSyncService
 
 

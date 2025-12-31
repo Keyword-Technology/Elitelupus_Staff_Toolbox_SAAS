@@ -1,6 +1,7 @@
-import django
 import os
 import sys
+
+import django
 
 # Setup Django
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))

@@ -150,6 +150,7 @@ export default function StaffPage() {
 
   const activeStaff = staff.filter((s) => s.is_active && !s.is_on_loa).length;
   const onLoaStaff = staff.filter((s) => s.is_on_loa).length;
+  const onlineStaff = staff.filter((s) => s.is_online).length;
 
   if (loading) {
     return (
@@ -211,6 +212,7 @@ export default function StaffPage() {
             <div>
               <p className="text-sm text-gray-400">Active Staff</p>
               <p className="text-2xl font-bold text-white">{activeStaff}</p>
+              <p className="text-xs text-green-400 mt-1">{onlineStaff} online</p>
             </div>
           </div>
         </div>
