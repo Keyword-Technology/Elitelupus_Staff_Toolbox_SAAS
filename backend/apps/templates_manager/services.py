@@ -109,13 +109,13 @@ class SteamLookupService:
             search_record.community_banned = ban_data.get('CommunityBanned', False)
             search_record.trade_ban = ban_data.get('EconomyBan', '')
         
-        # Update scraped data from steamid.pro
+        # Update scraped data from steamid.pro (only fill missing fields)
         if scraped_data:
-            # Always use scraped avatar if available (higher quality)
-            if scraped_data.get('avatar_url'):
+            # Use scraped avatar ONLY if Steam API didn't provide one
+            if not search_record.avatar_url and scraped_data.get('avatar_url'):
                 search_record.avatar_url = scraped_data['avatar_url']
             
-            # Use scraped display name if Steam API didn't provide one
+            # Use scraped display name ONLY if Steam API didn't provide one
             if not search_record.persona_name and scraped_data.get('display_name'):
                 search_record.persona_name = scraped_data['display_name']
             

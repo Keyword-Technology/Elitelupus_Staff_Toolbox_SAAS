@@ -55,7 +55,11 @@ class SteamIDProScraper:
             response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
             
-            soup = BeautifulSoup(response.content, 'lxml')
+            # Try lxml first, fall back to html.parser
+            try:
+                soup = BeautifulSoup(response.content, 'lxml')
+            except Exception:
+                soup = BeautifulSoup(response.content, 'html.parser')
             
             # Extract data using multiple strategies
             data = {

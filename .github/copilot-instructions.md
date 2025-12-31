@@ -45,6 +45,74 @@ This is an enterprise-grade full-stack SaaS web application designed for managin
 - **Discord API**: OAuth2 authentication
 - **Google Sheets API**: Staff roster synchronization (Sheet ID: 1SSn3GXggr84dOYfQZzeHiRI0B1vaDkGynUyYHWfXIBo)
 
+## Critical Development Rules
+
+### Backend: ALWAYS Activate Virtual Environment
+
+**CRITICAL**: Before running ANY Django management command or Python script in the backend, you MUST activate the virtual environment first.
+
+**Windows (PowerShell)**:
+```powershell
+Set-Location 'c:\Users\hessc\OneDrive\Documents\GitHub\Elitelupus_Staff_Toolbox_SAAS\backend'
+.\venv\Scripts\Activate.ps1
+python manage.py <command>
+```
+
+**Unix/Linux/Mac**:
+```bash
+cd backend
+source venv/bin/activate
+python manage.py <command>
+```
+
+**Commands that REQUIRE venv activation**:
+- `python manage.py makemigrations`
+- `python manage.py migrate`
+- `python manage.py createsuperuser`
+- `python manage.py shell`
+- `python manage.py runserver`
+- `celery -A config worker`
+- `celery -A config beat`
+- ANY Python script execution in backend/
+
+**How to activate venv in terminal commands**:
+```powershell
+# Always use this pattern on Windows:
+Set-Location 'c:\Users\hessc\OneDrive\Documents\GitHub\Elitelupus_Staff_Toolbox_SAAS\backend'; .\venv\Scripts\Activate.ps1; python manage.py makemigrations
+```
+
+### Frontend: Pre-Completion Error Check
+
+**CRITICAL**: Before completing any task that involves frontend changes, you MUST check for TypeScript/build errors.
+
+**Error Check Command (Windows)**:
+```powershell
+Set-Location 'c:\Users\hessc\OneDrive\Documents\GitHub\Elitelupus_Staff_Toolbox_SAAS\frontend'; npx tsc --noEmit --incremental false
+```
+
+**Error Check Command (Unix/Linux/Mac)**:
+```bash
+cd frontend && npx tsc --noEmit --incremental false
+```
+
+**Workflow**:
+1. Make frontend changes
+2. Run TypeScript check: `npx tsc --noEmit --incremental false`
+3. If errors found: Fix them immediately
+4. Re-run check until clean
+5. Only then complete the task
+
+**Why this check**:
+- Fast (no build, just type checking)
+- Doesn't affect dev server
+- Catches compilation errors before deployment
+- Prevents broken production builds
+
+**Do NOT use**:
+- `npm run build` (too slow)
+- `npm run dev` (interferes with dev server)
+- Just use: `npx tsc --noEmit --incremental false`
+
 ## Project Structure
 
 ```
