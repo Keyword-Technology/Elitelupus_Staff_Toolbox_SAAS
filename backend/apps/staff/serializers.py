@@ -44,11 +44,11 @@ class StaffRosterSerializer(serializers.ModelSerializer):
             'joined_date', 'last_activity',
             'is_online', 'server_name', 'server_id'
         ]
-        read_only_fields = ['last_synced', 'discord_status_updated', 'last_seen', 'is_active_in_app
+        read_only_fields = [
+            'last_synced', 'discord_status_updated', 'last_seen', 'is_active_in_app',
             'joined_date', 'last_activity',
             'is_online', 'server_name', 'server_id'
         ]
-        read_only_fields = ['last_synced', 'discord_status_updated']
     
     def get_is_online(self, obj):
         """Check if staff member is currently online on any server."""
