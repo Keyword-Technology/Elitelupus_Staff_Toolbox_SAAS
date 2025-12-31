@@ -1,10 +1,11 @@
-import requests
 import csv
+import logging
 from io import StringIO
+
+import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-import logging
 
 from .models import StaffRoster, StaffSyncLog
 
@@ -205,22 +206,6 @@ class StaffSyncService:
             return f"discord:{discord_id}"
         else:
             return f"name:{name}"
-            
-            log.success = True
-            log.save()
-            
-            logger.info(f"Staff sync completed: {log.records_synced} synced, "
-                       f"{log.records_added} added, {log.records_updated} updated, "
-                       f"{log.records_removed} removed")
-            
-            return log
-            
-        except Exception as e:
-            log.success = False
-            log.error_message = str(e)
-            log.save()
-            logger.error(f"Staff sync failed: {e}")
-            raise
     
     def _link_to_user(self, roster_entry):
         """Link roster entry to user account if exists."""
