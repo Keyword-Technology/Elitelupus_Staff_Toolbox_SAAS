@@ -73,6 +73,7 @@ export default function TemplatesPage() {
   const [wizardData, setWizardData] = useState<any>({});
   const [servers, setServers] = useState<any[]>([]);
   const [pastIGNs, setPastIGNs] = useState<string[]>([]);
+  const [serverPresence, setServerPresence] = useState<any>(null);
 
   useEffect(() => {
     fetchTemplates();
@@ -137,11 +138,21 @@ export default function TemplatesPage() {
       }
       setPastIGNs(Array.from(igns));
       
+      // Check if player is online on any server
+      try {
+        const presenceRes = await serverAPI.playerLookup(res.data.steam_id_64 || res.data.steam_id);
+        setServerPresence(presenceRes.data);
+      } catch (error) {
+        // Not online or lookup failed - not a critical error
+        setServerPresence({ found: false });
+      }
+      
       toast.success('Steam profile found');
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Steam profile not found');
       setSteamProfile(null);
       setPastIGNs([]);
+      setServerPresence(null);
     } finally {
       setLookingUp(false);
     }
@@ -304,7 +315,7 @@ export default function TemplatesPage() {
               Lookup
             </h2>
             {steamProfile ? (
-              <EnhancedSteamProfile profile={steamProfile} />
+              <EnhancedSteamProfile profile={steamProfile} serverPresence={serverPresence} />
             ) : (
               <div className="text-center py-12 text-gray-500">
                 <MagnifyingGlassIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />

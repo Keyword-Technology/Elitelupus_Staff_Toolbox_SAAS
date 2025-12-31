@@ -121,6 +121,50 @@ class StaffDistributionView(APIView):
         return Response(distribution)
 
 
+class PlayerLookupView(APIView):
+    """Look up a player by Steam ID across all servers."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        steam_id = request.query_params.get('steam_id')
+        if not steam_id:
+            return Response(
+                {'error': 'steam_id parameter required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Search for player across all servers
+        players = ServerPlayer.objects.filter(steam_id__iexact=steam_id).select_related('server')
+        
+        if not players.exists():
+            return Response({
+                'found': False,
+                'message': 'Player not currently online on any server'
+            })
+        
+        # Return all server instances where player is found
+        player_data = []
+        for player in players:
+            player_data.append({
+                'server': {
+                    'id': player.server.id,
+                    'name': player.server.name,
+                },
+                'player_name': player.name,
+                'score': player.score,
+                'duration': player.duration,
+                'duration_formatted': player.duration_formatted,
+                'is_staff': player.is_staff,
+                'staff_rank': player.staff_rank,
+                'last_seen': player.last_seen,
+            })
+        
+        return Response({
+            'found': True,
+            'servers': player_data
+        })
+
+
 class ServerHistoryView(generics.ListAPIView):
     """Get server status history."""
     serializer_class = ServerStatusLogSerializer

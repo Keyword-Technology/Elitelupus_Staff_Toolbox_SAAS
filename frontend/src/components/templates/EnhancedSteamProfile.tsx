@@ -89,9 +89,26 @@ interface SteamProfileData {
 
 interface Props {
   profile: SteamProfileData;
+  serverPresence?: {
+    found: boolean;
+    servers?: Array<{
+      server: {
+        id: number;
+        name: string;
+      };
+      player_name: string;
+      score: number;
+      duration: number;
+      duration_formatted: string;
+      is_staff: boolean;
+      staff_rank?: string;
+      last_seen: string;
+    }>;
+    message?: string;
+  };
 }
 
-export default function EnhancedSteamProfile({ profile }: Props) {
+export default function EnhancedSteamProfile({ profile, serverPresence }: Props) {
   const hasVACBan = profile.bans.vac_bans > 0;
   const hasGameBan = profile.bans.game_bans > 0;
   const hasCommunityBan = profile.bans.community_banned;
@@ -107,6 +124,33 @@ export default function EnhancedSteamProfile({ profile }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Server Presence */}
+      {serverPresence && serverPresence.found && serverPresence.servers && serverPresence.servers.length > 0 && (
+        <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-green-400 mb-3 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            Currently Online
+          </h3>
+          <div className="space-y-2">
+            {serverPresence.servers.map((server, idx) => (
+              <div key={idx} className="flex items-center justify-between bg-dark-card/50 rounded p-3">
+                <div>
+                  <p className="text-white font-medium">{server.server.name}</p>
+                  <p className="text-sm text-gray-400">Playing as: {server.player_name}</p>
+                  {server.is_staff && server.staff_rank && (
+                    <p className="text-xs text-primary-400">Staff: {server.staff_rank}</p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-400">Score: <span className="text-white">{server.score}</span></p>
+                  <p className="text-sm text-gray-400">Duration: <span className="text-white">{server.duration_formatted}</span></p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Quick Actions Bar */}
       <div className="bg-dark-card rounded-lg border border-dark-border p-4">
         <h3 className="text-sm font-semibold text-gray-400 mb-3">Quick Actions</h3>
