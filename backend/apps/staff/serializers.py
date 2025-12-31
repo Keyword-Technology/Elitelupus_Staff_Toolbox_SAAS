@@ -1,7 +1,8 @@
 from django.conf import settings
 from rest_framework import serializers
 
-from .models import StaffRoster, StaffSyncLog, ServerSession, ServerSessionAggregate, StaffHistoryEvent
+from .models import (ServerSession, ServerSessionAggregate, StaffHistoryEvent,
+                     StaffRoster, StaffSyncLog)
 
 
 class StaffRosterSerializer(serializers.ModelSerializer):
@@ -38,6 +39,7 @@ class StaffRosterSerializer(serializers.ModelSerializer):
         model = StaffRoster
         fields = [
             'id', 'username', 'display_name', 'role', 'role_color', 'role_priority',
+            'steam_id', 'discord_id', 'discord_tag', 'timezone', 'active_time',
             'last_seen', 'is_active_in_app', 'last_seen_display', 'is_active_display',
             'is_active', 'is_on_loa', 'loa_end_date',
             'user_id', 'user_avatar', 'last_synced',
@@ -255,8 +257,8 @@ class StaffDetailsSerializer(serializers.ModelSerializer):
     
     def get_server_time_breakdown(self, obj):
         """Get time breakdown by server."""
-        from django.db.models import Sum, Count, Avg
         from apps.servers.models import GameServer
+        from django.db.models import Avg, Count, Sum
         
         breakdown = []
         servers = GameServer.objects.filter(is_active=True)
