@@ -3,7 +3,10 @@ from django.urls import re_path
 from .views import (RefundQuestionTemplateView, RefundTemplateDetailView,
                     RefundTemplateListCreateView, ResponseTemplateDetailView,
                     ResponseTemplateListCreateView,
+                    SteamProfileBookmarkDetailView,
+                    SteamProfileBookmarkListCreateView,
                     SteamProfileHistoryListView, SteamProfileLookupView,
+                    SteamProfileNoteDetailView, SteamProfileNoteListCreateView,
                     SteamProfileSearchDetailView, SteamProfileSearchListView,
                     TemplateCategoryListView)
 
@@ -18,4 +21,13 @@ urlpatterns = [
     re_path(r'^steam-searches/(?P<steam_id_64>[^/]+)/?$', SteamProfileSearchDetailView.as_view(), name='steam_search_detail'),
     re_path(r'^steam-history/?$', SteamProfileHistoryListView.as_view(), name='steam_history'),
     re_path(r'^refund-question/?$', RefundQuestionTemplateView.as_view(), name='refund_question'),
+    
+    # Steam profile notes
+    re_path(r'^steam-notes/?$', SteamProfileNoteListCreateView.as_view(), name='steam_notes'),
+    re_path(r'^steam-notes/(?P<pk>\d+)/?$', SteamProfileNoteDetailView.as_view(), name='steam_note_detail'),
+    
+    # Steam profile bookmarks
+    re_path(r'^steam-bookmarks/?$', SteamProfileBookmarkListCreateView.as_view(), name='steam_bookmarks'),
+    re_path(r'^steam-bookmarks/(?P<pk>\d+)/?$', SteamProfileBookmarkDetailView.as_view(), name='steam_bookmark_detail'),
 ]
+

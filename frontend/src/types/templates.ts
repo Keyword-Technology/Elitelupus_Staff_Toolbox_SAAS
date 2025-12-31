@@ -175,3 +175,51 @@ export interface SteamProfile {
     changes: Record<string, any>;
   }>;
 }
+
+// Steam Profile Notes
+export interface SteamProfileNote {
+  id: number;
+  steam_profile: number;
+  author: number;
+  author_name: string;
+  author_role: string;
+  note_type: 'general' | 'warning_verbal' | 'warning_written' | 'ban_history' | 'behavior' | 'investigation';
+  note_type_display: string;
+  title?: string;
+  content: string;
+  is_active: boolean;
+  severity: 1 | 2 | 3 | 4;
+  severity_display: string;
+  server?: string;
+  incident_date?: string;
+  created_at: string;
+  updated_at: string;
+  resolved_at?: string;
+  resolved_by?: number;
+  resolved_by_name?: string;
+  warning_count: number;
+}
+
+// Steam Profile Bookmarks
+export interface SteamProfileBookmark {
+  id: number;
+  user: number;
+  user_name: string;
+  steam_profile: number;
+  steam_profile_data: {
+    steam_id_64: string;
+    persona_name: string;
+    avatar_url: string;
+    profile_url: string;
+    vac_bans: number;
+    game_bans: number;
+    last_searched_at: string;
+    search_count: number;
+  };
+  note?: string;
+  tags: string[];
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+

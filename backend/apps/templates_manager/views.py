@@ -5,11 +5,16 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import (RefundTemplate, ResponseTemplate, SteamProfileHistory,
-                     SteamProfileSearch, TemplateCategory)
+from .models import (RefundTemplate, ResponseTemplate, SteamProfileBookmark,
+                     SteamProfileHistory, SteamProfileNote, SteamProfileSearch,
+                     TemplateCategory)
 from .serializers import (RefundTemplateCreateSerializer,
                           RefundTemplateSerializer, ResponseTemplateSerializer,
+                          SteamProfileBookmarkCreateSerializer,
+                          SteamProfileBookmarkSerializer,
                           SteamProfileHistorySerializer,
+                          SteamProfileNoteCreateSerializer,
+                          SteamProfileNoteSerializer,
                           SteamProfileSearchSerializer, SteamProfileSerializer,
                           TemplateCategorySerializer)
 from .services import SteamLookupService
@@ -190,3 +195,72 @@ Reason:
 Evidence:
 """
         return Response({'template': template})
+
+
+class SteamProfileNoteListCreateView(generics.ListCreateAPIView):
+    """List and create notes for a Steam profile."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return SteamProfileNoteCreateSerializer
+        return SteamProfileNoteSerializer
+    
+    def get_queryset(self):
+        steam_id_64 = self.request.query_params.get('steam_id_64')
+        if not steam_id_64:
+            return SteamProfileNote.objects.none()
+        
+        try:
+            steam_profile = SteamProfileSearch.objects.get(steam_id_64=steam_id_64)
+            return steam_profile.notes.all()
+        except SteamProfileSearch.DoesNotExist:
+            return SteamProfileNote.objects.none()
+    
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+
+
+class SteamProfileNoteDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Get, update, or delete a Steam profile note."""
+    serializer_class = SteamProfileNoteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = SteamProfileNote.objects.all()
+    
+    def perform_update(self, serializer):
+        # If marking as resolved, set resolved info
+        if not serializer.instance.resolved_at and not serializer.validated_data.get('is_active', True):
+            serializer.save(
+                resolved_by=self.request.user,
+                resolved_at=timezone.now()
+            )
+        else:
+            serializer.save()
+
+
+class SteamProfileBookmarkListCreateView(generics.ListCreateAPIView):
+    """List and create Steam profile bookmarks."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return SteamProfileBookmarkCreateSerializer
+        return SteamProfileBookmarkSerializer
+    
+    def get_queryset(self):
+        # Only return bookmarks for the current user
+        return SteamProfileBookmark.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class SteamProfileBookmarkDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Get, update, or delete a Steam profile bookmark."""
+    serializer_class = SteamProfileBookmarkSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        # Only allow users to manage their own bookmarks
+        return SteamProfileBookmark.objects.filter(user=self.request.user)
+

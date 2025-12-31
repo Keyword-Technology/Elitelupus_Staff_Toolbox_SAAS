@@ -2,8 +2,9 @@ from django.contrib import admin
 
 from .models import (BanExtensionTemplate, PlayerReportTemplate,
                      RefundTemplate, ResponseTemplate,
-                     StaffApplicationResponse, SteamProfileHistory,
-                     SteamProfileSearch, TemplateCategory, TemplateComment)
+                     StaffApplicationResponse, SteamProfileBookmark,
+                     SteamProfileHistory, SteamProfileNote, SteamProfileSearch,
+                     TemplateCategory, TemplateComment)
 
 
 @admin.register(SteamProfileSearch)
@@ -149,4 +150,68 @@ class TemplateCommentAdmin(admin.ModelAdmin):
     def comment_preview(self, obj):
         return obj.comment[:75] + '...' if len(obj.comment) > 75 else obj.comment
     comment_preview.short_description = 'Comment'
+
+
+@admin.register(SteamProfileNote)
+class SteamProfileNoteAdmin(admin.ModelAdmin):
+    """Admin for Steam profile notes."""
+    list_display = [
+        'steam_profile_name', 'note_type', 'severity', 'author',
+        'is_active', 'created_at'
+    ]
+    list_filter = ['note_type', 'severity', 'is_active', 'created_at']
+    search_fields = [
+        'steam_profile__steam_id_64', 'steam_profile__persona_name',
+        'title', 'content', 'author__username'
+    ]
+    readonly_fields = ['created_at', 'updated_at', 'warning_count']
+    ordering = ['-created_at']
+    
+    fieldsets = (
+        ('Steam Profile', {
+            'fields': ('steam_profile',)
+        }),
+        ('Note Details', {
+            'fields': ('note_type', 'severity', 'title', 'content')
+        }),
+        ('Context', {
+            'fields': ('server', 'incident_date')
+        }),
+        ('Status', {
+            'fields': ('is_active', 'resolved_at', 'resolved_by')
+        }),
+        ('Metadata', {
+            'fields': ('author', 'created_at', 'updated_at', 'warning_count')
+        }),
+    )
+    
+    def steam_profile_name(self, obj):
+        return obj.steam_profile.persona_name or obj.steam_profile.steam_id_64
+    steam_profile_name.short_description = 'Steam Profile'
+
+
+@admin.register(SteamProfileBookmark)
+class SteamProfileBookmarkAdmin(admin.ModelAdmin):
+    """Admin for Steam profile bookmarks."""
+    list_display = [
+        'user', 'steam_profile_name', 'is_pinned', 'note_preview', 'created_at'
+    ]
+    list_filter = ['is_pinned', 'created_at']
+    search_fields = [
+        'user__username', 'steam_profile__steam_id_64',
+        'steam_profile__persona_name', 'note'
+    ]
+    readonly_fields = ['created_at', 'updated_at']
+    ordering = ['-is_pinned', '-created_at']
+    
+    def steam_profile_name(self, obj):
+        return obj.steam_profile.persona_name or obj.steam_profile.steam_id_64
+    steam_profile_name.short_description = 'Steam Profile'
+    
+    def note_preview(self, obj):
+        if obj.note:
+            return obj.note[:50] + '...' if len(obj.note) > 50 else obj.note
+        return '-'
+    note_preview.short_description = 'Note'
+
 

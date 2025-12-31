@@ -453,3 +453,124 @@ class TemplateComment(models.Model):
     
     def __str__(self):
         return f"Comment by {self.author.username} on {self.template_type} #{self.template_id}"
+
+
+class SteamProfileNote(models.Model):
+    """Admin notes and warnings for Steam profiles."""
+    
+    NOTE_TYPE_CHOICES = [
+        ('general', 'General Note'),
+        ('warning_verbal', 'Verbal Warning'),
+        ('warning_written', 'Written Warning'),
+        ('ban_history', 'Ban History'),
+        ('behavior', 'Behavior Note'),
+        ('investigation', 'Under Investigation'),
+    ]
+    
+    # Steam profile this note is for
+    steam_profile = models.ForeignKey(
+        SteamProfileSearch,
+        on_delete=models.CASCADE,
+        related_name='notes'
+    )
+    
+    # Note author
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='steam_notes'
+    )
+    
+    # Note details
+    note_type = models.CharField(max_length=20, choices=NOTE_TYPE_CHOICES, default='general')
+    title = models.CharField(max_length=255, blank=True)
+    content = models.TextField()
+    
+    # For warnings - track if resolved
+    is_active = models.BooleanField(default=True, help_text='For warnings, marks if still active')
+    severity = models.IntegerField(
+        default=1, 
+        choices=[(1, 'Low'), (2, 'Medium'), (3, 'High'), (4, 'Critical')],
+        help_text='Severity level of the note/warning'
+    )
+    
+    # Server context
+    server = models.CharField(max_length=50, blank=True, help_text='Server where incident occurred')
+    incident_date = models.DateTimeField(null=True, blank=True, help_text='When the incident occurred')
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Optional: Mark as resolved/expired
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resolved_steam_notes'
+    )
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Steam Profile Note'
+        verbose_name_plural = 'Steam Profile Notes'
+        indexes = [
+            models.Index(fields=['steam_profile', 'note_type']),
+            models.Index(fields=['is_active', 'created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_note_type_display()} for {self.steam_profile.persona_name} by {self.author.username}"
+    
+    @property
+    def warning_count(self):
+        """Get count of warnings for this profile."""
+        return self.steam_profile.notes.filter(
+            note_type__in=['warning_verbal', 'warning_written'],
+            is_active=True
+        ).count()
+
+
+class SteamProfileBookmark(models.Model):
+    """Bookmarked Steam profiles for quick access."""
+    
+    # User who bookmarked
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='steam_bookmarks'
+    )
+    
+    # Steam profile that's bookmarked
+    steam_profile = models.ForeignKey(
+        SteamProfileSearch,
+        on_delete=models.CASCADE,
+        related_name='bookmarks'
+    )
+    
+    # Optional note for why bookmarked
+    note = models.CharField(max_length=255, blank=True)
+    
+    # Tags for organization
+    tags = models.JSONField(default=list, blank=True, help_text='List of tags like ["suspicious", "frequent player"]')
+    
+    # Pin to top
+    is_pinned = models.BooleanField(default=False, help_text='Pin this bookmark to the top')
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-is_pinned', '-created_at']
+        unique_together = ['user', 'steam_profile']
+        verbose_name = 'Steam Profile Bookmark'
+        verbose_name_plural = 'Steam Profile Bookmarks'
+        indexes = [
+            models.Index(fields=['user', 'is_pinned']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} bookmarked {self.steam_profile.persona_name}"

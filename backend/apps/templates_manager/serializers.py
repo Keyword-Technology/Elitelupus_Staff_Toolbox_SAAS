@@ -2,8 +2,9 @@ from rest_framework import serializers
 
 from .models import (BanExtensionTemplate, PlayerReportTemplate,
                      RefundTemplate, ResponseTemplate,
-                     StaffApplicationResponse, SteamProfileHistory,
-                     SteamProfileSearch, TemplateCategory, TemplateComment)
+                     StaffApplicationResponse, SteamProfileBookmark,
+                     SteamProfileHistory, SteamProfileNote, SteamProfileSearch,
+                     TemplateCategory, TemplateComment)
 
 
 class SteamProfileSearchSerializer(serializers.ModelSerializer):
@@ -152,4 +153,86 @@ class TemplateCommentSerializer(serializers.ModelSerializer):
         model = TemplateComment
         fields = '__all__'
         read_only_fields = ['author', 'created_at', 'updated_at']
+
+
+class SteamProfileNoteSerializer(serializers.ModelSerializer):
+    """Serializer for Steam profile notes."""
+    
+    author_name = serializers.CharField(source='author.display_name', read_only=True)
+    author_role = serializers.CharField(source='author.role', read_only=True)
+    resolved_by_name = serializers.CharField(source='resolved_by.display_name', read_only=True, allow_null=True)
+    warning_count = serializers.IntegerField(read_only=True)
+    note_type_display = serializers.CharField(source='get_note_type_display', read_only=True)
+    severity_display = serializers.CharField(source='get_severity_display', read_only=True)
+    
+    class Meta:
+        model = SteamProfileNote
+        fields = '__all__'
+        read_only_fields = ['author', 'created_at', 'updated_at', 'resolved_by', 'resolved_at']
+
+
+class SteamProfileNoteCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating Steam profile notes."""
+    
+    class Meta:
+        model = SteamProfileNote
+        fields = [
+            'steam_profile', 'note_type', 'title', 'content',
+            'severity', 'server', 'incident_date'
+        ]
+
+
+class SteamProfileBookmarkSerializer(serializers.ModelSerializer):
+    """Serializer for Steam profile bookmarks."""
+    
+    user_name = serializers.CharField(source='user.display_name', read_only=True)
+    steam_profile_data = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = SteamProfileBookmark
+        fields = '__all__'
+        read_only_fields = ['user', 'created_at', 'updated_at']
+    
+    def get_steam_profile_data(self, obj):
+        """Include basic Steam profile data."""
+        return {
+            'steam_id_64': obj.steam_profile.steam_id_64,
+            'persona_name': obj.steam_profile.persona_name,
+            'avatar_url': obj.steam_profile.avatar_url,
+            'profile_url': obj.steam_profile.profile_url,
+            'vac_bans': obj.steam_profile.vac_bans,
+            'game_bans': obj.steam_profile.game_bans,
+            'last_searched_at': obj.steam_profile.last_searched_at,
+            'search_count': obj.steam_profile.search_count,
+        }
+
+
+class SteamProfileBookmarkCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating Steam profile bookmarks."""
+    
+    steam_id_64 = serializers.CharField(write_only=True)
+    
+    class Meta:
+        model = SteamProfileBookmark
+        fields = ['steam_id_64', 'note', 'tags', 'is_pinned']
+    
+    def create(self, validated_data):
+        steam_id_64 = validated_data.pop('steam_id_64')
+        user = self.context['request'].user
+        
+        # Get or create the steam profile search
+        steam_profile, created = SteamProfileSearch.objects.get_or_create(
+            steam_id_64=steam_id_64,
+            defaults={'last_searched_by': user}
+        )
+        
+        # Create the bookmark
+        bookmark, created = SteamProfileBookmark.objects.update_or_create(
+            user=user,
+            steam_profile=steam_profile,
+            defaults=validated_data
+        )
+        
+        return bookmark
+
 

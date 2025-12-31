@@ -61,6 +61,10 @@ export default function RulesPage() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    console.log('searchResults state changed:', searchResults);
+  }, [searchResults]);
+
   const fetchData = async () => {
     try {
       const [categoriesRes, jobsRes] = await Promise.all([
@@ -83,10 +87,15 @@ export default function RulesPage() {
     }
     setSearching(true);
     try {
+      console.log('Searching for:', searchQuery);
       const res = await rulesAPI.search(searchQuery);
+      console.log('Raw API response:', res);
+      console.log('Response data:', res.data);
       const results = Array.isArray(res.data) ? res.data : (res.data.results || []);
+      console.log('Parsed results:', results);
+      console.log('Results length:', results.length);
       setSearchResults(results);
-      console.log('Search results:', results);
+      console.log('State updated with results');
     } catch (error) {
       console.error('Search error:', error);
       toast.error('Search failed');

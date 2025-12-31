@@ -14,6 +14,9 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import EnhancedSteamProfile from '@/components/templates/EnhancedSteamProfile';
+import SteamProfileNotes from '@/components/templates/SteamProfileNotes';
+import SteamBookmarksFloatingButton from '@/components/templates/SteamBookmarksFloatingButton';
+import { SteamProfileNote } from '@/types/templates';
 
 interface RefundTemplate {
   id: number;
@@ -76,6 +79,9 @@ export default function TemplatesPage() {
   const [servers, setServers] = useState<any[]>([]);
   const [pastIGNs, setPastIGNs] = useState<string[]>([]);
   const [serverPresence, setServerPresence] = useState<any>(null);
+  const [steamNotes, setSteamNotes] = useState<SteamProfileNote[]>([]);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [currentBookmarkId, setCurrentBookmarkId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchTemplates();
@@ -152,15 +158,83 @@ export default function TemplatesPage() {
         setServerPresence({ found: false });
       }
       
+      // Fetch notes for this Steam profile
+      await fetchSteamNotes(res.data.steam_id_64);
+      
+      // Check if bookmarked
+      await checkIfBookmarked(res.data.steam_id_64);
+      
       toast.success('Steam profile found');
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Steam profile not found');
       setSteamProfile(null);
       setPastIGNs([]);
       setServerPresence(null);
+      setSteamNotes([]);
+      setIsBookmarked(false);
+      setCurrentBookmarkId(null);
     } finally {
       setLookingUp(false);
     }
+  };
+
+  const fetchSteamNotes = async (steamId64: string) => {
+    try {
+      const res = await templateAPI.steamNotes(steamId64);
+      setSteamNotes(res.data);
+    } catch (error) {
+      console.error('Failed to fetch steam notes:', error);
+      setSteamNotes([]);
+    }
+  };
+
+  const checkIfBookmarked = async (steamId64: string) => {
+    try {
+      const res = await templateAPI.steamBookmarks();
+      const bookmark = res.data.find(
+        (b: any) => b.steam_profile_data.steam_id_64 === steamId64
+      );
+      if (bookmark) {
+        setIsBookmarked(true);
+        setCurrentBookmarkId(bookmark.id);
+      } else {
+        setIsBookmarked(false);
+        setCurrentBookmarkId(null);
+      }
+    } catch (error) {
+      console.error('Failed to check bookmark status:', error);
+    }
+  };
+
+  const handleToggleBookmark = async () => {
+    if (!steamProfile) return;
+
+    try {
+      if (isBookmarked && currentBookmarkId) {
+        await templateAPI.deleteSteamBookmark(currentBookmarkId);
+        setIsBookmarked(false);
+        setCurrentBookmarkId(null);
+        toast.success('Bookmark removed');
+      } else {
+        const res = await templateAPI.createSteamBookmark({
+          steam_id_64: steamProfile.steam_id_64,
+          note: '',
+          tags: [],
+          is_pinned: false,
+        });
+        setIsBookmarked(true);
+        setCurrentBookmarkId(res.data.id);
+        toast.success('Player bookmarked');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to update bookmark');
+    }
+  };
+
+  const handleSelectBookmark = (steamId64: string) => {
+    setSteamInput(steamId64);
+    router.push(`?steamid=${encodeURIComponent(steamId64)}`, { scroll: false });
+    lookupSteamProfile(steamId64);
   };
 
   const handleCopyTemplate = (content: string) => {
@@ -292,12 +366,25 @@ export default function TemplatesPage() {
             {lookingUp ? 'Looking up...' : 'Lookup'}
           </button>
           {steamProfile && (
-            <button
-              onClick={() => setSteamProfile(null)}
-              className="btn-secondary"
-            >
-              Clear
-            </button>
+            <>
+              <button
+                onClick={handleToggleBookmark}
+                className={`px-4 py-2 rounded-lg border transition-colors ${
+                  isBookmarked
+                    ? 'bg-yellow-500 text-white border-yellow-600 hover:bg-yellow-600'
+                    : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
+                }`}
+                title={isBookmarked ? 'Remove bookmark' : 'Bookmark this player'}
+              >
+                {isBookmarked ? '★ Bookmarked' : '☆ Bookmark'}
+              </button>
+              <button
+                onClick={() => setSteamProfile(null)}
+                className="btn-secondary"
+              >
+                Clear
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -312,7 +399,18 @@ export default function TemplatesPage() {
               Lookup
             </h2>
             {steamProfile ? (
-              <EnhancedSteamProfile profile={steamProfile} serverPresence={serverPresence} />
+              <>
+                <EnhancedSteamProfile profile={steamProfile} serverPresence={serverPresence} />
+                
+                {/* Notes Section */}
+                <div className="mt-6 pt-6 border-t border-dark-border">
+                  <SteamProfileNotes
+                    steamId64={steamProfile.steam_id_64}
+                    notes={steamNotes}
+                    onNotesUpdate={() => fetchSteamNotes(steamProfile.steam_id_64)}
+                  />
+                </div>
+              </>
             ) : (
               <div className="text-center py-12 text-gray-500">
                 <MagnifyingGlassIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -905,6 +1003,9 @@ export default function TemplatesPage() {
           </div>
         </div>
       )}
+
+      {/* Floating Bookmarks Button */}
+      <SteamBookmarksFloatingButton onSelectBookmark={handleSelectBookmark} />
     </div>
   );
 }

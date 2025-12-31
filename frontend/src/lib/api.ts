@@ -127,6 +127,21 @@ export const templateAPI = {
   steamLookup: (steam_id: string) =>
     api.post('/templates/steam-lookup/', { steam_id }),
   refundQuestion: () => api.get('/templates/refund-question/'),
+  
+  // Steam Profile Notes
+  steamNotes: (steam_id_64: string) =>
+    api.get('/templates/steam-notes/', { params: { steam_id_64 } }),
+  createSteamNote: (data: any) => api.post('/templates/steam-notes/', data),
+  updateSteamNote: (id: number, data: any) =>
+    api.patch(`/templates/steam-notes/${id}/`, data),
+  deleteSteamNote: (id: number) => api.delete(`/templates/steam-notes/${id}/`),
+  
+  // Steam Profile Bookmarks
+  steamBookmarks: () => api.get('/templates/steam-bookmarks/'),
+  createSteamBookmark: (data: any) => api.post('/templates/steam-bookmarks/', data),
+  updateSteamBookmark: (id: number, data: any) =>
+    api.patch(`/templates/steam-bookmarks/${id}/`, data),
+  deleteSteamBookmark: (id: number) => api.delete(`/templates/steam-bookmarks/${id}/`),
 };
 
 export const rulesAPI = {
