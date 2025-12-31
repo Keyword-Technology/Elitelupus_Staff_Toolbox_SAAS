@@ -45,6 +45,25 @@ def create_or_link_user(backend, user, response, *args, **kwargs):
             if existing_user:
                 return {'user': existing_user}
             
+            # Check if user exists by email (Steam doesn't provide email, so this is less common)
+            # But we keep it for consistency and future Steam email support
+            email = details.get('email')
+            if email:
+                existing_user = User.objects.filter(email__iexact=email).first()
+                if existing_user:
+                    # Link the Steam account to this existing user
+                    existing_user.steam_id = steam_id
+                    existing_user.steam_id_64 = steam_id_64
+                    existing_user.steam_profile_url = steam_profile
+                    existing_user.steam_avatar = steam_avatar
+                    if not existing_user.display_name:
+                        existing_user.display_name = steam_name
+                    if not existing_user.avatar_url:
+                        existing_user.avatar_url = steam_avatar
+                    existing_user.save()
+                    logger.info(f"Linked Steam account to existing user {existing_user.username} via email")
+                    return {'user': existing_user}
+            
             # Create new user
             if is_new:
                 user = User.objects.create_user(
@@ -55,6 +74,7 @@ def create_or_link_user(backend, user, response, *args, **kwargs):
                     steam_profile_url=steam_profile,
                     steam_avatar=steam_avatar,
                     avatar_url=steam_avatar,
+                    email=email,
                 )
                 return {'user': user, 'is_new': True}
     
@@ -80,11 +100,27 @@ def create_or_link_user(backend, user, response, *args, **kwargs):
             if existing_user:
                 return {'user': existing_user}
             
+            # Check if user exists by email
+            email = response.get('email')
+            if email:
+                existing_user = User.objects.filter(email__iexact=email).first()
+                if existing_user:
+                    # Link the Discord account to this existing user
+                    existing_user.discord_id = discord_id
+                    existing_user.discord_username = discord_username
+                    existing_user.discord_discriminator = discord_discriminator
+                    existing_user.discord_avatar = discord_avatar
+                    if not existing_user.avatar_url:
+                        existing_user.avatar_url = discord_avatar
+                    existing_user.save()
+                    logger.info(f"Linked Discord account to existing user {existing_user.username} via email")
+                    return {'user': existing_user}
+            
             # Create new user
             if is_new:
                 user = User.objects.create_user(
                     username=f"discord_{discord_id}",
-                    email=response.get('email'),
+                    email=email,
                     display_name=discord_username,
                     discord_id=discord_id,
                     discord_username=discord_username,
