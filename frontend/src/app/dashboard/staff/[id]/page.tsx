@@ -140,6 +140,9 @@ export default function StaffDetailsPage() {
     ? details.recent_sessions.filter(s => s.is_active)
     : details.recent_sessions;
 
+  // Find active session if exists
+  const activeSession = details.recent_sessions.find(s => s.is_active);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -174,10 +177,33 @@ export default function StaffDetailsPage() {
                   Inactive
                 </span>
               )}
+              {activeSession && (
+                <span className="px-2 py-1 rounded text-xs font-medium bg-blue-500/20 text-blue-400 flex items-center gap-1">
+                  <ServerIcon className="w-3 h-3" />
+                  Online: {activeSession.server_name}
+                </span>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Active Session Alert */}
+      {activeSession && (
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <ServerIcon className="w-5 h-5 text-blue-400 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-blue-400 font-semibold mb-1">Currently Online</h3>
+              <div className="text-sm text-gray-300 space-y-1">
+                <p><span className="text-gray-400">Server:</span> {activeSession.server_name}</p>
+                <p><span className="text-gray-400">Session Duration:</span> {activeSession.duration_formatted}</p>
+                <p><span className="text-gray-400">Joined:</span> {formatDate(activeSession.join_time)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -392,12 +418,13 @@ export default function StaffDetailsPage() {
       </div>
 
       {/* Staff Timeline */}
-      {details.history_events && details.history_events.length > 0 && (
-        <div className="bg-dark-card rounded-lg border border-dark-border p-6">
-          <h2 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
-            <CalendarIcon className="w-5 h-5" />
-            Staff Timeline
-          </h2>
+      <div className="bg-dark-card rounded-lg border border-dark-border p-6">
+        <h2 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+          <CalendarIcon className="w-5 h-5" />
+          Staff Timeline
+        </h2>
+        
+        {details.history_events && details.history_events.length > 0 ? (
           <div className="space-y-6">
             {details.history_events.map((event, index) => (
               <div key={event.id} className="relative pl-8">
@@ -417,6 +444,10 @@ export default function StaffDetailsPage() {
                       ? 'bg-orange-500 border-orange-400'
                       : event.event_type === 'removed' || event.event_type === 'left'
                       ? 'bg-red-500 border-red-400'
+                      : event.event_type === 'loa_start'
+                      ? 'bg-yellow-500 border-yellow-400'
+                      : event.event_type === 'loa_end'
+                      ? 'bg-green-500 border-green-400'
                       : 'bg-gray-500 border-gray-400'
                   }`}
                 />
@@ -438,6 +469,12 @@ export default function StaffDetailsPage() {
                       {event.event_type === 'role_change' && !event.is_promotion && !event.is_demotion && (
                         <ArrowRightIcon className="w-4 h-4 text-gray-400" />
                       )}
+                      {event.event_type === 'loa_start' && (
+                        <ClockIcon className="w-4 h-4 text-yellow-400" />
+                      )}
+                      {event.event_type === 'loa_end' && (
+                        <ClockIcon className="w-4 h-4 text-green-400" />
+                      )}
                       
                       {/* Event type */}
                       <span
@@ -450,6 +487,10 @@ export default function StaffDetailsPage() {
                             ? 'text-orange-400'
                             : event.event_type === 'removed' || event.event_type === 'left'
                             ? 'text-red-400'
+                            : event.event_type === 'loa_start'
+                            ? 'text-yellow-400'
+                            : event.event_type === 'loa_end'
+                            ? 'text-green-400'
                             : 'text-gray-400'
                         }`}
                       >
@@ -514,8 +555,16 @@ export default function StaffDetailsPage() {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <CalendarIcon className="w-12 h-12 mx-auto mb-3 text-gray-600" />
+            <p className="text-lg mb-1">No timeline events recorded</p>
+            <p className="text-sm">
+              Staff history events (joins, promotions, demotions, LOA) will appear here once tracked.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
