@@ -6,6 +6,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from .models import SteamProfileHistory, SteamProfileSearch
+from .steamid_scraper import scrape_steamid_profile
 
 
 class SteamLookupService:
@@ -47,6 +48,9 @@ class SteamLookupService:
         # Fetch fresh data from multiple sources
         profile_data = self._fetch_steam_api_data(steam_id_64)
         ban_data = self._fetch_ban_data(steam_id_64)
+        
+        # Fetch enhanced data from steamid.pro scraper
+        scraped_data = self._fetch_scraped_data(steam_id_64)
         
         # Update search record
         search_record.steam_id = steam_id_converted
@@ -104,6 +108,47 @@ class SteamLookupService:
             search_record.days_since_last_ban = ban_data.get('DaysSinceLastBan', None)
             search_record.community_banned = ban_data.get('CommunityBanned', False)
             search_record.trade_ban = ban_data.get('EconomyBan', '')
+        
+        # Update scraped data from steamid.pro
+        if scraped_data:
+            # Use scraped avatar if Steam API didn't provide one
+            if not search_record.avatar_url and scraped_data.get('avatar_url'):
+                search_record.avatar_url = scraped_data['avatar_url']
+            
+            # Use scraped display name if Steam API didn't provide one
+            if not search_record.persona_name and scraped_data.get('display_name'):
+                search_record.persona_name = scraped_data['display_name']
+            
+            # Enhanced steamid.pro fields
+            search_record.vanity_url = scraped_data.get('vanity_url', '')
+            search_record.account_id = scraped_data.get('account_id', '')
+            search_record.steam_id_2 = scraped_data.get('steam_id_2', '')
+            search_record.invite_url = scraped_data.get('invite_url', '')
+            search_record.invite_url_short = scraped_data.get('invite_url_short', '')
+            search_record.fivem_hex = scraped_data.get('fivem_hex', '')
+            search_record.online_status = scraped_data.get('online_status', '')
+            search_record.estimated_value = scraped_data.get('estimated_value', '')
+            search_record.rating_value = scraped_data.get('rating_value')
+            search_record.rating_count = scraped_data.get('rating_count')
+            search_record.scraped_description = scraped_data.get('description', '')
+            search_record.last_scraped_at = timezone.now()
+            search_record.scrape_data = scraped_data  # Store raw scraped data
+            
+            # Use scraped level if not available from Steam API
+            if not search_record.level and scraped_data.get('steam_level'):
+                search_record.level = scraped_data['steam_level']
+            
+            # Override ban data with scraped data if more detailed
+            if scraped_data.get('vac_banned') is not None:
+                if scraped_data.get('vac_bans_count'):
+                    search_record.vac_bans = scraped_data['vac_bans_count']
+            if scraped_data.get('game_banned') is not None:
+                if scraped_data.get('game_bans_count'):
+                    search_record.game_bans = scraped_data['game_bans_count']
+            if scraped_data.get('community_banned') is not None:
+                search_record.community_banned = scraped_data['community_banned']
+            if scraped_data.get('trade_banned') is not None:
+                search_record.trade_ban = 'Banned' if scraped_data['trade_banned'] else 'None'
         
         search_record.save()
         
@@ -261,6 +306,21 @@ class SteamLookupService:
         
         return None
     
+    def _fetch_scraped_data(self, steam_id_64):
+        """Fetch enhanced profile data from steamid.pro scraper."""
+        try:
+            scraped_data = scrape_steamid_profile(steam_id_64)
+            if scraped_data:
+                print(f"Scraped data for {steam_id_64}:")
+                print(f"  - avatar_url: {scraped_data.get('avatar_url')}")
+                print(f"  - display_name: {scraped_data.get('display_name')}")
+                print(f"  - vanity_url: {scraped_data.get('vanity_url')}")
+                print(f"  - estimated_value: {scraped_data.get('estimated_value')}")
+            return scraped_data
+        except Exception as e:
+            print(f"Error scraping steamid.pro data: {e}")
+            return None
+    
     def _fetch_ban_data(self, steam_id_64):
         """Fetch ban information from Steam API."""
         if not self.steam_api_key:
@@ -360,6 +420,20 @@ class SteamLookupService:
             'level': search_record.level,
             'account_created': search_record.account_created,
             'comment_permission': search_record.comment_permission,
+            
+            # Enhanced scraped data from steamid.pro
+            'vanity_url': search_record.vanity_url,
+            'account_id': search_record.account_id,
+            'steam_id_2': search_record.steam_id_2,
+            'invite_url': search_record.invite_url,
+            'invite_url_short': search_record.invite_url_short,
+            'fivem_hex': search_record.fivem_hex,
+            'online_status': search_record.online_status,
+            'estimated_value': search_record.estimated_value,
+            'rating_value': search_record.rating_value,
+            'rating_count': search_record.rating_count,
+            'scraped_description': search_record.scraped_description,
+            'last_scraped_at': search_record.last_scraped_at,
         }
     
     def _serialize_templates(self, templates, template_type):

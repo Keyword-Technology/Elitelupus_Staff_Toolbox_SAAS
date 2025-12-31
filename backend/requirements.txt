@@ -30,6 +30,8 @@ gspread>=5.12.0
 # Steam API
 # python-steam>=1.0.0  # Not available, using included steam module instead
 requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
 
 # Discord Bot
 discord.py>=2.3.0

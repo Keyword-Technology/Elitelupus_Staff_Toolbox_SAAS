@@ -59,6 +59,21 @@ class SteamProfileSearch(models.Model):
     is_limited = models.BooleanField(default=False)
     level = models.IntegerField(null=True, blank=True)
     
+    # Enhanced scraped data from steamid.pro
+    vanity_url = models.CharField(max_length=255, blank=True, help_text='Custom vanity URL')
+    account_id = models.CharField(max_length=50, blank=True, help_text='Steam Account ID')
+    steam_id_2 = models.CharField(max_length=50, blank=True, help_text='Steam2 ID format')
+    invite_url = models.URLField(blank=True, help_text='Steam invite URL')
+    invite_url_short = models.URLField(blank=True, help_text='Short Steam invite URL')
+    fivem_hex = models.CharField(max_length=50, blank=True, help_text='FiveM HEX identifier')
+    online_status = models.CharField(max_length=20, blank=True, help_text='Current online status')
+    estimated_value = models.CharField(max_length=50, blank=True, help_text='Estimated account value')
+    rating_value = models.FloatField(null=True, blank=True, help_text='Community rating value')
+    rating_count = models.IntegerField(null=True, blank=True, help_text='Number of ratings')
+    scraped_description = models.TextField(blank=True, help_text='Profile description from scraper')
+    last_scraped_at = models.DateTimeField(null=True, blank=True, help_text='When profile was last scraped')
+    scrape_data = models.JSONField(default=dict, blank=True, help_text='Raw scraped data')
+    
     class Meta:
         ordering = ['-last_searched_at']
         verbose_name = 'Steam Profile Search'

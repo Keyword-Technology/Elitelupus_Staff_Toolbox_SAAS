@@ -195,7 +195,48 @@ export default function EnhancedSteamProfile({ profile }: Props) {
                   <span className="text-gray-400">steamID:</span>{' '}
                   <span className="text-white font-mono">{profile.steam_id}</span>
                 </div>
+                {profile.profile.steam_id_2 && (
+                  <div>
+                    <span className="text-gray-400">steamID2:</span>{' '}
+                    <span className="text-white font-mono">{profile.profile.steam_id_2}</span>
+                  </div>
+                )}
                 {profile.profile.steam_id_3 && (
+                  <div>
+                    <span className="text-gray-400">steamID3:</span>{' '}
+                    <span className="text-white font-mono">{profile.profile.steam_id_3}</span>
+                  </div>
+                )}
+                <div>
+                  <span className="text-gray-400">steamID64:</span>{' '}
+                  <span className="text-white font-mono">{profile.steam_id_64}</span>
+                </div>
+                {profile.profile.account_id && (
+                  <div>
+                    <span className="text-gray-400">Account ID:</span>{' '}
+                    <span className="text-white font-mono">{profile.profile.account_id}</span>
+                  </div>
+                )}
+                {profile.profile.vanity_url && (
+                  <div>
+                    <span className="text-gray-400">Vanity URL:</span>{' '}
+                    <span className="text-white font-mono">{profile.profile.vanity_url}</span>
+                  </div>
+                )}
+                {profile.profile.custom_url && (
+                  <div>
+                    <span className="text-gray-400">Custom URL:</span>{' '}
+                    <span className="text-white font-mono">{profile.profile.custom_url}</span>
+                  </div>
+                )}
+                {profile.profile.fivem_hex && (
+                  <div>
+                    <span className="text-gray-400">FiveM HEX:</span>{' '}
+                    <span className="text-white font-mono">{profile.profile.fivem_hex}</span>
+                  </div>
+                )}
+              </div>
+            </div>
                   <div>
                     <span className="text-gray-400">steamID3:</span>{' '}
                     <span className="text-white font-mono">{profile.profile.steam_id_3}</span>
@@ -277,6 +318,44 @@ export default function EnhancedSteamProfile({ profile }: Props) {
                 <p className="text-gray-400">comments</p>
                 <p className="text-white">{profile.profile.comment_permission ? 'enabled' : 'disabled'}</p>
               </div>
+              
+              {profile.profile.online_status && (
+                <div>
+                  <p className="text-gray-400">online status</p>
+                  <p className="text-white">{profile.profile.online_status}</p>
+                </div>
+              )}
+              
+              {profile.profile.estimated_value && (
+                <div>
+                  <p className="text-gray-400">estimated value</p>
+                  <p className="text-white font-semibold text-green-400">${profile.profile.estimated_value}</p>
+                </div>
+              )}
+              
+              {profile.profile.rating_value !== undefined && profile.profile.rating_count !== undefined && (
+                <div>
+                  <p className="text-gray-400">community rating</p>
+                  <p className="text-white">
+                    ⭐ {profile.profile.rating_value?.toFixed(2)}/5.0 
+                    <span className="text-gray-400 text-xs ml-1">({profile.profile.rating_count} votes)</span>
+                  </p>
+                </div>
+              )}
+              
+              {profile.profile.invite_url_short && (
+                <div className="col-span-2">
+                  <p className="text-gray-400">invite link</p>
+                  <a 
+                    href={profile.profile.invite_url_short} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 font-mono text-xs truncate block"
+                  >
+                    {profile.profile.invite_url_short}
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* Past IGN Names */}

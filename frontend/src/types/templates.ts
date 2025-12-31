@@ -128,6 +128,20 @@ export interface SteamProfile {
     level?: number;
     account_created?: string;
     comment_permission: boolean;
+    
+    // Enhanced scraped data from steamid.pro
+    vanity_url?: string;
+    account_id?: string;
+    steam_id_2?: string;
+    invite_url?: string;
+    invite_url_short?: string;
+    fivem_hex?: string;
+    online_status?: string;
+    estimated_value?: string;
+    rating_value?: number;
+    rating_count?: number;
+    scraped_description?: string;
+    last_scraped_at?: string;
   };
   bans: {
     vac_bans: number;
