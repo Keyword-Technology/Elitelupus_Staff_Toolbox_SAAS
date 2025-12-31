@@ -42,7 +42,7 @@ class DiscordOAuth2(BaseDiscordOAuth2):
     ACCESS_TOKEN_METHOD = 'POST'
     REDIRECT_STATE = False
     SCOPE_SEPARATOR = ' '
-    DEFAULT_SCOPE = ['identify', 'email']
+    DEFAULT_SCOPE = ['identify']
     
     def setting(self, name, default=None):
         """Override to get KEY and SECRET from database system settings first."""

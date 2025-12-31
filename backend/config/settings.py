@@ -159,7 +159,7 @@ SOCIAL_AUTH_STEAM_EXTRA_DATA = ['player']
 # Discord OAuth Settings
 SOCIAL_AUTH_DISCORD_KEY = os.getenv('DISCORD_CLIENT_ID', '')
 SOCIAL_AUTH_DISCORD_SECRET = os.getenv('DISCORD_CLIENT_SECRET', '')
-SOCIAL_AUTH_DISCORD_SCOPE = ['identify', 'email']
+SOCIAL_AUTH_DISCORD_SCOPE = ['identify']
 
 # Discord Bot Settings (for staff status monitoring - OPTIONAL)
 # Leave empty to disable Discord integration and use in-app activity tracking instead
