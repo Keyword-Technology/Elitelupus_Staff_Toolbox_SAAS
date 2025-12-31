@@ -181,7 +181,9 @@ export default function TemplatesPage() {
   const fetchSteamNotes = async (steamId64: string) => {
     try {
       const res = await templateAPI.steamNotes(steamId64);
-      setSteamNotes(res.data);
+      // Handle both array and paginated response formats
+      const data = Array.isArray(res.data) ? res.data : (res.data.results || []);
+      setSteamNotes(data);
     } catch (error) {
       console.error('Failed to fetch steam notes:', error);
       setSteamNotes([]);
@@ -191,7 +193,9 @@ export default function TemplatesPage() {
   const checkIfBookmarked = async (steamId64: string) => {
     try {
       const res = await templateAPI.steamBookmarks();
-      const bookmark = res.data.find(
+      // Handle both array and paginated response formats
+      const data = Array.isArray(res.data) ? res.data : (res.data.results || []);
+      const bookmark = data.find(
         (b: any) => b.steam_profile_data.steam_id_64 === steamId64
       );
       if (bookmark) {
@@ -203,6 +207,8 @@ export default function TemplatesPage() {
       }
     } catch (error) {
       console.error('Failed to check bookmark status:', error);
+      setIsBookmarked(false);
+      setCurrentBookmarkId(null);
     }
   };
 
@@ -399,18 +405,7 @@ export default function TemplatesPage() {
               Lookup
             </h2>
             {steamProfile ? (
-              <>
-                <EnhancedSteamProfile profile={steamProfile} serverPresence={serverPresence} />
-                
-                {/* Notes Section */}
-                <div className="mt-6 pt-6 border-t border-dark-border">
-                  <SteamProfileNotes
-                    steamId64={steamProfile.steam_id_64}
-                    notes={steamNotes}
-                    onNotesUpdate={() => fetchSteamNotes(steamProfile.steam_id_64)}
-                  />
-                </div>
-              </>
+              <EnhancedSteamProfile profile={steamProfile} serverPresence={serverPresence} />
             ) : (
               <div className="text-center py-12 text-gray-500">
                 <MagnifyingGlassIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -535,6 +530,17 @@ export default function TemplatesPage() {
               </div>
             )}
           </div>
+
+          {/* Admin Notes & Warnings Card */}
+          {steamProfile && (
+            <div className="bg-dark-card rounded-lg border border-dark-border p-6">
+              <SteamProfileNotes
+                steamId64={steamProfile.steam_id_64}
+                notes={steamNotes}
+                onNotesUpdate={() => fetchSteamNotes(steamProfile.steam_id_64)}
+              />
+            </div>
+          )}
         </div>
       </div>
 

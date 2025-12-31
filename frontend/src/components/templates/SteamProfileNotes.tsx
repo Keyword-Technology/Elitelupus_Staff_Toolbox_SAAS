@@ -118,7 +118,9 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
     }
   };
 
-  const activeWarnings = notes.filter(
+  // Ensure notes is always an array
+  const notesList = Array.isArray(notes) ? notes : [];
+  const activeWarnings = notesList.filter(
     n => n.is_active && (n.note_type === 'warning_verbal' || n.note_type === 'warning_written')
   );
 
@@ -272,13 +274,13 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
 
       {/* Notes List */}
       <div className="space-y-3">
-        {notes.length === 0 ? (
+        {notesList.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <ChatBubbleLeftIcon className="w-12 h-12 mx-auto mb-2 text-gray-400" />
             <p>No notes or warnings recorded for this player</p>
           </div>
         ) : (
-          notes.map((note) => {
+          notesList.map((note) => {
             const Icon = NOTE_TYPE_ICONS[note.note_type as keyof typeof NOTE_TYPE_ICONS] || ChatBubbleLeftIcon;
             const colorClass = NOTE_TYPE_COLORS[note.note_type as keyof typeof NOTE_TYPE_COLORS] || NOTE_TYPE_COLORS.general;
             const severityClass = SEVERITY_COLORS[note.severity as keyof typeof SEVERITY_COLORS];
