@@ -2,7 +2,7 @@ import logging
 
 import a2s
 from a2s import BrokenMessageError
-from apps.staff.models import StaffRoster
+from apps.staff.models import StaffRoster, ServerSession
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
@@ -84,7 +84,14 @@ class ServerQueryService:
         }
     
     def _update_server_players(self, server, players):
-        """Update player list for a server."""
+        """Update player list for a server and track staff sessions."""
+        # Get current staff on this server before clearing
+        current_staff = {
+            p.steam_id: p 
+            for p in ServerPlayer.objects.filter(server=server, is_staff=True)
+            if p.steam_id
+        }
+        
         # Clear old players
         ServerPlayer.objects.filter(server=server).delete()
         
@@ -94,9 +101,14 @@ class ServerQueryService:
             for entry in StaffRoster.objects.filter(is_active=True)
         }
         
+        # Track new staff on server
+        new_staff = {}
+        
         for player in players:
             is_staff = player.name.lower() in staff_roster
             staff_entry = staff_roster.get(player.name.lower())
+            
+            steam_id = staff_entry.steam_id if staff_entry else None
             
             ServerPlayer.objects.create(
                 server=server,
@@ -105,8 +117,57 @@ class ServerQueryService:
                 duration=int(player.duration),
                 is_staff=is_staff,
                 staff_rank=staff_entry.rank if staff_entry else '',
-                steam_id=staff_entry.steam_id if staff_entry else None,
+                steam_id=steam_id,
             )
+            
+            if is_staff and steam_id:
+                new_staff[steam_id] = staff_entry
+        
+        # Track session changes
+        self._track_session_changes(server, current_staff, new_staff)
+    
+    def _track_session_changes(self, server, old_staff, new_staff):
+        """Track staff join/leave events and update sessions."""
+        now = timezone.now()
+        
+        # Find staff who left (were in old but not in new)
+        left_staff = set(old_staff.keys()) - set(new_staff.keys())
+        for steam_id in left_staff:
+            # Close active session for this staff member
+            active_session = ServerSession.objects.filter(
+                server=server,
+                steam_id=steam_id,
+                leave_time__isnull=True
+            ).first()
+            
+            if active_session:
+                active_session.leave_time = now
+                active_session.calculate_duration()
+                active_session.save()
+                logger.info(f"Closed session for {active_session.staff.name} on {server.name}")
+        
+        # Find staff who joined (in new but not in old)
+        joined_staff = set(new_staff.keys()) - set(old_staff.keys())
+        for steam_id in joined_staff:
+            staff_entry = new_staff[steam_id]
+            
+            # Check if there's already an active session (shouldn't happen, but safety check)
+            existing_session = ServerSession.objects.filter(
+                server=server,
+                steam_id=steam_id,
+                leave_time__isnull=True
+            ).first()
+            
+            if not existing_session:
+                # Create new session
+                ServerSession.objects.create(
+                    staff=staff_entry,
+                    server=server,
+                    join_time=now,
+                    steam_id=steam_id,
+                    player_name=staff_entry.name
+                )
+                logger.info(f"Started session for {staff_entry.name} on {server.name}")
     
     def query_all_servers(self):
         """Query all active servers and return a list payload safe for WebSocket serialization."""
