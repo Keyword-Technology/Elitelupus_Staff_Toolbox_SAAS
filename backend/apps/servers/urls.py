@@ -7,6 +7,7 @@ from .views import (
     ServerPlayersView,
     StaffDistributionView,
     ServerHistoryView,
+    ServerStatsView,
 )
 
 urlpatterns = [
@@ -17,4 +18,5 @@ urlpatterns = [
     path('<int:pk>/', ServerDetailView.as_view(), name='server_detail'),
     path('<int:pk>/players/', ServerPlayersView.as_view(), name='server_players'),
     path('<int:pk>/history/', ServerHistoryView.as_view(), name='server_history'),
+    path('<int:pk>/stats/', ServerStatsView.as_view(), name='server_stats'),
 ]

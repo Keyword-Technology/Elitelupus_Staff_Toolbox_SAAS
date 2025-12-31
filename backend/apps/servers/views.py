@@ -1,3 +1,6 @@
+from datetime import datetime, timedelta
+from django.utils import timezone
+from django.db.models import Avg, Count
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -125,3 +128,81 @@ class ServerHistoryView(generics.ListAPIView):
     def get_queryset(self):
         server_id = self.kwargs.get('pk')
         return ServerStatusLog.objects.filter(server_id=server_id)[:100]
+
+
+class ServerStatsView(APIView):
+    """Get detailed server statistics including 24-hour staff tracking and daily averages."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            server = GameServer.objects.get(pk=pk)
+        except GameServer.DoesNotExist:
+            return Response(
+                {'error': 'Server not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get logs from the last 24 hours
+        now = timezone.now()
+        last_24h = now - timedelta(hours=24)
+        recent_logs = ServerStatusLog.objects.filter(
+            server=server,
+            timestamp__gte=last_24h
+        ).order_by('timestamp')
+
+        # Format 24-hour data
+        hourly_data = []
+        for log in recent_logs:
+            hourly_data.append({
+                'timestamp': log.timestamp.isoformat(),
+                'staff_count': log.staff_count,
+                'player_count': log.player_count,
+                'is_online': log.is_online
+            })
+
+        # Get all historical data for daily averages (last 30 days)
+        last_30d = now - timedelta(days=30)
+        all_logs = ServerStatusLog.objects.filter(
+            server=server,
+            timestamp__gte=last_30d,
+            is_online=True
+        )
+
+        # Calculate hourly averages across all days
+        hourly_averages = []
+        for hour in range(24):
+            hour_logs = all_logs.filter(timestamp__hour=hour)
+            if hour_logs.exists():
+                avg_staff = hour_logs.aggregate(Avg('staff_count'))['staff_count__avg'] or 0
+                avg_players = hour_logs.aggregate(Avg('player_count'))['player_count__avg'] or 0
+                count = hour_logs.count()
+            else:
+                avg_staff = 0
+                avg_players = 0
+                count = 0
+            
+            hourly_averages.append({
+                'hour': hour,
+                'avg_staff': round(avg_staff, 2),
+                'avg_players': round(avg_players, 2),
+                'sample_count': count
+            })
+
+        # Get current server status
+        current_staff = ServerPlayer.objects.filter(
+            server=server,
+            is_staff=True
+        ).count()
+
+        return Response({
+            'server': GameServerSerializer(server).data,
+            'current_staff': current_staff,
+            'last_24h': hourly_data,
+            'hourly_averages': hourly_averages,
+            'stats_period': {
+                'start': last_24h.isoformat(),
+                'end': now.isoformat(),
+                'average_period_days': 30
+            }
+        })

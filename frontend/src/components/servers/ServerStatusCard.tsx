@@ -1,6 +1,7 @@
 'use client';
 
-import { UsersIcon, MapIcon, SignalIcon, SignalSlashIcon } from '@heroicons/react/24/outline';
+import { UsersIcon, MapIcon, SignalIcon, SignalSlashIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { useRouter } from 'next/navigation';
 
 interface Server {
   id: number;
@@ -24,9 +25,15 @@ interface ServerStatusCardProps {
 }
 
 export function ServerStatusCard({ server }: ServerStatusCardProps) {
+  const router = useRouter();
+  
   const playerPercentage = server.max_players > 0 
     ? (server.current_players / server.max_players) * 100 
     : 0;
+
+  const handleViewStats = () => {
+    router.push(`/servers/${server.id}/stats`);
+  };
 
   return (
     <div className="bg-dark-card rounded-lg p-6 border border-dark-border">
@@ -89,6 +96,15 @@ export function ServerStatusCard({ server }: ServerStatusCardProps) {
               <span className="text-gray-400">Staff Online</span>
               <span className="text-primary-400 font-medium">{server.staff_online}</span>
             </div>
+
+            {/* Stats Button */}
+            <button
+              onClick={handleViewStats}
+              className="w-full mt-3 flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white py-2 px-4 rounded-lg transition-colors duration-200"
+            >
+              <ChartBarIcon className="w-4 h-4" />
+              View Server Stats
+            </button>
 
             {/* Staff badges */}
             {server.staff_list && server.staff_list.length > 0 && (
