@@ -26,6 +26,7 @@ interface Server {
   staff_list?: Array<{
     name: string;
     rank: string;
+    role_color: string;
     steam_id: string;
   }>;
   last_updated: string;

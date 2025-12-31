@@ -14,6 +14,7 @@ interface Server {
   staff_list?: Array<{
     name: string;
     rank: string;
+    role_color: string;
     steam_id: string;
   }>;
 }
@@ -97,7 +98,11 @@ export function ServerStatusCard({ server }: ServerStatusCardProps) {
                   {server.staff_list.map((staff, idx) => (
                     <span
                       key={idx}
-                      className="px-2 py-1 bg-primary-500/20 text-primary-400 text-xs rounded-full font-medium"
+                      className="px-2 py-1 text-xs rounded-full font-medium"
+                      style={{
+                        backgroundColor: `${staff.role_color}20`,
+                        color: staff.role_color,
+                      }}
                       title={`${staff.name} - ${staff.rank}`}
                     >
                       {staff.name}

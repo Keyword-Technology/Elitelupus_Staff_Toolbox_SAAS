@@ -28,6 +28,8 @@ class ServerStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        from django.conf import settings
+        
         servers = GameServer.objects.filter(is_active=True)
         
         result = []
@@ -39,12 +41,20 @@ class ServerStatusView(APIView):
             server_name = server.server_name or server.name
             map_name = server.map_name or 'Unknown'
             
-            # Build staff list with details
-            staff_list = [{
-                'name': player.name,
-                'rank': player.staff_rank,
-                'steam_id': player.steam_id,
-            } for player in staff_players]
+            # Build staff list with details including role color and priority
+            staff_list = []
+            for player in staff_players:
+                rank = player.staff_rank or 'Unknown'
+                staff_list.append({
+                    'name': player.name,
+                    'rank': rank,
+                    'role_color': settings.STAFF_ROLE_COLORS.get(rank, '#999999'),
+                    'role_priority': settings.STAFF_ROLE_PRIORITIES.get(rank, 999),
+                    'steam_id': player.steam_id,
+                })
+            
+            # Sort staff list by role priority (lower = higher rank)
+            staff_list.sort(key=lambda x: x['role_priority'])
             
             result.append({
                 'id': server.id,
