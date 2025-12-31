@@ -1,14 +1,8 @@
 from django.urls import path
-from .views import (
-    ServerListView,
-    ServerDetailView,
-    ServerStatusView,
-    RefreshServersView,
-    ServerPlayersView,
-    StaffDistributionView,
-    ServerHistoryView,
-    ServerStatsView,
-)
+
+from .views import (RefreshServersView, ServerDetailView, ServerHistoryView,
+                    ServerListView, ServerPlayersView, ServerStatsView,
+                    ServerStatusView, StaffDistributionView)
 
 urlpatterns = [
     path('', ServerListView.as_view(), name='server_list'),
