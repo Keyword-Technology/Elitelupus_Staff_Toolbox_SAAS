@@ -105,7 +105,13 @@ export const serverAPI = {
   players: (id: number) => api.get(`/servers/${id}/players/`),
   history: (id: number) => api.get(`/servers/${id}/history/`),
   stats: (id: number) => api.get(`/servers/${id}/stats/`),
-  playerLookup: (steam_id: string) => api.get('/servers/player-lookup/', { params: { steam_id } }),
+  playerLookup: (steam_id: string, player_names?: string[]) => 
+    api.get('/servers/player-lookup/', { 
+      params: { 
+        steam_id,
+        player_names: player_names?.join(',') || ''
+      } 
+    }),
 };
 
 export const templateAPI = {

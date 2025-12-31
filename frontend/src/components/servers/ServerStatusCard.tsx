@@ -18,6 +18,8 @@ interface Player {
 interface Server {
   id: number;
   name: string;
+  ip_address: string;
+  port: number;
   server_name: string;
   map_name: string;
   current_players: number;
@@ -75,6 +77,12 @@ export function ServerStatusCard({ server }: ServerStatusCardProps) {
     if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
     
     return parts.join(' ');
+  };
+
+  const handleJoinServer = () => {
+    const connectUrl = `steam://connect/${server.ip_address}:${server.port}`;
+    window.location.href = connectUrl;
+    toast.success(`Connecting to ${server.name}...`);
   };
 
   return (
@@ -140,7 +148,14 @@ export function ServerStatusCard({ server }: ServerStatusCardProps) {
             </div>
 
             {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-2 mt-3">
+            <div className="grid grid-cols-3 gap-2 mt-3">
+              <button
+                onClick={handleJoinServer}
+                className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors duration-200"
+              >
+                <SignalIcon className="w-4 h-4" />
+                Join
+              </button>
               <button
                 onClick={handleViewStats}
                 className="flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white py-2 px-4 rounded-lg transition-colors duration-200"

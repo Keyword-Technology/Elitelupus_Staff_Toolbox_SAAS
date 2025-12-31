@@ -122,19 +122,35 @@ class StaffDistributionView(APIView):
 
 
 class PlayerLookupView(APIView):
-    """Look up a player by Steam ID across all servers."""
+    """Look up a player by Steam ID or name across all servers."""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         steam_id = request.query_params.get('steam_id')
-        if not steam_id:
+        player_names = request.query_params.get('player_names', '').split(',')
+        player_names = [name.strip() for name in player_names if name.strip()]
+        
+        if not steam_id and not player_names:
             return Response(
-                {'error': 'steam_id parameter required'},
+                {'error': 'steam_id or player_names parameter required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         # Search for player across all servers
-        players = ServerPlayer.objects.filter(steam_id__iexact=steam_id).select_related('server')
+        # First try by Steam ID (for staff members)
+        players = ServerPlayer.objects.none()
+        if steam_id:
+            players = ServerPlayer.objects.filter(steam_id__iexact=steam_id).select_related('server')
+        
+        # If not found by Steam ID, try by player names
+        if not players.exists() and player_names:
+            from django.db.models import Q
+
+            # Build a query to match any of the player names (case-insensitive)
+            name_query = Q()
+            for name in player_names:
+                name_query |= Q(name__iexact=name)
+            players = ServerPlayer.objects.filter(name_query).select_related('server')
         
         if not players.exists():
             return Response({

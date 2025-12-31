@@ -140,7 +140,10 @@ export default function TemplatesPage() {
       
       // Check if player is online on any server
       try {
-        const presenceRes = await serverAPI.playerLookup(res.data.steam_id_64 || res.data.steam_id);
+        const presenceRes = await serverAPI.playerLookup(
+          res.data.steam_id_64 || res.data.steam_id,
+          Array.from(igns)
+        );
         setServerPresence(presenceRes.data);
       } catch (error) {
         // Not online or lookup failed - not a critical error
