@@ -1,8 +1,9 @@
 """
 Celery tasks for staff roster management.
 """
-from celery import shared_task
 import logging
+
+from celery import shared_task
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,18 @@ def sync_staff_roster():
     
     try:
         service = StaffSyncService()
-        result = service.sync_staff_roster()
+        log = service.sync_staff_roster()
+        
+        # Return JSON-serializable dict instead of model instance
+        result = {
+            'success': log.success,
+            'records_synced': log.records_synced,
+            'records_added': log.records_added,
+            'records_updated': log.records_updated,
+            'records_removed': log.records_removed,
+            'error_message': log.error_message,
+            'synced_at': log.synced_at.isoformat() if log.synced_at else None,
+        }
         
         logger.info(f"Staff roster sync completed: {result}")
         return result
@@ -27,9 +39,10 @@ def sync_staff_roster():
 @shared_task
 def update_user_from_roster(user_id: int):
     """Update a single user's information from roster."""
-    from django.contrib.auth import get_user_model
-    from .models import StaffRoster
     from django.conf import settings
+    from django.contrib.auth import get_user_model
+
+    from .models import StaffRoster
     
     User = get_user_model()
     
