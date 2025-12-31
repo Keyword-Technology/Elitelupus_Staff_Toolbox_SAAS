@@ -116,7 +116,7 @@ export default function StaffPage() {
     setCurrentPage(1); // Reset to first page when sorting
   };
 
-  const SortIcon = ({ column }: { column: string }) => {
+  const renderSortIcon = (column: string) => {
     if (sortBy !== column) {
       return <ChevronUpIcon className="w-4 h-4 text-gray-600 opacity-0 group-hover:opacity-50 transition-opacity" />;
     }
@@ -268,7 +268,7 @@ export default function StaffPage() {
                 >
                   <div className="flex items-center gap-2">
                     Staff Member
-                    <SortIcon column="name" />
+                    {renderSortIcon('name')}
                   </div>
                 </th>
                 <th 
@@ -277,7 +277,7 @@ export default function StaffPage() {
                 >
                   <div className="flex items-center gap-2">
                     Role
-                    <SortIcon column="rank_priority" />
+                    {renderSortIcon('rank_priority')}
                   </div>
                 </th>
                 <th 
@@ -286,7 +286,7 @@ export default function StaffPage() {
                 >
                   <div className="flex items-center gap-2">
                     Steam ID
-                    <SortIcon column="steam_id" />
+                    {renderSortIcon('steam_id')}
                   </div>
                 </th>
                 <th 
@@ -295,7 +295,7 @@ export default function StaffPage() {
                 >
                   <div className="flex items-center gap-2">
                     Timezone
-                    <SortIcon column="timezone" />
+                    {renderSortIcon('timezone')}
                   </div>
                 </th>
                 <th 
@@ -304,10 +304,10 @@ export default function StaffPage() {
                 >
                   <div className="flex items-center gap-2">
                     Status
-                    <SortIcon column="is_active" />
+                    {renderSortIcon('is_active')}
                   </div>
                 </th>
-                <tActivityName="text-left p-4 text-gray-400 font-medium">
+                <th className="text-left p-4 text-gray-400 font-medium">
                   Online
                 </th>
                 <th className="text-left p-4 text-gray-400 font-medium">
