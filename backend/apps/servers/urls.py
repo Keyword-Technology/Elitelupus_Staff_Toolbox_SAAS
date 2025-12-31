@@ -1,8 +1,8 @@
 from django.urls import re_path
 
-from .views import (RefreshServersView, ServerDetailView, ServerHistoryView,
-                    ServerListView, ServerPlayersView, ServerStatsView,
-                    ServerStatusView, StaffDistributionView, PlayerLookupView)
+from .views import (PlayerLookupView, RefreshServersView, ServerDetailView,
+                    ServerHistoryView, ServerListView, ServerPlayersView,
+                    ServerStatsView, ServerStatusView, StaffDistributionView)
 
 urlpatterns = [
     re_path(r'^/?$', ServerListView.as_view(), name='server_list'),
