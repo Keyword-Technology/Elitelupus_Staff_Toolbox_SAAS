@@ -188,7 +188,7 @@ export default function ServersPage() {
               <ChartBarIcon className="w-5 h-5 text-orange-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-400">Server Load</p>
+              <p className="text-sm text-gray-400">Server Capacity</p>
               <p className="text-2xl font-bold text-white">
                 {totalMaxPlayers > 0
                   ? Math.round((totalPlayers / totalMaxPlayers) * 100)
