@@ -139,7 +139,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Authentication Backends
 AUTHENTICATION_BACKENDS = (
-    'social_core.backends.steam.SteamOpenId',
+    'apps.accounts.backends.SteamOpenId',  # Custom backend that reads API key from database
     'apps.accounts.backends.DiscordOAuth2',
     'django.contrib.auth.backends.ModelBackend',
 )
@@ -147,7 +147,7 @@ AUTHENTICATION_BACKENDS = (
 # Social Auth Settings
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
 
-# Steam OAuth Settings
+# Steam OAuth Settings (fallback if not in database)
 SOCIAL_AUTH_STEAM_API_KEY = os.getenv('STEAM_API_KEY', '')
 SOCIAL_AUTH_STEAM_EXTRA_DATA = ['player']
 

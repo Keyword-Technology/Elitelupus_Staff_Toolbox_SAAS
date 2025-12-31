@@ -1,4 +1,28 @@
+from django.conf import settings
 from social_core.backends.discord import DiscordOAuth2 as BaseDiscordOAuth2
+from social_core.backends.steam import SteamOpenId as BaseSteamOpenId
+
+
+class SteamOpenId(BaseSteamOpenId):
+    """Custom Steam OpenID backend that reads API key from database system settings."""
+    
+    name = 'steam'
+    
+    def get_key_and_secret(self):
+        """Override to get API key from database system settings first."""
+        try:
+            from apps.system_settings.models import SystemSetting
+            setting = SystemSetting.objects.filter(
+                key='STEAM_API_KEY',
+                is_active=True
+            ).first()
+            if setting and setting.value:
+                return setting.value, ''
+        except Exception:
+            pass
+        
+        # Fall back to settings/environment variable
+        return self.setting('API_KEY'), ''
 
 
 class DiscordOAuth2(BaseDiscordOAuth2):
