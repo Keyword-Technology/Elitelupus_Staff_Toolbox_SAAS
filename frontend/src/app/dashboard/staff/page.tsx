@@ -172,15 +172,24 @@ export default function StaffPage() {
     );
   };
 
-  const filteredStaff = staff.filter((member) => {
-    const matchesSearch =
-      member.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.steam_id?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole =
-      roleFilter === 'all' || member.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
+  const filteredStaff = staff
+    .filter((member) => {
+      const matchesSearch =
+        member.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        member.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        member.steam_id?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesRole =
+        roleFilter === 'all' || member.role === roleFilter;
+      return matchesSearch && matchesRole;
+    })
+    .sort((a, b) => {
+      // Sort by role priority first (lower number = higher priority)
+      if (a.role_priority !== b.role_priority) {
+        return a.role_priority - b.role_priority;
+      }
+      // Then sort alphabetically by name
+      return a.username.localeCompare(b.username);
+    });
 
   const uniqueRoles = [...new Set(staff.map((s) => s.role))].sort(
     (a, b) => {
