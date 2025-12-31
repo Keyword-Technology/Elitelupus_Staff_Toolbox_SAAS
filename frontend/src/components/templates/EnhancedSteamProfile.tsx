@@ -124,33 +124,6 @@ export default function EnhancedSteamProfile({ profile, serverPresence }: Props)
 
   return (
     <div className="space-y-6">
-      {/* Server Presence */}
-      {serverPresence && serverPresence.found && serverPresence.servers && serverPresence.servers.length > 0 && (
-        <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-green-400 mb-3 flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            Currently Online
-          </h3>
-          <div className="space-y-2">
-            {serverPresence.servers.map((server, idx) => (
-              <div key={idx} className="flex items-center justify-between bg-dark-card/50 rounded p-3">
-                <div>
-                  <p className="text-white font-medium">{server.server.name}</p>
-                  <p className="text-sm text-gray-400">Playing as: {server.player_name}</p>
-                  {server.is_staff && server.staff_rank && (
-                    <p className="text-xs text-primary-400">Staff: {server.staff_rank}</p>
-                  )}
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-400">Score: <span className="text-white">{server.score}</span></p>
-                  <p className="text-sm text-gray-400">Duration: <span className="text-white">{server.duration_formatted}</span></p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Quick Actions Bar */}
       <div className="bg-dark-card rounded-lg border border-dark-border p-4">
         <h3 className="text-sm font-semibold text-gray-400 mb-3">Quick Actions</h3>
@@ -198,6 +171,33 @@ export default function EnhancedSteamProfile({ profile, serverPresence }: Props)
           </a>
         </div>
       </div>
+
+      {/* Server Presence */}
+      {serverPresence && serverPresence.found && serverPresence.servers && serverPresence.servers.length > 0 && (
+        <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-green-400 mb-3 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            Currently Online
+          </h3>
+          <div className="space-y-2">
+            {serverPresence.servers.map((server, idx) => (
+              <div key={idx} className="flex items-center justify-between bg-dark-card/50 rounded p-3">
+                <div>
+                  <p className="text-white font-medium">{server.server.name}</p>
+                  <p className="text-sm text-gray-400">Playing as: {server.player_name}</p>
+                  {server.is_staff && server.staff_rank && (
+                    <p className="text-xs text-primary-400">Staff: {server.staff_rank}</p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-400">Score: <span className="text-white">{server.score}</span></p>
+                  <p className="text-sm text-gray-400">Duration: <span className="text-white">{server.duration_formatted}</span></p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Header with Avatar and Basic Info */}
       <div className="bg-dark-card rounded-lg border border-dark-border p-6">

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { templateAPI, serverAPI } from '@/lib/api';
+import { useWebSocket } from '@/contexts/WebSocketContext';
 import {
   DocumentTextIcon,
   MagnifyingGlassIcon,
@@ -59,6 +60,7 @@ interface SteamProfileData {
 export default function TemplatesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isConnected } = useWebSocket();
   const [templates, setTemplates] = useState<RefundTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<RefundTemplate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -267,14 +269,6 @@ export default function TemplatesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Steam Lookup & Actions</h1>
-        <p className="text-gray-400 mt-1">
-          Look up Steam profiles, check bans, and manage templates
-        </p>
-      </div>
-
       {/* Steam Lookup Bar */}
       <div className="bg-dark-card rounded-lg border border-dark-border p-6">
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">

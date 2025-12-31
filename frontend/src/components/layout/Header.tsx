@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWebSocket } from '@/contexts/WebSocketContext';
 import {
@@ -15,8 +16,27 @@ import {
 export function Header() {
   const { user, logout, hasMinRole } = useAuth();
   const { isConnected } = useWebSocket();
+  const pathname = usePathname();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Get page title based on pathname
+  const getPageInfo = () => {
+    if (pathname === '/dashboard') return { title: 'Dashboard', subtitle: 'Overview of your staff activity' };
+    if (pathname === '/dashboard/counters') return { title: 'Counter Manager', subtitle: 'Manage your sit and ticket counters' };
+    if (pathname === '/dashboard/servers') return { title: 'Server Status', subtitle: 'Monitor game servers and player activity' };
+    if (pathname?.startsWith('/dashboard/servers/')) return { title: 'Server Statistics', subtitle: 'Detailed server analytics' };
+    if (pathname === '/dashboard/templates') return { title: 'Steam Lookup & Actions', subtitle: 'Look up Steam profiles, check bans, and manage templates' };
+    if (pathname === '/dashboard/rules') return { title: 'Server Rules', subtitle: 'Browse and search server rules' };
+    if (pathname === '/dashboard/staff') return { title: 'Staff Roster', subtitle: 'Manage staff members and roles' };
+    if (pathname === '/dashboard/staff/legacy') return { title: 'Legacy Staff', subtitle: 'View inactive staff members' };
+    if (pathname === '/dashboard/leaderboard') return { title: 'Leaderboard', subtitle: 'Top performing staff members' };
+    if (pathname === '/dashboard/settings') return { title: 'Profile Settings', subtitle: 'Manage your account settings' };
+    if (pathname === '/dashboard/system-settings') return { title: 'System Settings', subtitle: 'Configure application settings' };
+    return { title: 'Dashboard', subtitle: '' };
+  };
+
+  const pageInfo = getPageInfo();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -32,7 +52,15 @@ export function Header() {
   return (
     <header className="bg-dark-card border-b border-dark-border px-4 md:px-6 py-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 md:ml-0 ml-12">
+        {/* Page Title */}
+        <div className="md:ml-0 ml-12">
+          <h1 className="text-xl font-bold text-white">{pageInfo.title}</h1>
+          {pageInfo.subtitle && (
+            <p className="text-sm text-gray-400 mt-0.5">{pageInfo.subtitle}</p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-4">
           {/* Connection Status */}
           <div className="flex items-center gap-2">
             <div
@@ -44,9 +72,7 @@ export function Header() {
               {isConnected ? 'Connected' : 'Disconnected'}
             </span>
           </div>
-        </div>
 
-        <div className="flex items-center gap-4">
           {/* Notifications */}
           <button className="p-2 text-gray-400 hover:text-white transition-colors">
             <BellIcon className="w-6 h-6" />
