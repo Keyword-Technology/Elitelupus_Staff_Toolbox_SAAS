@@ -105,12 +105,13 @@ class StaffSyncView(APIView):
     
     def get(self, request):
         """Get current sync configuration."""
-        service = StaffSyncService()
-        return Response({
-            'google_sheets_id': service.sheet_id,
-            'sheet_name': service.SHEET_NAME,
-            'sheet_url': service.sheet_url,
-        })
+        try:
+            service = StaffSyncService()
+            return Response({
+                'google_sheets_id': service.sheet_id,
+                'sheet_name': service.SHEET_NAME,
+                'sheet_url': service.sheet_url,
+            })
         except Exception as e:
             return Response(
                 {'error': str(e)},
