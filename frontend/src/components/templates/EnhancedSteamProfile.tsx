@@ -235,10 +235,20 @@ export default function EnhancedSteamProfile({ profile }: Props) {
                 <p className="text-white">{profile.profile.name}</p>
               </div>
               
+              {profile.profile.real_name && (
+                <div>
+                  <p className="text-gray-400">real name</p>
+                  <p className="text-white">{profile.profile.real_name}</p>
+                </div>
+              )}
+              
               <div>
                 <p className="text-gray-400">location</p>
                 <p className="text-white">
-                  {profile.profile.country_code || profile.profile.location || 'not set'}
+                  {profile.profile.location || 
+                   (profile.profile.country_code && profile.profile.state_code 
+                     ? `${profile.profile.state_code}, ${profile.profile.country_code}` 
+                     : profile.profile.country_code || 'not set')}
                 </p>
               </div>
               
@@ -247,11 +257,55 @@ export default function EnhancedSteamProfile({ profile }: Props) {
                 <p className="text-white">{profile.profile.persona_state_text?.toLowerCase() || 'unknown'}</p>
               </div>
               
+              {profile.profile.last_logoff && (
+                <div>
+                  <p className="text-gray-400">last online</p>
+                  <p className="text-white">
+                    {formatDistanceToNow(new Date(profile.profile.last_logoff), { addSuffix: true })}
+                  </p>
+                </div>
+              )}
+              
               {profile.profile.level && (
                 <div>
                   <p className="text-gray-400">level</p>
                   <p className="text-white font-semibold">{profile.profile.level}</p>
                 </div>
+              )}
+              
+              <div>
+                <p className="text-gray-400">comments</p>
+                <p className="text-white">{profile.profile.comment_permission ? 'enabled' : 'disabled'}</p>
+              </div>
+              
+              {profile.search_stats && (
+                <>
+                  <div>
+                    <p className="text-gray-400">total searches</p>
+                    <p className="text-white font-semibold">{profile.search_stats.total_searches}</p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-gray-400">first searched</p>
+                    <p className="text-white">
+                      {format(new Date(profile.search_stats.first_searched), 'MMM d, yyyy')}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-gray-400">last searched</p>
+                    <p className="text-white">
+                      {formatDistanceToNow(new Date(profile.search_stats.last_searched), { addSuffix: true })}
+                    </p>
+                  </div>
+                  
+                  {profile.search_stats.last_searched_by && (
+                    <div>
+                      <p className="text-gray-400">searched by</p>
+                      <p className="text-white">{profile.search_stats.last_searched_by}</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

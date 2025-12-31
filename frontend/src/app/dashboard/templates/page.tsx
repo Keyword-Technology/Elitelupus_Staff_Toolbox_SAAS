@@ -62,13 +62,11 @@ export default function TemplatesPage() {
   const [steamInput, setSteamInput] = useState('');
   const [steamProfile, setSteamProfile] = useState<SteamProfileData | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showWizardModal, setShowWizardModal] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [selectedTemplateType, setSelectedTemplateType] = useState('');
   const [templateSearchTerm, setTemplateSearchTerm] = useState('');
   const [templateFilter, setTemplateFilter] = useState('all');
-  const [newTemplate, setNewTemplate] = useState({ name: '', content: '' });
   const [wizardData, setWizardData] = useState<any>({});
   const [servers, setServers] = useState<any[]>([]);
   const [pastIGNs, setPastIGNs] = useState<string[]>([]);
@@ -144,22 +142,6 @@ export default function TemplatesPage() {
     
     navigator.clipboard.writeText(finalContent);
     toast.success('Template copied to clipboard');
-  };
-
-  const handleCreateTemplate = async () => {
-    if (!newTemplate.name || !newTemplate.content) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-    try {
-      await templateAPI.createRefund(newTemplate);
-      toast.success('Template created');
-      setShowCreateModal(false);
-      setNewTemplate({ name: '', content: '' });
-      fetchTemplates();
-    } catch (error) {
-      toast.error('Failed to create template');
-    }
   };
 
   const handleDeleteTemplate = async (id: number) => {
@@ -253,20 +235,11 @@ export default function TemplatesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Steam Lookup & Actions</h1>
-          <p className="text-gray-400 mt-1">
-            Look up Steam profiles, check bans, and manage refund templates
-          </p>
-        </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <PlusIcon className="w-4 h-4" />
-          New Refund Template
-        </button>
+      <div>
+        <h1 className="text-2xl font-bold text-white">Steam Lookup & Actions</h1>
+        <p className="text-gray-400 mt-1">
+          Look up Steam profiles, check bans, and manage templates
+        </p>
       </div>
 
       {/* Steam Lookup Bar */}
