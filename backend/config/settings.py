@@ -170,8 +170,12 @@ SOCIAL_AUTH_PIPELINE = (
     'apps.accounts.pipeline.sync_staff_role',
 )
 
-SOCIAL_AUTH_LOGIN_REDIRECT_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000') + '/auth/callback'
-SOCIAL_AUTH_NEW_USER_REDIRECT_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000') + '/auth/callback'
+# After OAuth completes, redirect to our callback view which generates JWT tokens
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/api/auth/oauth/callback/'
+SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/api/auth/oauth/callback/'
+
+# Frontend URL for final redirect after JWT generation
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
 # REST Framework Settings
 REST_FRAMEWORK = {

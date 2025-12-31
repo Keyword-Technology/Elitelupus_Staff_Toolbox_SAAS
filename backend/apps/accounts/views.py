@@ -1,22 +1,22 @@
-from rest_framework import generics, status, permissions
+from urllib.parse import urlencode
+
+import pytz
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.shortcuts import redirect
+from django.utils import timezone
+from django.views import View
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import get_user_model
-from django.conf import settings
-from django.utils import timezone
-import pytz
+from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .serializers import (
-    UserSerializer,
-    UserProfileUpdateSerializer,
-    UserRegistrationSerializer,
-    CustomTokenObtainPairSerializer,
-    PasswordChangeSerializer,
-    SocialLinkSerializer,
-)
 from .permissions import IsOwnerOrHigherRole
+from .serializers import (CustomTokenObtainPairSerializer,
+                          PasswordChangeSerializer, SocialLinkSerializer,
+                          UserProfileUpdateSerializer,
+                          UserRegistrationSerializer, UserSerializer)
 
 User = get_user_model()
 
@@ -196,3 +196,32 @@ class LogoutView(APIView):
                 {'error': 'Invalid token'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class OAuthCallbackView(View):
+    """Handle OAuth completion and redirect to frontend with JWT tokens."""
+    
+    def get(self, request):
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        frontend_url = settings.FRONTEND_URL
+        logger.info(f"OAuthCallbackView: user authenticated = {request.user.is_authenticated}")
+        logger.info(f"OAuthCallbackView: user = {request.user}")
+        logger.info(f"OAuthCallbackView: session = {dict(request.session.items())}")
+        
+        if request.user.is_authenticated:
+            # Generate JWT tokens for the authenticated user
+            refresh = RefreshToken.for_user(request.user)
+            params = {
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+            }
+            redirect_url = f"{frontend_url}/auth/callback?{urlencode(params)}"
+            logger.info(f"OAuthCallbackView: redirecting to {frontend_url}/auth/callback with tokens")
+        else:
+            # Authentication failed
+            redirect_url = f"{frontend_url}/login?error=auth_failed"
+            logger.warning("OAuthCallbackView: user not authenticated, redirecting to login")
+        
+        return redirect(redirect_url)

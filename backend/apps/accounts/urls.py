@@ -13,6 +13,7 @@ from .views import (
     StaffListView,
     UserDetailView,
     LogoutView,
+    OAuthCallbackView,
 )
 
 urlpatterns = [
@@ -21,6 +22,9 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('register/', RegisterView.as_view(), name='register'),
     path('logout/', LogoutView.as_view(), name='logout'),
+    
+    # OAuth Callback (generates JWT tokens after social auth)
+    path('oauth/callback/', OAuthCallbackView.as_view(), name='oauth_callback'),
     
     # Profile Management
     path('profile/', ProfileView.as_view(), name='profile'),
