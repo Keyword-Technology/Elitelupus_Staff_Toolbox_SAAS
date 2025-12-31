@@ -48,7 +48,7 @@ class StaffSyncService:
         staff_list = []
         reader = csv.reader(StringIO(csv_content))
         
-        # Find the header row - look for row containing "Rank" or "rank"
+        # Find the header row - look for row containing "Rank" and "Name"
         headers = None
         normalized_headers = []
         rows_to_skip = 0
@@ -59,8 +59,9 @@ class StaffSyncService:
                 continue
             
             # Check if this row contains header keywords
-            row_lower = [str(cell).strip().lower() for cell in row if cell and str(cell).strip()]
-            if 'rank' in row_lower and 'name' in row_lower and 'steamid' in row_lower:
+            row_lower = [str(cell).strip().lower().replace(' ', '') for cell in row if cell and str(cell).strip()]
+            # More flexible check - just need rank and name (steamid might be "steam id" or "steamid")
+            if 'rank' in row_lower and 'name' in row_lower:
                 headers = row
                 normalized_headers = [h.strip().lower().replace('"', '') for h in headers]
                 logger.info(f"Found header row at position {row_num + 1}")
@@ -70,7 +71,7 @@ class StaffSyncService:
                 rows_to_skip += 1
         
         if not headers:
-            logger.error("Could not find header row with 'rank', 'name', and 'steamid' columns")
+            logger.error("Could not find header row with 'rank' and 'name' columns")
             return staff_list
         
         # Find column indices by header name (flexible to column order changes)
