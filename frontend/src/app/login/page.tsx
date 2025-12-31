@@ -27,6 +27,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     // Check for error message in URL params
+    if (!searchParams) return;
+    
     const error = searchParams.get('error');
     const message = searchParams.get('message');
     
