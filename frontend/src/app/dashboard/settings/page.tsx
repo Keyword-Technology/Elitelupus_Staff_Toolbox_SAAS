@@ -409,7 +409,7 @@ export default function SettingsPage() {
                 </button>
               ) : (
                 <a
-                  href={`${API_URL}/auth/login/discord/`}
+                  href="/auth/login/discord/"
                   className="btn-primary"
                 >
                   Connect Discord
