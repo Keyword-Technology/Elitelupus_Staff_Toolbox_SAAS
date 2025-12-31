@@ -57,14 +57,16 @@ interface ServerSession {
 export default function StaffDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const staffId = params.id as string;
+  const staffId = params?.id as string;
   
   const [loading, setLoading] = useState(true);
   const [details, setDetails] = useState<StaffDetails | null>(null);
   const [sessionsFilter, setSessionsFilter] = useState<'all' | 'active'>('all');
 
   useEffect(() => {
-    fetchDetails();
+    if (staffId) {
+      fetchDetails();
+    }
   }, [staffId]);
 
   const fetchDetails = async () => {
