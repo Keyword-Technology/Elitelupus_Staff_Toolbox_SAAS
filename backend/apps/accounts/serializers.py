@@ -1,7 +1,7 @@
-from rest_framework import serializers
-from django.contrib.auth import get_user_model
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import pytz
+from django.contrib.auth import get_user_model
+from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 User = get_user_model()
 
@@ -18,11 +18,12 @@ class UserSerializer(serializers.ModelSerializer):
             'role', 'role_priority', 'role_color',
             'steam_id', 'steam_id_64', 'steam_profile_url', 'steam_avatar',
             'discord_id', 'discord_username', 'discord_avatar',
-            'timezone', 'is_active_staff', 'staff_since', 'last_activity',
-            'date_joined',
+            'timezone', 'is_active_staff', 'is_legacy_staff', 'staff_since', 
+            'staff_left_at', 'last_activity', 'date_joined',
         ]
         read_only_fields = [
-            'id', 'role', 'role_priority', 'is_active_staff', 'staff_since',
+            'id', 'role', 'role_priority', 'is_active_staff', 'is_legacy_staff',
+            'staff_since', 'staff_left_at',
             'steam_id', 'steam_id_64', 'steam_profile_url', 'steam_avatar',
             'discord_id', 'discord_username', 'discord_avatar',
             'date_joined', 'last_activity',

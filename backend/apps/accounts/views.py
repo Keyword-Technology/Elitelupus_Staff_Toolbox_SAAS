@@ -176,6 +176,17 @@ class StaffListView(generics.ListAPIView):
         ).order_by('role_priority', 'username')
 
 
+class LegacyStaffListView(generics.ListAPIView):
+    """List all legacy staff members (former staff)."""
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return User.objects.filter(
+            is_legacy_staff=True
+        ).order_by('staff_left_at', 'username')
+
+
 class UserDetailView(generics.RetrieveUpdateAPIView):
     """Get or update a specific user (for admins)."""
     serializer_class = UserSerializer

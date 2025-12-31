@@ -1,7 +1,7 @@
+import pytz
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
-from django.conf import settings
-import pytz
 
 
 class UserManager(BaseUserManager):
@@ -86,7 +86,9 @@ class User(AbstractUser):
     
     # Staff Metadata
     is_active_staff = models.BooleanField(default=False)
+    is_legacy_staff = models.BooleanField(default=False)  # Former staff not in roster
     staff_since = models.DateTimeField(null=True, blank=True)
+    staff_left_at = models.DateTimeField(null=True, blank=True)  # When removed from roster
     
     # Timestamps
     last_activity = models.DateTimeField(null=True, blank=True)

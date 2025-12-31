@@ -1,6 +1,6 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth import get_user_model
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 User = get_user_model()
 
@@ -9,16 +9,16 @@ User = get_user_model()
 class UserAdmin(BaseUserAdmin):
     list_display = [
         'username', 'display_name', 'email', 'role', 'role_priority',
-        'is_active_staff', 'steam_id', 'discord_username', 'is_active'
+        'is_active_staff', 'is_legacy_staff', 'steam_id', 'discord_username', 'is_active'
     ]
-    list_filter = ['role', 'is_active_staff', 'is_active', 'is_staff']
+    list_filter = ['role', 'is_active_staff', 'is_legacy_staff', 'is_active', 'is_staff']
     search_fields = ['username', 'display_name', 'email', 'steam_id', 'discord_id']
     ordering = ['role_priority', 'username']
     
     fieldsets = BaseUserAdmin.fieldsets + (
         ('Staff Info', {
             'fields': ('display_name', 'avatar_url', 'role', 'role_priority', 
-                      'is_active_staff', 'staff_since', 'timezone')
+                      'is_active_staff', 'is_legacy_staff', 'staff_since', 'staff_left_at', 'timezone')
         }),
         ('Steam', {
             'fields': ('steam_id', 'steam_id_64', 'steam_profile_url', 'steam_avatar')

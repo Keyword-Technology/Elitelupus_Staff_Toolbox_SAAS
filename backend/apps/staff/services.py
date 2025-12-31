@@ -275,7 +275,7 @@ class StaffSyncService:
                 # Link to user account if exists
                 self._link_to_user(roster_entry)
             
-            # Mark removed staff as inactive
+            # Handle removed staff - move to legacy instead of marking inactive
             removed_identifiers = existing_identifiers - processed_identifiers
             if removed_identifiers:
                 # This is approximate - we need to find entries that weren't processed
@@ -285,6 +285,10 @@ class StaffSyncService:
                         old_rank = entry.rank
                         old_rank_priority = entry.rank_priority
                         
+                        # Move to legacy staff (User table) instead of deleting
+                        self._move_to_legacy_staff(entry)
+                        
+                        # Mark roster entry as inactive
                         entry.is_active = False
                         entry.save()
                         log.records_removed += 1
@@ -333,6 +337,50 @@ class StaffSyncService:
         else:
             return f"name:{name}"
     
+    def _move_to_legacy_staff(self, roster_entry):
+        """Move a removed staff member to legacy staff status in User table."""
+        # Get or create user account for this staff member
+        user = roster_entry.user
+        
+        if not user:
+            # Try to find existing user by identifiers
+            if roster_entry.steam_id:
+                user = User.objects.filter(steam_id=roster_entry.steam_id).first()
+            elif roster_entry.discord_id:
+                user = User.objects.filter(discord_id=roster_entry.discord_id).first()
+            
+            # Create new user account if doesn't exist
+            if not user:
+                # Generate username from name
+                base_username = roster_entry.name.lower().replace(' ', '_')[:30]
+                username = base_username
+                counter = 1
+                while User.objects.filter(username=username).exists():
+                    username = f"{base_username}_{counter}"
+                    counter += 1
+                
+                user = User.objects.create(
+                    username=username,
+                    display_name=roster_entry.name,
+                    steam_id=roster_entry.steam_id,
+                    discord_id=roster_entry.discord_id,
+                    discord_username=roster_entry.discord_tag,
+                    role='User',
+                    role_priority=999,
+                    is_active=True,  # Keep account active
+                )
+                logger.info(f"Created user account for removed staff: {username}")
+        
+        # Mark as legacy staff
+        user.is_legacy_staff = True
+        user.is_active_staff = False
+        user.role = 'User'  # Demote to regular user
+        user.role_priority = 999
+        user.staff_left_at = timezone.now()
+        user.save(update_fields=['is_legacy_staff', 'is_active_staff', 'role', 'role_priority', 'staff_left_at'])
+        
+        logger.info(f"Moved {user.username} to legacy staff")
+    
     def _link_to_user(self, roster_entry):
         """Link roster entry to user account if exists."""
         user = None
@@ -349,8 +397,18 @@ class StaffSyncService:
             roster_entry.user = user
             roster_entry.save(update_fields=['user'])
             
-            # Update user role if needed
-            if user.role != roster_entry.rank:
+            # Check if user is returning from legacy staff
+            if user.is_legacy_staff:
+                # Re-added to staff roster - promote to SYSADMIN
+                user.role = 'SYSADMIN'
+                user.role_priority = 0
+                user.is_active_staff = True
+                user.is_legacy_staff = False
+                user.staff_left_at = None
+                user.save(update_fields=['role', 'role_priority', 'is_active_staff', 'is_legacy_staff', 'staff_left_at'])
+                logger.info(f"Re-added legacy staff {user.username} as SYSADMIN")
+            elif user.role != roster_entry.rank:
+                # Update user role if needed
                 user.role = roster_entry.rank
                 user.role_priority = settings.STAFF_ROLE_PRIORITIES.get(roster_entry.rank, 999)
                 user.is_active_staff = True
@@ -390,8 +448,8 @@ class StaffSyncService:
     
     def sync_user_access(self):
         """Sync user account active status based on staff roster.
-        Deactivates users not in roster (except SYSADMIN).
-        Activates users in roster.
+        Move users not in roster to legacy staff (except SYSADMIN).
+        Activates users in roster (including legacy staff returning).
         """
         deactivated_count = 0
         activated_count = 0
@@ -401,7 +459,7 @@ class StaffSyncService:
         active_steam_ids = set(r.steam_id for r in active_roster if r.steam_id)
         active_discord_ids = set(r.discord_id for r in active_roster if r.discord_id)
         
-        # Process all users (except SYSADMIN)
+        # Process all users (except SYSADMIN - they're always allowed)
         for user in User.objects.exclude(role='SYSADMIN'):
             # Check if user is in active roster by Steam ID or Discord ID
             in_roster = False
@@ -417,11 +475,17 @@ class StaffSyncService:
                 user.save(update_fields=['is_active', 'is_active_staff'])
                 activated_count += 1
                 logger.info(f"Activated user: {user.username}")
-            elif not in_roster and user.is_active:
-                user.is_active = False
+            elif not in_roster and user.is_active and user.is_active_staff:
+                # Move to legacy staff instead of just deactivating
+                user.is_active = True  # Keep account active
                 user.is_active_staff = False
-                user.save(update_fields=['is_active', 'is_active_staff'])
+                user.is_legacy_staff = True
+                user.role = 'User'
+                user.role_priority = 999
+                user.staff_left_at = timezone.now()
+                user.save(update_fields=['is_active', 'is_active_staff', 'is_legacy_staff', 'role', 'role_priority', 'staff_left_at'])
                 deactivated_count += 1
+                logger.info(f"Moved user to legacy staff: {user.username} (not in staff roster)")
                 logger.info(f"Deactivated user: {user.username} (not in staff roster)")
         
         logger.info(f"User access sync completed: {activated_count} activated, {deactivated_count} deactivated")

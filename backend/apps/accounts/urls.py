@@ -1,10 +1,10 @@
 from django.urls import path, re_path
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from .views import (CustomTokenObtainPairView, LogoutView, OAuthCallbackView,
-                    OAuthErrorView, PasswordChangeView, ProfileView,
-                    RegisterView, SocialLinkStatusView, StaffListView,
-                    SteamAuthCallbackView, TimezonesView,
+from .views import (CustomTokenObtainPairView, LegacyStaffListView, LogoutView,
+                    OAuthCallbackView, OAuthErrorView, PasswordChangeView,
+                    ProfileView, RegisterView, SocialLinkStatusView,
+                    StaffListView, SteamAuthCallbackView, TimezonesView,
                     UnlinkSocialAccountView, UserDetailView)
 
 urlpatterns = [
@@ -30,5 +30,6 @@ urlpatterns = [
     
     # Staff Management
     re_path(r'^staff/?$', StaffListView.as_view(), name='staff_list'),
+    re_path(r'^staff/legacy/?$', LegacyStaffListView.as_view(), name='legacy_staff_list'),
     re_path(r'^users/(?P<pk>\d+)/?$', UserDetailView.as_view(), name='user_detail'),
 ]
