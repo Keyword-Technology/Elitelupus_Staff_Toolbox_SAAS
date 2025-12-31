@@ -48,11 +48,20 @@ class StaffSyncService:
         staff_list = []
         reader = csv.reader(StringIO(csv_content))
         
-        # Read header row
-        headers = next(reader, None)
-        if not headers:
-            logger.error("No headers found in CSV")
+        # Read first row
+        first_row = next(reader, None)
+        if not first_row:
+            logger.error("No data found in CSV")
             return staff_list
+        
+        # Check if this is a vertical format (field name + value in same cell)
+        # Example: ['', '99', 'rank manager', 'timezone gmt', 'time 17:26', 'name harry', ...]
+        if any('rank ' in str(cell).lower() and len(str(cell).split()) > 1 for cell in first_row):
+            logger.info("Detected vertical/combined format - parsing as field:value pairs")
+            return self._parse_combined_format(csv_content)
+        
+        # Standard horizontal format with header row
+        headers = first_row
         
         # Normalize headers (lowercase, strip whitespace)
         normalized_headers = [h.strip().lower().replace('"', '') for h in headers]
@@ -122,6 +131,58 @@ class StaffSyncService:
                 continue
         
         logger.info(f"Parsed {len(staff_list)} staff members from CSV")
+        return staff_list
+    
+    def _parse_combined_format(self, csv_content):
+        """Parse CSV where each cell contains 'field value' pairs."""
+        staff_list = []
+        reader = csv.reader(StringIO(csv_content))
+        
+        for row_num, row in enumerate(reader, start=1):
+            if not row or len(row) < 4:  # Need at least rank, name, and an ID
+                continue
+            
+            # Extract field:value pairs from each cell
+            staff_data = {
+                'rank': '',
+                'timezone': '',
+                'active_time': '',
+                'name': '',
+                'steam_id': None,
+                'discord_id': None,
+                'discord_tag': None,
+            }
+            
+            for cell in row:
+                if not cell or not cell.strip():
+                    continue
+                
+                cell_lower = cell.strip().lower()
+                
+                # Extract value after field name
+                if cell_lower.startswith('rank '):
+                    staff_data['rank'] = cell.strip()[5:].strip()  # Remove 'rank '
+                elif cell_lower.startswith('timezone '):
+                    staff_data['timezone'] = cell.strip()[9:].strip()  # Remove 'timezone '
+                elif cell_lower.startswith('time '):
+                    staff_data['active_time'] = cell.strip()[5:].strip()  # Remove 'time '
+                elif cell_lower.startswith('name '):
+                    staff_data['name'] = cell.strip()[5:].strip()  # Remove 'name '
+                elif cell_lower.startswith('steamid '):
+                    staff_data['steam_id'] = self._parse_steam_id(cell.strip()[8:])  # Remove 'steamid '
+                elif cell_lower.startswith('discordid '):
+                    staff_data['discord_id'] = cell.strip()[10:].strip()  # Remove 'discordid '
+                elif cell_lower.startswith('discord tag '):
+                    staff_data['discord_tag'] = cell.strip()[12:].strip()  # Remove 'discord tag '
+            
+            # Only add if we have required fields
+            if staff_data['rank'] and staff_data['name'] and (staff_data['steam_id'] or staff_data['discord_id']):
+                staff_list.append(staff_data)
+                logger.debug(f"Parsed staff member (combined format): {staff_data['name']} ({staff_data['rank']})")
+            else:
+                logger.debug(f"Skipped row {row_num}: missing required fields. Data: {staff_data}")
+        
+        logger.info(f"Parsed {len(staff_list)} staff members from combined format CSV")
         return staff_list
     
     def _parse_steam_id(self, steam_id_raw):
