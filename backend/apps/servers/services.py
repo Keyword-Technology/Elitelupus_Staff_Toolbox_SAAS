@@ -1,7 +1,7 @@
 import logging
 
 import a2s
-from a2s.a2s_exceptions import BrokenMessageError
+from a2s import BrokenMessageError
 from apps.staff.models import StaffRoster
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
