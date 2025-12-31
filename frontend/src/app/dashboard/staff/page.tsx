@@ -390,7 +390,11 @@ export default function StaffPage() {
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-gray-600" />
                           <span className="text-gray-500 text-sm">Offline</span>
-                        </div>&& member.discord_status ? (
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      {member.discord_status ? (
                         <DiscordStatusBadge
                           status={member.discord_status}
                           customStatus={member.discord_custom_status}
@@ -418,11 +422,7 @@ export default function StaffPage() {
                           </span>
                         </div>
                       ) : (
-                        <span className="text-gray-500 text-sm">No activity
-                          size="sm"
-                        />
-                      ) : (
-                        <span className="text-gray-500 text-sm">Not linked</span>
+                        <span className="text-gray-500 text-sm">No activity</span>
                       )}
                     </td>
                   </tr>
