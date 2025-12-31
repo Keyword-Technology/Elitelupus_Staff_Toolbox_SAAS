@@ -25,8 +25,8 @@ urlpatterns = [
     path('api/rules/', include('apps.rules.urls')),
     path('api/system/', include('apps.system_settings.urls')),
     
-    # Social Auth
-    path('auth/', include('social_django.urls', namespace='social')),
+    # OAuth (Steam, Discord, etc.)
+    path('api/oauth/', include('social_django.urls', namespace='social')),
 ]
 
 if settings.DEBUG:

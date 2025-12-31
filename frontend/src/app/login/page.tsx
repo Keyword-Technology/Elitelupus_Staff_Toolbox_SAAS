@@ -44,11 +44,11 @@ export default function LoginPage() {
   };
 
   const handleSteamLogin = () => {
-    window.location.href = `${API_URL}/api/auth/login/steam/`;
+    window.location.href = `${API_URL}/api/oauth/login/steam/`;
   };
 
   const handleDiscordLogin = () => {
-    window.location.href = `${API_URL}/api/auth/login/discord/`;
+    window.location.href = `${API_URL}/api/oauth/login/discord/`;
   };
 
   return (
