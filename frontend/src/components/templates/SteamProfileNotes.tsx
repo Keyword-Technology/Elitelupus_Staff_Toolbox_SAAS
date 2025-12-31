@@ -93,19 +93,26 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
     setError('');
 
     try {
+      // Validate expiry_hours is set
+      if (!formData.expiry_hours) {
+        setError('Please select an expiry time for the note');
+        setLoading(false);
+        return;
+      }
+
       // Calculate expires_at from expiry_hours
+      const expiryDate = new Date();
+      expiryDate.setHours(expiryDate.getHours() + parseInt(formData.expiry_hours));
+      
       const submitData: any = {
-        ...formData,
+        note_type: formData.note_type,
+        title: formData.title,
+        content: formData.content,
+        severity: formData.severity,
+        server: formData.server,
+        expires_at: expiryDate.toISOString(),
         steam_profile: steamId64,
       };
-      
-      // Remove expiry_hours and add expires_at if set
-      delete submitData.expiry_hours;
-      if (formData.expiry_hours) {
-        const expiryDate = new Date();
-        expiryDate.setHours(expiryDate.getHours() + parseInt(formData.expiry_hours));
-        submitData.expires_at = expiryDate.toISOString();
-      }
       
       if (editingNote) {
         await templateAPI.updateSteamNote(editingNote, submitData);
