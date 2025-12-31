@@ -12,6 +12,8 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+
 interface SocialStatus {
   steam_connected: boolean;
   steam_id: string | null;
@@ -409,7 +411,7 @@ export default function SettingsPage() {
                 </button>
               ) : (
                 <a
-                  href="/auth/login/discord/"
+                  href={`${API_URL}/auth/login/discord/`}
                   className="btn-primary"
                 >
                   Connect Discord
