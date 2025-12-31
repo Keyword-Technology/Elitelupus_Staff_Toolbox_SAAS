@@ -23,6 +23,11 @@ interface Server {
   max_players: number;
   is_online: boolean;
   staff_online: number;
+  staff_list?: Array<{
+    name: string;
+    rank: string;
+    steam_id: string;
+  }>;
   last_updated: string;
 }
 

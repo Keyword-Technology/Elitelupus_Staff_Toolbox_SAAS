@@ -11,6 +11,11 @@ interface Server {
   max_players: number;
   is_online: boolean;
   staff_online: number;
+  staff_list?: Array<{
+    name: string;
+    rank: string;
+    steam_id: string;
+  }>;
 }
 
 interface ServerStatusCardProps {
@@ -83,6 +88,24 @@ export function ServerStatusCard({ server }: ServerStatusCardProps) {
               <span className="text-gray-400">Staff Online</span>
               <span className="text-primary-400 font-medium">{server.staff_online}</span>
             </div>
+
+            {/* Staff badges */}
+            {server.staff_list && server.staff_list.length > 0 && (
+              <div className="pt-3 border-t border-dark-border">
+                <p className="text-xs text-gray-400 mb-2">Staff Members:</p>
+                <div className="flex flex-wrap gap-2">
+                  {server.staff_list.map((staff, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2 py-1 bg-primary-500/20 text-primary-400 text-xs rounded-full font-medium"
+                      title={`${staff.name} - ${staff.rank}`}
+                    >
+                      {staff.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

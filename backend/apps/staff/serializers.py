@@ -16,6 +16,11 @@ class StaffRosterSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(source='user.id', read_only=True, allow_null=True)
     user_avatar = serializers.URLField(source='user.avatar_url', read_only=True, allow_null=True)
     
+    # Online status fields
+    is_online = serializers.SerializerMethodField()
+    server_name = serializers.SerializerMethodField()
+    server_id = serializers.SerializerMethodField()
+    
     # LOA fields (set to default values for now since not in model)
     is_on_loa = serializers.SerializerMethodField()
     loa_end_date = serializers.SerializerMethodField()
@@ -30,9 +35,27 @@ class StaffRosterSerializer(serializers.ModelSerializer):
             'steam_id', 'discord_id', 'discord_tag',
             'is_active', 'is_on_loa', 'loa_end_date',
             'user_id', 'user_avatar', 'last_synced',
-            'joined_date', 'last_activity'
+            'joined_date', 'last_activity',
+            'is_online', 'server_name', 'server_id'
         ]
         read_only_fields = ['last_synced']
+    
+    def get_is_online(self, obj):
+        """Check if staff member is currently online on any server."""
+        from apps.servers.models import ServerPlayer
+        return ServerPlayer.objects.filter(name__iexact=obj.name, is_staff=True).exists()
+    
+    def get_server_name(self, obj):
+        """Get the server name where staff member is online."""
+        from apps.servers.models import ServerPlayer
+        player = ServerPlayer.objects.filter(name__iexact=obj.name, is_staff=True).first()
+        return player.server.name if player else None
+    
+    def get_server_id(self, obj):
+        """Get the server ID where staff member is online."""
+        from apps.servers.models import ServerPlayer
+        player = ServerPlayer.objects.filter(name__iexact=obj.name, is_staff=True).first()
+        return player.server.id if player else None
     
     def get_is_on_loa(self, obj):
         """Check if staff member is on LOA (Leave of Absence)."""

@@ -28,6 +28,9 @@ interface StaffMember {
   is_on_loa: boolean;
   loa_end_date: string | null;
   last_activity: string;
+  is_online: boolean;
+  server_name: string | null;
+  server_id: number | null;
 }
 
 interface SyncLog {
@@ -294,13 +297,16 @@ export default function StaffPage() {
                     <SortIcon column="is_active" />
                   </div>
                 </th>
+                <th className="text-left p-4 text-gray-400 font-medium">
+                  Online
+                </th>
               </tr>
             </thead>
             <tbody>
               {filteredStaff.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="text-center py-8 text-gray-500"
                   >
                     No staff members found
@@ -357,6 +363,21 @@ export default function StaffPage() {
                         <span className="px-2 py-1 rounded text-xs font-medium bg-red-500/20 text-red-400">
                           Inactive
                         </span>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      {member.is_online ? (
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-green-500" />
+                          <span className="text-green-400 text-sm font-medium">
+                            {member.server_name}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-gray-600" />
+                          <span className="text-gray-500 text-sm">Offline</span>
+                        </div>
                       )}
                     </td>
                   </tr>

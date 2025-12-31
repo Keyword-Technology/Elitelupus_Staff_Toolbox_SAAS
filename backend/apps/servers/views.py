@@ -32,12 +32,19 @@ class ServerStatusView(APIView):
         
         result = []
         for server in servers:
-            staff_count = ServerPlayer.objects.filter(
+            staff_players = ServerPlayer.objects.filter(
                 server=server, is_staff=True
-            ).count()
+            )
             
             server_name = server.server_name or server.name
             map_name = server.map_name or 'Unknown'
+            
+            # Build staff list with details
+            staff_list = [{
+                'name': player.name,
+                'rank': player.staff_rank,
+                'steam_id': player.steam_id,
+            } for player in staff_players]
             
             result.append({
                 'id': server.id,
@@ -47,7 +54,8 @@ class ServerStatusView(APIView):
                 'current_players': server.current_players,
                 'max_players': server.max_players,
                 'is_online': server.is_online,
-                'staff_online': staff_count,
+                'staff_online': staff_players.count(),
+                'staff_list': staff_list,
                 'last_query': server.last_query,
             })
         
