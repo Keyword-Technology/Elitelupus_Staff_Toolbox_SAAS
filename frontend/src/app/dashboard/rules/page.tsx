@@ -31,11 +31,20 @@ interface Rule {
 interface JobRule {
   id: number;
   job_name: string;
-  rules: string;
+  category: string;
   can_raid: boolean;
+  raid_note: string;
+  can_steal: boolean;
+  steal_note: string;
   can_mug: boolean;
+  mug_note: string;
   can_kidnap: boolean;
-  special_notes: string;
+  kidnap_note: string;
+  can_base: boolean;
+  base_note: string;
+  can_have_printers: boolean;
+  printers_note: string;
+  additional_notes: string;
 }
 
 export default function RulesPage() {
@@ -294,50 +303,130 @@ export default function RulesPage() {
                 key={job.id}
                 className="bg-dark-card rounded-lg border border-dark-border p-4"
               >
-                <h3 className="text-lg font-semibold text-white mb-3">
+                <h3 className="text-lg font-semibold text-white mb-2">
                   {job.job_name}
                 </h3>
                 
-                {/* Permissions */}
-                <div className="flex gap-2 mb-3">
-                  <span
-                    className={`text-xs px-2 py-1 rounded ${
-                      job.can_raid
-                        ? 'bg-green-500/20 text-green-400'
-                        : 'bg-red-500/20 text-red-400'
-                    }`}
-                  >
-                    {job.can_raid ? '✓' : '✗'} Raid
-                  </span>
-                  <span
-                    className={`text-xs px-2 py-1 rounded ${
-                      job.can_mug
-                        ? 'bg-green-500/20 text-green-400'
-                        : 'bg-red-500/20 text-red-400'
-                    }`}
-                  >
-                    {job.can_mug ? '✓' : '✗'} Mug
-                  </span>
-                  <span
-                    className={`text-xs px-2 py-1 rounded ${
-                      job.can_kidnap
-                        ? 'bg-green-500/20 text-green-400'
-                        : 'bg-red-500/20 text-red-400'
-                    }`}
-                  >
-                    {job.can_kidnap ? '✓' : '✗'} Kidnap
-                  </span>
+                {job.category && (
+                  <p className="text-xs text-gray-500 mb-3">{job.category}</p>
+                )}
+                
+                {/* Permissions Grid */}
+                <div className="space-y-2 mb-3">
+                  {/* Raid Permission */}
+                  <div className="flex items-start gap-2">
+                    <span
+                      className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
+                        job.can_raid
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}
+                    >
+                      {job.can_raid ? '✓' : '✗'} Raid
+                    </span>
+                    {job.raid_note && (
+                      <span className="text-xs text-gray-400 flex-1">
+                        {job.raid_note}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Steal Permission */}
+                  <div className="flex items-start gap-2">
+                    <span
+                      className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
+                        job.can_steal
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}
+                    >
+                      {job.can_steal ? '✓' : '✗'} Steal
+                    </span>
+                    {job.steal_note && (
+                      <span className="text-xs text-gray-400 flex-1">
+                        {job.steal_note}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Mug Permission */}
+                  <div className="flex items-start gap-2">
+                    <span
+                      className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
+                        job.can_mug
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}
+                    >
+                      {job.can_mug ? '✓' : '✗'} Mug
+                    </span>
+                    {job.mug_note && (
+                      <span className="text-xs text-gray-400 flex-1">
+                        {job.mug_note}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Kidnap Permission */}
+                  <div className="flex items-start gap-2">
+                    <span
+                      className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
+                        job.can_kidnap
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}
+                    >
+                      {job.can_kidnap ? '✓' : '✗'} Kidnap
+                    </span>
+                    {job.kidnap_note && (
+                      <span className="text-xs text-gray-400 flex-1">
+                        {job.kidnap_note}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Base Permission */}
+                  <div className="flex items-start gap-2">
+                    <span
+                      className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
+                        job.can_base
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}
+                    >
+                      {job.can_base ? '✓' : '✗'} Base
+                    </span>
+                    {job.base_note && (
+                      <span className="text-xs text-gray-400 flex-1">
+                        {job.base_note}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Printers Permission */}
+                  <div className="flex items-start gap-2">
+                    <span
+                      className={`text-xs px-2 py-1 rounded whitespace-nowrap ${
+                        job.can_have_printers
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}
+                    >
+                      {job.can_have_printers ? '✓' : '✗'} Printers
+                    </span>
+                    {job.printers_note && (
+                      <span className="text-xs text-gray-400 flex-1">
+                        {job.printers_note}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                <div className="text-gray-400 text-sm whitespace-pre-wrap">
-                  {job.rules}
-                </div>
-
-                {job.special_notes && (
+                {job.additional_notes && (
                   <div className="mt-3 pt-3 border-t border-dark-border">
                     <p className="text-yellow-400 text-sm">
                       <span className="font-medium">Note:</span>{' '}
-                      {job.special_notes}
+                      {job.additional_notes}
                     </p>
                   </div>
                 )}
