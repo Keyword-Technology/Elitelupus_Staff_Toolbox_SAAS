@@ -413,55 +413,6 @@ export default function TemplatesPage() {
         </div>
       </div>
 
-      {/* Create Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-dark-card rounded-lg border border-dark-border p-6 w-full max-w-lg mx-4">
-            <h2 className="text-xl font-bold text-white mb-4">Create Template</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Template Name
-                </label>
-                <input
-                  type="text"
-                  value={newTemplate.name}
-                  onChange={(e) =>
-                    setNewTemplate({ ...newTemplate, name: e.target.value })
-                  }
-                  className="input w-full"
-                  placeholder="e.g., Standard Refund"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Template Content
-                </label>
-                <textarea
-                  value={newTemplate.content}
-                  onChange={(e) =>
-                    setNewTemplate({ ...newTemplate, content: e.target.value })
-                  }
-                  className="input w-full h-48"
-                  placeholder="Enter template content... Use {steam_id}, {steam_name}, etc. for placeholders"
-                />
-              </div>
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button onClick={handleCreateTemplate} className="btn-primary">
-                  Create
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Wizard Modal */}
       {showWizardModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
