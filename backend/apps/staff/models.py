@@ -1,11 +1,12 @@
-from django.db import models
 from django.conf import settings
+from django.db import models
 
 
 class StaffRoster(models.Model):
     """Cached staff roster from Google Sheets."""
     
     rank = models.CharField(max_length=50)
+    rank_priority = models.IntegerField(default=999)  # Lower = higher priority
     timezone = models.CharField(max_length=50, blank=True)
     active_time = models.CharField(max_length=20, blank=True)
     name = models.CharField(max_length=100)
@@ -27,7 +28,7 @@ class StaffRoster(models.Model):
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        ordering = ['rank', 'name']
+        ordering = ['rank_priority', 'name']  # Order by priority first, then name
         verbose_name = 'Staff Member'
         verbose_name_plural = 'Staff Roster'
 
@@ -38,8 +39,8 @@ class StaffRoster(models.Model):
     def rank_color(self):
         return settings.STAFF_ROLE_COLORS.get(self.rank, '#808080')
 
-    @property
-    def rank_priority(self):
+    def get_rank_priority(self):
+        """Get priority from settings for the current rank."""
         return settings.STAFF_ROLE_PRIORITIES.get(self.rank, 999)
 
 

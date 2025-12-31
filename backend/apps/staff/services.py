@@ -152,6 +152,7 @@ class StaffSyncService:
                 if roster_entry:
                     # Update existing entry
                     roster_entry.rank = data['rank']
+                    roster_entry.rank_priority = settings.STAFF_ROLE_PRIORITIES.get(data['rank'], 999)
                     roster_entry.timezone = data['timezone']
                     roster_entry.active_time = data['active_time']
                     roster_entry.name = data['name']
@@ -165,6 +166,7 @@ class StaffSyncService:
                     # Create new entry
                     roster_entry = StaffRoster.objects.create(
                         rank=data['rank'],
+                        rank_priority=settings.STAFF_ROLE_PRIORITIES.get(data['rank'], 999),
                         timezone=data['timezone'],
                         active_time=data['active_time'],
                         name=data['name'],

@@ -1,16 +1,13 @@
-from rest_framework import generics, status, permissions
+from apps.accounts.permissions import IsManager
+from django.conf import settings
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.conf import settings
 
 from .models import StaffRoster, StaffSyncLog
-from .serializers import (
-    StaffRosterSerializer,
-    StaffSyncLogSerializer,
-    RolePrioritySerializer,
-)
+from .serializers import (RolePrioritySerializer, StaffRosterSerializer,
+                          StaffSyncLogSerializer)
 from .services import StaffSyncService
-from apps.accounts.permissions import IsManager
 
 
 class StaffRosterListView(generics.ListAPIView):
@@ -26,7 +23,8 @@ class StaffRosterListView(generics.ListAPIView):
         if rank:
             queryset = queryset.filter(rank=rank)
         
-        return queryset.order_by('rank', 'name')
+        # Order by rank_priority (lower = higher), then by name
+        return queryset.order_by('rank_priority', 'name')
 
 
 class StaffRosterDetailView(generics.RetrieveAPIView):

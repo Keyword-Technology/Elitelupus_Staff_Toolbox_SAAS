@@ -10,7 +10,7 @@ class StaffRosterSerializer(serializers.ModelSerializer):
     # Map backend field names to frontend expectations
     role = serializers.CharField(source='rank', read_only=True)
     role_color = serializers.ReadOnlyField(source='rank_color')
-    role_priority = serializers.ReadOnlyField(source='rank_priority')
+    role_priority = serializers.IntegerField(source='rank_priority', read_only=True)
     username = serializers.CharField(source='name', read_only=True)
     display_name = serializers.CharField(source='name', read_only=True)
     user_id = serializers.IntegerField(source='user.id', read_only=True, allow_null=True)
