@@ -330,7 +330,8 @@ export default function SystemSettingsPage() {
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-6">
                 <p className="text-blue-400 text-sm">
                   💡 Environment variables can be overridden here. Overrides take precedence over the 
-                  original .env values. Remove an override to revert to the original value.
+                  original .env values and <strong>take effect immediately</strong> without requiring a server restart.
+                  Remove an override to revert to the original value.
                 </p>
               </div>
 

@@ -3,11 +3,12 @@ import logging
 from io import StringIO
 
 import requests
+from apps.system_settings.models import SystemSetting
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from .models import StaffRoster, StaffSyncLog, StaffHistoryEvent
+from .models import StaffHistoryEvent, StaffRoster, StaffSyncLog
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -16,14 +17,21 @@ User = get_user_model()
 class StaffSyncService:
     """Service for syncing staff data from Google Sheets."""
     
-    SHEET_ID = settings.GOOGLE_SHEETS_ID
     SHEET_NAME = "Staff Roster"  # Changed from "Roster" to "Staff Roster"
     SHEET_GID = "160655123"  # Alternative: can use GID instead
     
     @property
+    def sheet_id(self):
+        """Get Google Sheets ID with database override support."""
+        # Try to get from system settings first, fallback to environment variable
+        sheet_id = SystemSetting.get_setting_value('GOOGLE_SHEETS_ID', settings.GOOGLE_SHEETS_ID)
+        logger.info(f"Using Google Sheets ID: {sheet_id}")
+        return sheet_id
+    
+    @property
     def sheet_url(self):
         # Using sheet name - can also use gid={self.SHEET_GID} instead of sheet={self.SHEET_NAME}
-        return f"https://docs.google.com/spreadsheets/d/{self.SHEET_ID}/gviz/tq?tqx=out:csv&sheet={self.SHEET_NAME}"
+        return f"https://docs.google.com/spreadsheets/d/{self.sheet_id}/gviz/tq?tqx=out:csv&sheet={self.SHEET_NAME}"
     
     def fetch_sheet_data(self):
         """Fetch data from Google Sheets as CSV."""

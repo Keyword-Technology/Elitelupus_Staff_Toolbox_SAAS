@@ -99,6 +99,19 @@ class StaffSyncView(APIView):
                 'details': StaffSyncLogSerializer(log).data
             })
         except Exception as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def get(self, request):
+        """Get current sync configuration."""
+        service = StaffSyncService()
+        return Response({
+            'google_sheets_id': service.sheet_id,
+            'sheet_name': service.SHEET_NAME,
+            'sheet_url': service.sheet_url,
+        })
+        except Exception as e:
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
