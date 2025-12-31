@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { CounterCard } from '@/components/counters/CounterCard';
-import { counterAPI } from '@/lib/api';
+import { counterAPI, systemAPI } from '@/lib/api';
 import { useWebSocket } from '@/contexts/WebSocketContext';
 import {
   ChartBarIcon,
@@ -22,6 +22,11 @@ interface CounterStats {
   weekly_tickets: number;
 }
 
+interface QuotaData {
+  sit_quota: number;
+  ticket_quota: number;
+}
+
 interface HistoryEntry {
   id: number;
   counter_type: string;
@@ -33,6 +38,7 @@ interface HistoryEntry {
 
 export default function CountersPage() {
   const [stats, setStats] = useState<CounterStats | null>(null);
+  const [quotas, setQuotas] = useState<QuotaData | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const { isConnected, onCounterUpdate } = useWebSocket();
@@ -53,12 +59,14 @@ export default function CountersPage() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, historyRes] = await Promise.all([
+      const [statsRes, historyRes, quotasRes] = await Promise.all([
         counterAPI.stats(),
         counterAPI.history(),
+        systemAPI.quotas(),
       ]);
       setStats(statsRes.data);
       setHistory(historyRes.data.results || historyRes.data);
+      setQuotas(quotasRes.data);
     } catch (error) {
       toast.error('Failed to load counter data');
     } finally {
@@ -86,12 +94,14 @@ export default function CountersPage() {
           count={stats?.total_sits || 0}
           todayCount={stats?.today_sits || 0}
           type="sit"
+          quota={quotas?.sit_quota}
         />
         <CounterCard
           title="Tickets"
           count={stats?.total_tickets || 0}
           todayCount={stats?.today_tickets || 0}
           type="ticket"
+          quota={quotas?.ticket_quota}
         />
       </div>
 

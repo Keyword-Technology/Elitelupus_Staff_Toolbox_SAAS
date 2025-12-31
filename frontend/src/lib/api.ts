@@ -167,6 +167,9 @@ export const systemAPI = {
   updateSetting: (id: number, data: any) => api.patch(`/system/settings/${id}/`, data),
   deleteSetting: (id: number) => api.delete(`/system/settings/${id}/`),
   
+  // Counter Quotas
+  quotas: () => api.get('/system-settings/quotas/'),
+  
   // Managed Servers
   servers: () => api.get('/system/servers/'),
   createServer: (data: any) => api.post('/system/servers/', data),
