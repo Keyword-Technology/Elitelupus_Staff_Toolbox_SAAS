@@ -1,5 +1,7 @@
 from django.contrib import admin
-from .models import Staff, StaffRoster, StaffSyncLog, StaffHistoryEvent, ServerSession
+
+from .models import (ServerSession, Staff, StaffHistoryEvent, StaffRoster,
+                     StaffSyncLog)
 
 
 @admin.register(Staff)
