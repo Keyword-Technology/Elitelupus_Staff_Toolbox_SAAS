@@ -59,7 +59,8 @@ class SteamProfileSearch(models.Model):
     is_limited = models.BooleanField(default=False)
     level = models.IntegerField(null=True, blank=True)
     
-    # Enhanced scraped data from steamid.pro
+    # Enhanced scraped data from steamid.pro and steamid.io
+    account_name = models.CharField(max_length=255, blank=True, help_text='Steam account login name (from steamid.io)')
     vanity_url = models.CharField(max_length=255, blank=True, help_text='Custom vanity URL')
     account_id = models.CharField(max_length=50, blank=True, help_text='Steam Account ID')
     steam_id_2 = models.CharField(max_length=50, blank=True, help_text='Steam2 ID format')

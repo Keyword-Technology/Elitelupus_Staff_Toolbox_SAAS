@@ -98,6 +98,7 @@ export interface SteamProfile {
   steam_id_64: string;
   profile: {
     name: string;
+    account_name?: string;
     profile_url: string;
     avatar_url: string;
     profile_state: string;

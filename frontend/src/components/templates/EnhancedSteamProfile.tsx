@@ -19,6 +19,7 @@ interface SteamProfileData {
   steam_id_64: string;
   profile: {
     name: string;
+    account_name?: string;
     profile_url: string;
     avatar_url: string;
     profile_state: string;
@@ -276,6 +277,13 @@ export default function EnhancedSteamProfile({ profile }: Props) {
                 <p className="text-gray-400">name</p>
                 <p className="text-white">{profile.profile.name || 'Unknown'}</p>
               </div>
+              
+              {profile.profile.account_name && (
+                <div>
+                  <p className="text-gray-400">account name</p>
+                  <p className="text-white font-mono">{profile.profile.account_name}</p>
+                </div>
+              )}
               
               {profile.profile.real_name && (
                 <div>

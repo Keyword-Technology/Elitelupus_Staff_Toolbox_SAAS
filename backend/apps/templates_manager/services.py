@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from .models import SteamProfileHistory, SteamProfileSearch
 from .steamid_scraper import scrape_steamid_profile
+from .steamid_io_scraper import scrape_steamid_io
 
 
 class SteamLookupService:
@@ -111,7 +112,7 @@ class SteamLookupService:
             trade_ban_value = ban_data.get('EconomyBan', 'none')
             search_record.trade_ban = trade_ban_value if trade_ban_value else 'none'
         
-        # Update scraped data from steamid.pro (only fill missing fields)
+        # Update scraped data from steamid.pro and steamid.io (only fill missing fields)
         if scraped_data:
             # Use scraped avatar ONLY if Steam API didn't provide one
             if not search_record.avatar_url and scraped_data.get('avatar_url'):
@@ -121,7 +122,13 @@ class SteamLookupService:
             if not search_record.persona_name and scraped_data.get('display_name'):
                 search_record.persona_name = scraped_data['display_name']
             
-            # Enhanced steamid.pro fields - always store these
+            # Use scraped profile state ONLY if Steam API didn't provide one
+            if not search_record.profile_state and scraped_data.get('profile_state'):
+                search_record.profile_state = scraped_data['profile_state']
+            
+            # Enhanced steamid.io and steamid.pro fields - always store these
+            if scraped_data.get('account_name'):
+                search_record.account_name = scraped_data['account_name']
             if scraped_data.get('vanity_url'):
                 search_record.vanity_url = scraped_data['vanity_url']
             if scraped_data.get('account_id'):
@@ -321,18 +328,31 @@ class SteamLookupService:
         return None
     
     def _fetch_scraped_data(self, steam_id_64):
-        """Fetch enhanced profile data from steamid.pro scraper."""
+        """Fetch enhanced profile data from steamid.pro and steamid.io scrapers."""
         try:
-            scraped_data = scrape_steamid_profile(steam_id_64)
+            # Get data from steamid.pro (avatar, rating, etc.)
+            scraped_data_pro = scrape_steamid_profile(steam_id_64)
+            
+            # Get data from steamid.io (account_name, profile_created, profile_state)
+            scraped_data_io = scrape_steamid_io(steam_id_64)
+            
+            # Merge the data - steamid.io overrides steamid.pro for overlapping fields
+            scraped_data = scraped_data_pro or {}
+            if scraped_data_io:
+                scraped_data.update(scraped_data_io)
+            
             if scraped_data:
                 print(f"Scraped data for {steam_id_64}:")
                 print(f"  - avatar_url: {scraped_data.get('avatar_url')}")
                 print(f"  - display_name: {scraped_data.get('display_name')}")
+                print(f"  - account_name: {scraped_data.get('account_name')}")
+                print(f"  - profile_created: {scraped_data.get('profile_created')}")
+                print(f"  - profile_state: {scraped_data.get('profile_state')}")
                 print(f"  - vanity_url: {scraped_data.get('vanity_url')}")
                 print(f"  - estimated_value: {scraped_data.get('estimated_value')}")
-            return scraped_data
+            return scraped_data if scraped_data else None
         except Exception as e:
-            print(f"Error scraping steamid.pro data: {e}")
+            print(f"Error scraping profile data: {e}")
             return None
     
     def _fetch_ban_data(self, steam_id_64):
@@ -404,6 +424,7 @@ class SteamLookupService:
         return {
             # Basic info
             'name': search_record.persona_name,
+            'account_name': search_record.account_name,
             'profile_url': search_record.profile_url,
             'avatar_url': search_record.avatar_url,
             'profile_state': search_record.profile_state,
