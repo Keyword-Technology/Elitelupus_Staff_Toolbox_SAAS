@@ -104,6 +104,7 @@ export const serverAPI = {
   distribution: () => api.get('/servers/distribution/'),
   players: (id: number) => api.get(`/servers/${id}/players/`),
   history: (id: number) => api.get(`/servers/${id}/history/`),
+  stats: (id: number) => api.get(`/servers/${id}/stats/`),
 };
 
 export const templateAPI = {

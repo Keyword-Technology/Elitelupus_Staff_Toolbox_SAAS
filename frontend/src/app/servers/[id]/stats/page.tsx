@@ -15,7 +15,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { ArrowLeftIcon, ClockIcon, UsersIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import { serverAPI } from '@/lib/api';
 
 interface ServerStatsData {
   server: {
@@ -61,14 +61,7 @@ export default function ServerStatsPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/servers/${serverId}/stats/`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('access_token')}`,
-          },
-        }
-      );
+      const response = await serverAPI.stats(Number(serverId));
       setStatsData(response.data);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load server stats');
