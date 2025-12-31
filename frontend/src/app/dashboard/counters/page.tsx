@@ -11,6 +11,7 @@ import {
   ArrowTrendingUpIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface CounterStats {
   total_sits: number;
@@ -34,11 +35,21 @@ export default function CountersPage() {
   const [stats, setStats] = useState<CounterStats | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const { isConnected } = useWebSocket();
+  const { isConnected, onCounterUpdate } = useWebSocket();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = onCounterUpdate(() => {
+      // Refetch stats when any counter update occurs
+      fetchData();
+    });
+
+    return unsubscribe;
+  }, [onCounterUpdate]);
 
   const fetchData = async () => {
     try {

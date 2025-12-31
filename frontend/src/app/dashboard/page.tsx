@@ -1,13 +1,17 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { counterAPI, serverAPI } from '@/lib/api';
 import { CounterCard } from '@/components/counters/CounterCard';
 import { ServerStatusCard } from '@/components/servers/ServerStatusCard';
+import { useEffect } from 'react';
+import { useWebSocket } from '@/contexts/WebSocketContext';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { onCounterUpdate } = useWebSocket();
 
   const { data: counters } = useQuery({
     queryKey: ['counters'],
@@ -33,6 +37,16 @@ export default function DashboardPage() {
     },
     refetchInterval: 60000, // Refresh every minute
   });
+
+  useEffect(() => {
+    const unsubscribe = onCounterUpdate(() => {
+      // Invalidate counter-related queries to refetch updated stats
+      queryClient.invalidateQueries({ queryKey: ['counter-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['counters'] });
+    });
+
+    return unsubscribe;
+  }, [onCounterUpdate, queryClient]);
 
   return (
     <div className="space-y-6">
