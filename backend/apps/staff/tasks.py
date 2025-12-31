@@ -41,8 +41,9 @@ def sync_staff_roster():
 def sync_discord_statuses_task():
     """Sync Discord statuses for all staff members."""
     from django.conf import settings
-    from .discord_service import sync_discord_statuses, get_bot_instance
-    
+
+    from .discord_service import get_bot_instance, sync_discord_statuses
+
     # Check if Discord bot is configured
     if not getattr(settings, 'DISCORD_BOT_TOKEN', None) or not getattr(settings, 'DISCORD_GUILD_ID', None):
         logger.info("Discord bot not configured, skipping status sync")
@@ -68,8 +69,10 @@ def sync_discord_statuses_task():
 @shared_task
 def mark_inactive_staff():
     """Mark staff as inactive if not seen in last 5 minutes."""
-    from django.utils import timezone
     from datetime import timedelta
+
+    from django.utils import timezone
+
     from .models import StaffRoster
     
     try:
