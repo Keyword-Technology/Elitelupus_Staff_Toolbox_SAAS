@@ -255,6 +255,38 @@ export default function EnhancedSteamProfile({ profile }: Props) {
               )}
             </div>
 
+            {/* Past IGN Names */}
+            {profile.search_history && profile.search_history.length > 1 && (
+              <div className="mt-4 p-3 bg-dark-bg rounded-lg border border-dark-border">
+                <p className="text-gray-400 text-sm mb-2 flex items-center gap-2">
+                  <ClockIcon className="w-4 h-4" />
+                  Past Names ({profile.search_history.length})
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {profile.search_history
+                    .filter((h, i, arr) => 
+                      // Remove duplicates
+                      arr.findIndex(x => x.persona_name === h.persona_name) === i
+                    )
+                    .slice(0, 5)
+                    .map((history, i) => (
+                      <span
+                        key={i}
+                        className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs"
+                        title={`Used ${formatDistanceToNow(new Date(history.searched_at))} ago`}
+                      >
+                        {history.persona_name}
+                      </span>
+                    ))}
+                  {profile.search_history.length > 5 && (
+                    <span className="px-2 py-1 text-gray-500 text-xs">
+                      +{profile.search_history.length - 5} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
             <a
               href={profile.profile.profile_url}
               target="_blank"
