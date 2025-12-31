@@ -10,7 +10,9 @@ import {
   PlusIcon,
   TrashIcon,
   CheckIcon,
-  XMarkIcon
+  XMarkIcon,
+  ChevronDownIcon,
+  ChevronUpIcon
 } from '@heroicons/react/24/outline';
 
 interface SteamProfileNotesProps {
@@ -52,6 +54,7 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [servers, setServers] = useState<any[]>([]);
+  const [showInactive, setShowInactive] = useState(false);
 
   // Fetch servers on component mount
   useEffect(() => {
@@ -143,9 +146,51 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
   const activeWarnings = notesList.filter(
     n => n.is_active && n.note_type === 'warning_verbal'
   );
+  const activeNotes = notesList.filter(n => n.is_active);
+  const inactiveNotes = notesList.filter(n => !n.is_active);
+  const criticalNotes = activeNotes.filter(n => n.severity >= 3);
 
   return (
     <div className="space-y-4">
+      {/* Critical/High Severity Banners */}
+      {criticalNotes.length > 0 && (
+        <div className="space-y-2">
+          {criticalNotes.map((note) => (
+            <div
+              key={`banner-${note.id}`}
+              className={`rounded-lg p-4 border-l-4 ${
+                note.severity === 4
+                  ? 'bg-red-900 border-red-500 text-red-100'
+                  : 'bg-orange-900 border-orange-500 text-orange-100'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <ExclamationTriangleIcon className="w-6 h-6 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-bold text-sm uppercase">
+                      {note.severity === 4 ? '⚠️ Critical' : '⚠️ High'} Severity Warning
+                    </span>
+                    <span className="text-xs opacity-75">{note.note_type_display}</span>
+                  </div>
+                  {note.title && (
+                    <h4 className="font-semibold text-base mb-1">{note.title}</h4>
+                  )}
+                  <p className="text-sm mb-2">{note.content}</p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs opacity-75">
+                    <span>By {note.author_name}</span>
+                    <span>{new Date(note.created_at).toLocaleDateString()}</span>
+                    {note.expires_at && (
+                      <span>Expires: {new Date(note.expires_at).toLocaleDateString()}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -263,8 +308,9 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
                   value={formData.expiry_hours}
                   onChange={(e) => setFormData({ ...formData, expiry_hours: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-dark-bg text-white"
+                  required
                 >
-                  <option value="">No expiry</option>
+                  <option value="">Select expiry time...</option>
                   <option value="12">12 hours</option>
                   <option value="24">24 hours</option>
                   <option value="48">48 hours</option>
@@ -303,15 +349,15 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
         </form>
       )}
 
-      {/* Notes List */}
+      {/* Active Notes List */}
       <div className="space-y-3">
-        {notesList.length === 0 ? (
+        {activeNotes.length === 0 ? (
           <div className="text-center py-8 text-gray-400">
             <ChatBubbleLeftIcon className="w-12 h-12 mx-auto mb-2 text-gray-500" />
-            <p>No notes or warnings recorded for this player</p>
+            <p>No active notes or warnings recorded for this player</p>
           </div>
         ) : (
-          notesList.map((note) => {
+          activeNotes.map((note) => {
             const Icon = NOTE_TYPE_ICONS[note.note_type as keyof typeof NOTE_TYPE_ICONS] || ChatBubbleLeftIcon;
             const colorClass = NOTE_TYPE_COLORS[note.note_type as keyof typeof NOTE_TYPE_COLORS] || NOTE_TYPE_COLORS.general;
             const severityClass = SEVERITY_COLORS[note.severity as keyof typeof SEVERITY_COLORS];
@@ -319,9 +365,7 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
             return (
               <div
                 key={note.id}
-                className={`border rounded-lg p-4 ${
-                  note.is_active ? 'border-gray-300 bg-gray-50' : 'border-gray-200 bg-gray-100 opacity-75'
-                }`}
+                className="border border-gray-300 bg-gray-50 rounded-lg p-4"
               >
                 <div className="flex items-start gap-3">
                   {/* Icon */}
@@ -341,11 +385,6 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
                           <span className={`text-xs px-2 py-0.5 rounded-full border ${severityClass}`}>
                             {note.severity_display}
                           </span>
-                          {!note.is_active && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-800">
-                              Resolved
-                            </span>
-                          )}
                         </div>
                         {note.title && (
                           <h4 className="font-medium text-gray-900 mt-1">{note.title}</h4>
@@ -353,8 +392,7 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
                       </div>
 
                       {/* Actions */}
-                      {note.is_active && (
-                        <div className="flex gap-1">
+                      <div className="flex gap-1">
                           <button
                             onClick={() => handleResolve(note)}
                             className="p-1 text-green-600 hover:bg-green-50 rounded"
@@ -370,7 +408,7 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
                             <TrashIcon className="w-5 h-5" />
                           </button>
                         </div>
-                      )}
+                      )
                     </div>
 
                     {/* Note Content */}
@@ -407,6 +445,98 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
           })
         )}
       </div>
-    </div>
+      {/* Inactive/Expired Notes - Collapsible */}
+      {inactiveNotes.length > 0 && (
+        <div className="border-t border-gray-700 pt-3 mt-3">
+          <button
+            onClick={() => setShowInactive(!showInactive)}
+            className="flex items-center justify-between w-full text-left text-gray-400 hover:text-gray-300 transition-colors"
+          >
+            <span className="text-sm font-medium">
+              Inactive Notes ({inactiveNotes.length})
+            </span>
+            {showInactive ? (
+              <ChevronUpIcon className="w-5 h-5" />
+            ) : (
+              <ChevronDownIcon className="w-5 h-5" />
+            )}
+          </button>
+          
+          {showInactive && (
+            <div className="space-y-3 mt-3">
+              {inactiveNotes.map((note) => {
+                const Icon = NOTE_TYPE_ICONS[note.note_type as keyof typeof NOTE_TYPE_ICONS] || ChatBubbleLeftIcon;
+                const colorClass = NOTE_TYPE_COLORS[note.note_type as keyof typeof NOTE_TYPE_COLORS] || NOTE_TYPE_COLORS.general;
+                const severityClass = SEVERITY_COLORS[note.severity as keyof typeof SEVERITY_COLORS];
+
+                return (
+                  <div
+                    key={note.id}
+                    className="border border-gray-200 bg-gray-100 rounded-lg p-4 opacity-75"
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* Icon */}
+                      <div className={`p-2 rounded-lg ${colorClass}`}>
+                        <Icon className="w-5 h-5" />
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${colorClass}`}>
+                                {note.note_type_display}
+                              </span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full border ${severityClass}`}>
+                                {note.severity_display}
+                              </span>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-800">
+                                Expired/Resolved
+                              </span>
+                            </div>
+                            {note.title && (
+                              <h4 className="font-medium text-gray-900 mt-1">{note.title}</h4>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Note Content */}
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap mb-2">
+                          {note.content}
+                        </p>
+
+                        {/* Metadata */}
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
+                          <span>
+                            By <span className="font-medium text-gray-900">{note.author_name}</span>
+                            {note.author_role && (
+                              <span className="text-gray-600"> ({note.author_role})</span>
+                            )}
+                          </span>
+                          <span>{new Date(note.created_at).toLocaleString()}</span>
+                          {note.server && (
+                            <span>Server: <span className="font-medium text-gray-900">{note.server}</span></span>
+                          )}
+                          {note.expires_at && (
+                            <span>Expired: {new Date(note.expires_at).toLocaleString()}</span>
+                          )}
+                          {note.resolved_at && (
+                            <span>
+                              Resolved: {new Date(note.resolved_at).toLocaleString()}
+                              {note.resolved_by_name && ` by ${note.resolved_by_name}`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}    </div>
   );
 }
