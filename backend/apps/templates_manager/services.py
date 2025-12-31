@@ -37,6 +37,10 @@ class SteamLookupService:
             defaults={'steam_id': steam_id_converted}
         )
         
+        # Ensure past_names is initialized (for records created before migration)
+        if search_record.past_names is None:
+            search_record.past_names = []
+        
         # Store previous data for change detection
         previous_data = {
             'persona_name': search_record.persona_name,
