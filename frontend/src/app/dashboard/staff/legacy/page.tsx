@@ -62,8 +62,11 @@ export default function LegacyStaffPage() {
       const orderingParam = sortOrder === 'desc' ? `-${sortBy}` : sortBy;
       const response = await staffAPI.roster(`?show_inactive=true&ordering=${orderingParam}`);
       
+      // Handle paginated response
+      const staffData = Array.isArray(response.data) ? response.data : (response.data?.results || []);
+      
       // Filter to only show inactive staff
-      const inactiveStaff = (response.data || []).filter((s: StaffMember) => !s.is_active);
+      const inactiveStaff = staffData.filter((s: StaffMember) => !s.is_active);
       setStaff(inactiveStaff);
       
       if (inactiveStaff.length === 0) {

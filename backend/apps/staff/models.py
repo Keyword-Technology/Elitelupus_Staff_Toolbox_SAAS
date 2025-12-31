@@ -2,17 +2,77 @@ from django.conf import settings
 from django.db import models
 
 
-class StaffRoster(models.Model):
-    """Cached staff roster from Google Sheets."""
+class Staff(models.Model):
+    """Core staff entity - permanent record for each staff member."""
     
+    # Unique identifier - steam_id is the key
+    steam_id = models.CharField(max_length=50, unique=True, primary_key=True)
+    
+    # Basic info
+    name = models.CharField(max_length=100)
+    discord_id = models.CharField(max_length=50, blank=True, null=True)
+    discord_tag = models.CharField(max_length=100, blank=True, null=True)
+    
+    # Current status
+    STAFF_STATUS_CHOICES = [
+        ('active', 'Active Staff'),
+        ('inactive', 'Inactive/Removed'),
+        ('loa', 'Leave of Absence'),
+    ]
+    staff_status = models.CharField(
+        max_length=20,
+        choices=STAFF_STATUS_CHOICES,
+        default='active'
+    )
+    
+    # Current role (updated from roster sync)
+    current_role = models.CharField(max_length=50, blank=True)
+    current_role_priority = models.IntegerField(default=999)
+    
+    # Link to user account if exists
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='staff_profile'
+    )
+    
+    # Timestamps
+    first_joined = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(null=True, blank=True)
+    staff_since = models.DateTimeField(null=True, blank=True)  # When became staff
+    staff_left_at = models.DateTimeField(null=True, blank=True)  # When left staff
+    
+    class Meta:
+        ordering = ['current_role_priority', 'name']
+        verbose_name = 'Staff Member'
+        verbose_name_plural = 'Staff Members'
+    
+    def __str__(self):
+        return f"{self.name} ({self.current_role or 'No Role'})"
+    
+    @property
+    def is_active_staff(self):
+        return self.staff_status == 'active'
+
+
+class StaffRoster(models.Model):
+    """Current staff roster from Google Sheets - links to Staff entity."""
+    
+    # Link to core staff entity
+    staff = models.ForeignKey(
+        Staff,
+        on_delete=models.CASCADE,
+        related_name='roster_entries',
+        to_field='steam_id'
+    )
+    
+    # Roster data from sheets
     rank = models.CharField(max_length=50)
     rank_priority = models.IntegerField(default=999)  # Lower = higher priority
     timezone = models.CharField(max_length=50, blank=True)
     active_time = models.CharField(max_length=20, blank=True)
-    name = models.CharField(max_length=100)
-    steam_id = models.CharField(max_length=50, blank=True, null=True)
-    discord_id = models.CharField(max_length=50, blank=True, null=True)
-    discord_tag = models.CharField(max_length=100, blank=True, null=True)
     
     # Discord presence (optional - requires bot)
     discord_status = models.CharField(
@@ -31,33 +91,55 @@ class StaffRoster(models.Model):
     discord_status_updated = models.DateTimeField(null=True, blank=True)
     
     # In-app activity tracking (fallback when Discord bot not configured)
-    last_seen = models.DateTimeField(null=True, blank=True, verbose_name='Last Seen')
     is_active_in_app = models.BooleanField(default=False, verbose_name='Active in App')
-    
-    # Link to user account if exists
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='staff_roster'
-    )
     
     # Metadata
     last_synced = models.DateTimeField(auto_now=True)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)  # In current roster
 
     class Meta:
-        ordering = ['rank_priority', 'name']  # Order by priority first, then name
-        verbose_name = 'Staff Member'
+        ordering = ['rank_priority', 'staff__name']
+        verbose_name = 'Roster Entry'
         verbose_name_plural = 'Staff Roster'
+        # Only one active roster entry per staff member
+        unique_together = [['staff', 'is_active']]
 
     def __str__(self):
-        return f"{self.name} ({self.rank})"
+        return f"{self.staff.name} - {self.rank}"
 
     @property
     def rank_color(self):
         return settings.STAFF_ROLE_COLORS.get(self.rank, '#808080')
+    
+    @property
+    def name(self):
+        """Backwards compatibility"""
+        return self.staff.name
+    
+    @property
+    def steam_id(self):
+        """Backwards compatibility"""
+        return self.staff.steam_id
+    
+    @property
+    def discord_id(self):
+        """Backwards compatibility"""
+        return self.staff.discord_id
+    
+    @property
+    def discord_tag(self):
+        """Backwards compatibility"""
+        return self.staff.discord_tag
+    
+    @property
+    def last_seen(self):
+        """Backwards compatibility"""
+        return self.staff.last_seen
+    
+    @property
+    def user(self):
+        """Backwards compatibility"""
+        return self.staff.user
 
     def get_rank_priority(self):
         """Get priority from settings for the current rank."""
@@ -87,10 +169,11 @@ class ServerSession(models.Model):
     """Track individual staff member server sessions."""
     
     staff = models.ForeignKey(
-        StaffRoster,
+        Staff,
         on_delete=models.CASCADE,
         related_name='server_sessions',
-        verbose_name='Staff Member'
+        verbose_name='Staff Member',
+        to_field='steam_id'
     )
     server = models.ForeignKey(
         'servers.GameServer',
@@ -162,10 +245,11 @@ class ServerSessionAggregate(models.Model):
     ]
     
     staff = models.ForeignKey(
-        StaffRoster,
+        Staff,
         on_delete=models.CASCADE,
         related_name='session_aggregates',
-        verbose_name='Staff Member'
+        verbose_name='Staff Member',
+        to_field='steam_id'
     )
     server = models.ForeignKey(
         'servers.GameServer',
@@ -239,10 +323,11 @@ class StaffHistoryEvent(models.Model):
     ]
     
     staff = models.ForeignKey(
-        StaffRoster,
+        Staff,
         on_delete=models.CASCADE,
         related_name='history_events',
-        verbose_name='Staff Member'
+        verbose_name='Staff Member',
+        to_field='steam_id'
     )
     
     event_type = models.CharField(

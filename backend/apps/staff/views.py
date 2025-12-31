@@ -83,7 +83,7 @@ class StaffRosterDetailView(generics.RetrieveAPIView):
     """Get a specific staff member."""
     serializer_class = StaffRosterSerializer
     permission_classes = [permissions.IsAuthenticated]
-    queryset = StaffRoster.objects.filter(is_active=True)
+    queryset = StaffRoster.objects.all()  # Include inactive/legacy staff
 
 
 class StaffSyncView(APIView):
