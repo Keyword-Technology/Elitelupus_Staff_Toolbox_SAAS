@@ -55,18 +55,38 @@ class StaffRosterSerializer(serializers.ModelSerializer):
     def get_is_online(self, obj):
         """Check if staff member is currently online on any server."""
         from apps.servers.models import ServerPlayer
+
+        # Use steam_id for more reliable matching if available
+        if obj.steam_id:
+            return ServerPlayer.objects.filter(steam_id=obj.steam_id, is_staff=True).exists()
+        
+        # Fallback to name matching (exact match only as fallback)
         return ServerPlayer.objects.filter(name__iexact=obj.name, is_staff=True).exists()
     
     def get_server_name(self, obj):
         """Get the server name where staff member is online."""
         from apps.servers.models import ServerPlayer
-        player = ServerPlayer.objects.filter(name__iexact=obj.name, is_staff=True).first()
+
+        # Use steam_id for more reliable matching if available
+        if obj.steam_id:
+            player = ServerPlayer.objects.filter(steam_id=obj.steam_id, is_staff=True).first()
+        else:
+            # Fallback to name matching (exact match only as fallback)
+            player = ServerPlayer.objects.filter(name__iexact=obj.name, is_staff=True).first()
+        
         return player.server.name if player else None
     
     def get_server_id(self, obj):
         """Get the server ID where staff member is online."""
         from apps.servers.models import ServerPlayer
-        player = ServerPlayer.objects.filter(name__iexact=obj.name, is_staff=True).first()
+
+        # Use steam_id for more reliable matching if available
+        if obj.steam_id:
+            player = ServerPlayer.objects.filter(steam_id=obj.steam_id, is_staff=True).first()
+        else:
+            # Fallback to name matching (exact match only as fallback)
+            player = ServerPlayer.objects.filter(name__iexact=obj.name, is_staff=True).first()
+        
         return player.server.id if player else None
     
     def get_is_on_loa(self, obj):
