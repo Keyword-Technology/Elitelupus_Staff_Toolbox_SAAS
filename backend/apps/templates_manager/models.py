@@ -75,6 +75,9 @@ class SteamProfileSearch(models.Model):
     last_scraped_at = models.DateTimeField(null=True, blank=True, help_text='When profile was last scraped')
     scrape_data = models.JSONField(default=dict, blank=True, help_text='Raw scraped data')
     
+    # Past names tracking
+    past_names = models.JSONField(default=list, blank=True, help_text='List of past display names with timestamps')
+    
     class Meta:
         ordering = ['-last_searched_at']
         verbose_name = 'Steam Profile Search'

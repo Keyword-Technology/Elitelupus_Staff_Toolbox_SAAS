@@ -143,6 +143,7 @@ export interface SteamProfile {
     rating_count?: number;
     scraped_description?: string;
     last_scraped_at?: string;
+    past_names?: Array<{name: string; first_seen: string; last_seen: string}>;
   };
   bans: {
     vac_bans: number;

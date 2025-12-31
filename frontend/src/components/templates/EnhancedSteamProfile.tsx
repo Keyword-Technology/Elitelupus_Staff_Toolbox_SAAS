@@ -51,6 +51,7 @@ interface SteamProfileData {
     rating_count?: number;
     scraped_description?: string;
     last_scraped_at?: string;
+    past_names?: Array<{name: string; first_seen: string; last_seen: string}>;
   };
   bans: {
     vac_bans: number;
@@ -368,35 +369,30 @@ export default function EnhancedSteamProfile({ profile }: Props) {
             </div>
 
             {/* Past IGN Names */}
-            {profile.search_history && profile.search_history.length > 0 && (
+            {profile.profile.past_names && profile.profile.past_names.length > 0 && (
               <div className="mt-4 p-3 bg-dark-bg rounded-lg border border-dark-border">
                 <p className="text-gray-400 text-sm mb-2 flex items-center gap-2">
                   <ClockIcon className="w-4 h-4" />
-                  Past Names ({profile.search_history.length})
+                  Past Names ({profile.profile.past_names.length})
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {profile.search_history
-                    .filter((h) => h.persona_name && h.persona_name.trim() !== '')
-                    .filter((h, i, arr) => 
-                      // Remove duplicates
-                      arr.findIndex(x => x.persona_name === h.persona_name) === i
-                    )
-                    .slice(0, 10)
-                    .map((history, i) => (
+                  {profile.profile.past_names
+                    .slice(0, 20)
+                    .map((entry, i) => (
                       <span
                         key={i}
                         className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs"
-                        title={`Used ${formatDistanceToNow(new Date(history.searched_at))} ago`}
+                        title={`First seen: ${formatDistanceToNow(new Date(entry.first_seen))} ago\nLast seen: ${formatDistanceToNow(new Date(entry.last_seen))} ago`}
                       >
-                        {history.persona_name}
+                        {entry.name}
                       </span>
                     ))}
-                  {profile.search_history.filter(h => h.persona_name && h.persona_name.trim() !== '').length > 10 && (
+                  {profile.profile.past_names.length > 20 && (
                     <span className="px-2 py-1 text-gray-500 text-xs">
-                      +{profile.search_history.filter(h => h.persona_name && h.persona_name.trim() !== '').length - 10} more
+                      +{profile.profile.past_names.length - 20} more
                     </span>
                   )}
-                  {profile.search_history.filter(h => h.persona_name && h.persona_name.trim() !== '').length === 0 && (
+                  {profile.profile.past_names.length === 0 && (
                     <span className="text-gray-500 text-xs">No name history available</span>
                   )}
                 </div>

@@ -6,8 +6,8 @@ from django.conf import settings
 from django.utils import timezone
 
 from .models import SteamProfileHistory, SteamProfileSearch
-from .steamid_scraper import scrape_steamid_profile
 from .steamid_io_scraper import scrape_steamid_io
+from .steamid_scraper import scrape_steamid_profile
 
 
 class SteamLookupService:
@@ -61,7 +61,14 @@ class SteamLookupService:
         
         # Update profile data
         if profile_data:
-            search_record.persona_name = profile_data.get('personaname', '')
+            new_name = profile_data.get('personaname', '')
+            old_name = search_record.persona_name
+            
+            # Track name changes in past_names
+            if new_name and new_name != old_name:
+                self._add_to_past_names(search_record, new_name)
+            
+            search_record.persona_name = new_name
             search_record.profile_url = profile_data.get('profileurl', '')
             search_record.avatar_url = profile_data.get('avatarfull', '')
             print(f"Setting avatar_url to: {search_record.avatar_url}")
@@ -389,6 +396,30 @@ class SteamLookupService:
         else:
             return 'private'
     
+    def _add_to_past_names(self, search_record, new_name):
+        """Add a name to the past_names list if it's unique."""
+        if not new_name or not new_name.strip():
+            return
+        
+        # Initialize past_names if not set
+        if not isinstance(search_record.past_names, list):
+            search_record.past_names = []
+        
+        # Check if name already exists
+        existing_names = [entry['name'] for entry in search_record.past_names if isinstance(entry, dict)]
+        if new_name not in existing_names:
+            search_record.past_names.append({
+                'name': new_name,
+                'first_seen': timezone.now().isoformat(),
+                'last_seen': timezone.now().isoformat()
+            })
+        else:
+            # Update last_seen for existing name
+            for entry in search_record.past_names:
+                if isinstance(entry, dict) and entry.get('name') == new_name:
+                    entry['last_seen'] = timezone.now().isoformat()
+                    break
+    
     def _detect_changes(self, previous_data, current_record):
         """Detect changes between previous and current data."""
         changes = {}
@@ -469,6 +500,9 @@ class SteamLookupService:
             'rating_count': search_record.rating_count,
             'scraped_description': search_record.scraped_description,
             'last_scraped_at': search_record.last_scraped_at,
+            
+            # Past names tracking
+            'past_names': search_record.past_names if isinstance(search_record.past_names, list) else [],
         }
     
     def _serialize_templates(self, templates, template_type):
