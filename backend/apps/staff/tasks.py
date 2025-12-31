@@ -40,7 +40,13 @@ def sync_staff_roster():
 @shared_task
 def sync_discord_statuses_task():
     """Sync Discord statuses for all staff members."""
-    from .discord_service import get_bot_instance, sync_discord_statuses
+    from django.conf import settings
+    from .discord_service import sync_discord_statuses, get_bot_instance
+    
+    # Check if Discord bot is configured
+    if not getattr(settings, 'DISCORD_BOT_TOKEN', None) or not getattr(settings, 'DISCORD_GUILD_ID', None):
+        logger.info("Discord bot not configured, skipping status sync")
+        return {'success': False, 'error': 'Bot not configured'}
     
     try:
         bot = get_bot_instance()
@@ -56,6 +62,30 @@ def sync_discord_statuses_task():
         
     except Exception as e:
         logger.error(f"Error syncing Discord statuses: {e}")
+        return {'success': False, 'error': str(e)}
+
+
+@shared_task
+def mark_inactive_staff():
+    """Mark staff as inactive if not seen in last 5 minutes."""
+    from django.utils import timezone
+    from datetime import timedelta
+    from .models import StaffRoster
+    
+    try:
+        threshold = timezone.now() - timedelta(minutes=5)
+        
+        # Mark staff as inactive if last_seen is older than threshold
+        updated = StaffRoster.objects.filter(
+            is_active_in_app=True,
+            last_seen__lt=threshold
+        ).update(is_active_in_app=False)
+        
+        logger.info(f"Marked {updated} staff members as inactive")
+        return {'success': True, 'marked_inactive': updated}
+        
+    except Exception as e:
+        logger.error(f"Error marking inactive staff: {e}")
         return {'success': False, 'error': str(e)}
 
 

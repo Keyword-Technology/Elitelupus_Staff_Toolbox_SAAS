@@ -140,10 +140,17 @@ class DiscordStatusSyncView(APIView):
 
     def post(self, request):
         try:
+            # Check if Discord bot is configured
+            if not settings.DISCORD_BOT_TOKEN or not settings.DISCORD_GUILD_ID:
+                return Response(
+                    {'error': 'Discord bot is not configured', 'configured': False},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
             bot = get_bot_instance()
             if not bot.is_running:
                 return Response(
-                    {'error': 'Discord bot is not running'},
+                    {'error': 'Discord bot is not running', 'configured': True},
                     status=status.HTTP_503_SERVICE_UNAVAILABLE
                 )
             
@@ -165,8 +172,20 @@ class DiscordBotStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        # Check if Discord bot is configured
+        configured = bool(settings.DISCORD_BOT_TOKEN and settings.DISCORD_GUILD_ID)
+        
+        if not configured:
+            return Response({
+                'configured': False,
+                'is_running': False,
+                'guild_id': None,
+                'message': 'Discord bot is not configured. Using in-app activity tracking.'
+            })
+        
         bot = get_bot_instance()
         return Response({
+            'configured': True,
             'is_running': bot.is_running,
             'guild_id': bot.guild_id,
         })

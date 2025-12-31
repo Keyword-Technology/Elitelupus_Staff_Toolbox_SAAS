@@ -28,6 +28,10 @@ interface StaffMember {
   discord_custom_status?: string | null;
   discord_activity?: string | null;
   discord_status_updated?: string | null;
+  last_seen?: string | null;
+  is_active_in_app?: boolean;
+  last_seen_display?: string | null;
+  is_active_display?: boolean;
   joined_date: string;
   timezone: string;
   is_active: boolean;
@@ -303,7 +307,7 @@ export default function StaffPage() {
                     <SortIcon column="is_active" />
                   </div>
                 </th>
-                <th className="text-left p-4 text-gray-400 font-medium">
+                <tActivityName="text-left p-4 text-gray-400 font-medium">
                   Online
                 </th>
                 <th className="text-left p-4 text-gray-400 font-medium">
@@ -386,16 +390,35 @@ export default function StaffPage() {
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-gray-600" />
                           <span className="text-gray-500 text-sm">Offline</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      {member.discord_id ? (
+                        </div>&& member.discord_status ? (
                         <DiscordStatusBadge
                           status={member.discord_status}
                           customStatus={member.discord_custom_status}
                           activity={member.discord_activity}
                           showText={true}
+                          size="sm"
+                        />
+                      ) : member.is_active_display ? (
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-green-400">
+                              Active in App
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {member.last_seen_display || 'Just now'}
+                            </span>
+                          </div>
+                        </div>
+                      ) : member.last_seen ? (
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-gray-600" />
+                          <span className="text-gray-500 text-sm">
+                            {member.last_seen_display || 'Inactive'}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-500 text-sm">No activity
                           size="sm"
                         />
                       ) : (

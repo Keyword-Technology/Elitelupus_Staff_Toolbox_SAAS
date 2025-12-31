@@ -14,7 +14,7 @@ class StaffRoster(models.Model):
     discord_id = models.CharField(max_length=50, blank=True, null=True)
     discord_tag = models.CharField(max_length=100, blank=True, null=True)
     
-    # Discord presence
+    # Discord presence (optional - requires bot)
     discord_status = models.CharField(
         max_length=20, 
         blank=True, 
@@ -29,6 +29,10 @@ class StaffRoster(models.Model):
     discord_custom_status = models.CharField(max_length=200, blank=True, null=True)
     discord_activity = models.CharField(max_length=200, blank=True, null=True)
     discord_status_updated = models.DateTimeField(null=True, blank=True)
+    
+    # In-app activity tracking (fallback when Discord bot not configured)
+    last_seen = models.DateTimeField(null=True, blank=True, verbose_name='Last Seen')
+    is_active_in_app = models.BooleanField(default=False, verbose_name='Active in App')
     
     # Link to user account if exists
     user = models.OneToOneField(

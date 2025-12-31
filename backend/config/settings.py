@@ -60,6 +60,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'social_django.middleware.SocialAuthExceptionMiddleware',
+    'apps.staff.middleware.StaffActivityMiddleware',  # Track staff activity
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -157,7 +158,8 @@ SOCIAL_AUTH_DISCORD_KEY = os.getenv('DISCORD_CLIENT_ID', '')
 SOCIAL_AUTH_DISCORD_SECRET = os.getenv('DISCORD_CLIENT_SECRET', '')
 SOCIAL_AUTH_DISCORD_SCOPE = ['identify', 'email']
 
-# Discord Bot Settings (for staff status monitoring)
+# Discord Bot Settings (for staff status monitoring - OPTIONAL)
+# Leave empty to disable Discord integration and use in-app activity tracking instead
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN', '')
 DISCORD_GUILD_ID = os.getenv('DISCORD_GUILD_ID', '')  # Server ID to monitor
 

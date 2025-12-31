@@ -21,8 +21,12 @@ class StaffRosterSerializer(serializers.ModelSerializer):
     server_name = serializers.SerializerMethodField()
     server_id = serializers.SerializerMethodField()
     
-    # Discord status fields
+    # Discord status fields (optional - requires bot)
     discord_status_display = serializers.CharField(source='discord_status', read_only=True)
+    
+    # In-app activity (fallback when Discord bot not configured)
+    last_seen_display = serializers.SerializerMethodField()
+    is_active_display = serializers.SerializerMethodField()
     
     # LOA fields (set to default values for now since not in model)
     is_on_loa = serializers.SerializerMethodField()
@@ -34,12 +38,13 @@ class StaffRosterSerializer(serializers.ModelSerializer):
         model = StaffRoster
         fields = [
             'id', 'username', 'display_name', 'role', 'role_color', 'role_priority',
-            'rank', 'timezone', 'active_time', 'name',
-            'steam_id', 'discord_id', 'discord_tag',
-            'discord_status', 'discord_status_display', 'discord_custom_status', 
-            'discord_activity', 'discord_status_updated',
+            'last_seen', 'is_active_in_app', 'last_seen_display', 'is_active_display',
             'is_active', 'is_on_loa', 'loa_end_date',
             'user_id', 'user_avatar', 'last_synced',
+            'joined_date', 'last_activity',
+            'is_online', 'server_name', 'server_id'
+        ]
+        read_only_fields = ['last_synced', 'discord_status_updated', 'last_seen', 'is_active_in_app
             'joined_date', 'last_activity',
             'is_online', 'server_name', 'server_id'
         ]
@@ -78,8 +83,44 @@ class StaffRosterSerializer(serializers.ModelSerializer):
         return obj.last_synced.isoformat() if obj.last_synced else None
     
     def get_last_activity(self, obj):
-        """Get last activity date."""
-        # TODO: Implement activity tracking
+        ""Use last_seen if available, otherwise fall back to last_synced
+        if obj.last_seen:
+            return obj.last_seen.isoformat()
+        return obj.last_synced.isoformat() if obj.last_synced else None
+    
+    def get_last_seen_display(self, obj):
+        """Get human-readable last seen time."""
+        if not obj.last_seen:
+            return None
+        
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        now = timezone.now()
+        diff = now - obj.last_seen
+        
+        if diff < timedelta(minutes=5):
+            return "Just now"
+        elif diff < timedelta(hours=1):
+            minutes = int(diff.total_seconds() / 60)
+            return f"{minutes}m ago"
+        elif diff < timedelta(days=1):
+            hours = int(diff.total_seconds() / 3600)
+            return f"{hours}h ago"
+        else:
+            days = diff.days
+            return f"{days}d ago"
+    
+    def get_is_active_display(self, obj):
+        """Check if user is currently active (seen in last 5 minutes)."""
+        if not obj.last_seen:
+            return False
+        
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        now = timezone.now()
+        return (now - obj.last_seen) < timedelta(minutes=5)
         return obj.last_synced.isoformat() if obj.last_synced else None
 
 
