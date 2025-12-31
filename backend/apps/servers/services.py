@@ -1,6 +1,7 @@
 import logging
 
 import a2s
+from a2s.a2s_exceptions import BrokenMessageError
 from apps.staff.models import StaffRoster
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -21,8 +22,8 @@ class ServerQueryService:
             address = (server.ip_address, server.port)
             
             # Query server info
-            info = a2s.info(address, timeout=5)
-            players = a2s.players(address, timeout=5)
+            info = a2s.info(address, timeout=5, retries=1, encoding='utf-8', challenge=False)
+            players = a2s.players(address, timeout=5, retries=1, encoding='utf-8', challenge=False)
             
             # Update server record
             server.server_name = info.server_name
@@ -57,25 +58,30 @@ class ServerQueryService:
                 'online': True,
             }
             
+        except BrokenMessageError as e:
+            # Invalid or partial UDP payload; typically means the server is unreachable, firewalled, or answering with a non-Source packet.
+            logger.warning(f"Invalid A2S response from {server.name} ({server.ip_address}:{server.port}): {e}")
+            return self._handle_server_error(server, f"Invalid data stream (A2S parse failed)")
         except Exception as e:
             logger.error(f"Error querying server {server.name}: {e}")
-            
-            server.is_online = False
-            server.last_query = timezone.now()
-            server.save()
-            
-            ServerStatusLog.objects.create(
-                server=server,
-                player_count=0,
-                staff_count=0,
-                is_online=False
-            )
-            
-            return {
-                'server_name': server.name,
-                'online': False,
-                'error': str(e)
-            }
+            return self._handle_server_error(server, str(e))
+    def _handle_server_error(self, server, error_msg):
+        server.is_online = False
+        server.last_query = timezone.now()
+        server.save()
+
+        ServerStatusLog.objects.create(
+            server=server,
+            player_count=0,
+            staff_count=0,
+            is_online=False
+        )
+
+        return {
+            'server_name': server.name,
+            'online': False,
+            'error': error_msg,
+        }
     
     def _update_server_players(self, server, players):
         """Update player list for a server."""
