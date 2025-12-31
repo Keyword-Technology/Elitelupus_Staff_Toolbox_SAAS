@@ -116,8 +116,6 @@ services:
       - frontend
     networks:
       - elitelupus_network
-    profiles:
-      - production
 
   # Celery Worker (Background Tasks)
   celery:
@@ -142,8 +140,6 @@ services:
     networks:
       - elitelupus_network
     command: celery -A config worker -l INFO
-    profiles:
-      - production
 
   # Celery Beat (Scheduled Tasks)
   celery-beat:
@@ -167,8 +163,6 @@ services:
     networks:
       - elitelupus_network
     command: celery -A config beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
-    profiles:
-      - production
 
 networks:
   elitelupus_network:
