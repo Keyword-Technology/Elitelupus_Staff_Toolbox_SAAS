@@ -318,7 +318,7 @@ class StaffHistoryEvent(models.Model):
         ('demoted', 'Demoted'),
         ('role_change', 'Role Changed'),
         ('left', 'Left Staff'),
-        ('removed', 'Demoted'),
+        ('removed', 'Removed'),
         ('rejoined', 'Rejoined Staff'),
     ]
     
