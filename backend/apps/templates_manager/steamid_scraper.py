@@ -267,12 +267,13 @@ class SteamIDProScraper:
         return data
     
     def _extract_bans_data(self, soup: BeautifulSoup) -> Dict[str, Any]:
-        """Extract ban status information"""
+        """Extract ban status information including ban dates"""
         data = {
             'vac_banned': False,
             'game_banned': False,
             'community_banned': False,
-            'trade_banned': False
+            'trade_banned': False,
+            'vac_ban_dates': []  # List of VAC ban dates
         }
         
         try:
@@ -307,6 +308,18 @@ class SteamIDProScraper:
                                     num_match = re.search(r'(\d+)', value_text)
                                     if num_match:
                                         data['vac_bans_count'] = int(num_match.group(1))
+                                    
+                                    # Extract VAC ban dates from the value cell
+                                    # Look for dates in format like "Dec 23, 2024" or "23 Dec 2024"
+                                    date_pattern = r'(\w+ \d{1,2},? \d{4})'
+                                    dates = re.findall(date_pattern, value_cell.get_text())
+                                    if dates:
+                                        data['vac_ban_dates'] = dates
+                                    
+                                    # Also check for "X days ago" or "X day(s) ago" pattern
+                                    days_ago_match = re.search(r'(\d+)\s+days?\s+ago', value_text)
+                                    if days_ago_match and not dates:
+                                        data['vac_ban_days_ago'] = int(days_ago_match.group(1))
                             elif 'community ban' in label:
                                 data['community_banned'] = is_banned
                             elif 'trade ban' in label:

@@ -174,6 +174,12 @@ class SteamLookupService:
             if scraped_data.get('vac_banned') is not None:
                 if scraped_data.get('vac_bans_count'):
                     search_record.vac_bans = scraped_data['vac_bans_count']
+                # Store VAC ban dates/days ago if available
+                if scraped_data.get('vac_ban_dates'):
+                    search_record.vac_ban_dates = scraped_data['vac_ban_dates']
+                elif scraped_data.get('vac_ban_days_ago'):
+                    # Use days_ago format if dates not available
+                    search_record.vac_ban_dates = scraped_data['vac_ban_days_ago']
             if scraped_data.get('game_banned') is not None:
                 if scraped_data.get('game_bans_count'):
                     search_record.game_bans = scraped_data['game_bans_count']
@@ -234,6 +240,7 @@ class SteamLookupService:
                 'vac_bans': search_record.vac_bans,
                 'game_bans': search_record.game_bans,
                 'days_since_last_ban': search_record.days_since_last_ban,
+                'vac_ban_dates': search_record.vac_ban_dates if isinstance(search_record.vac_ban_dates, list) else [],
                 'community_banned': search_record.community_banned,
                 'trade_ban': search_record.trade_ban,
             },

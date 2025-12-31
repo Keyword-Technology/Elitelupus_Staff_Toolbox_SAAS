@@ -51,6 +51,7 @@ class SteamProfileSearch(models.Model):
     vac_bans = models.IntegerField(default=0)
     game_bans = models.IntegerField(default=0)
     days_since_last_ban = models.IntegerField(null=True, blank=True)
+    vac_ban_dates = models.JSONField(default=list, blank=True, help_text='List of VAC ban dates from steamid.pro')
     community_banned = models.BooleanField(default=False)
     trade_ban = models.CharField(max_length=50, blank=True)
     

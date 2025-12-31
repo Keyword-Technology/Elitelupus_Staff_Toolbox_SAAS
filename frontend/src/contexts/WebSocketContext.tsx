@@ -59,7 +59,12 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     // Determine WebSocket URL based on environment or current location
     let wsBaseUrl = process.env.NEXT_PUBLIC_WS_URL;
     
-    if (!wsBaseUrl) {
+    // Always use the correct protocol based on current page
+    if (wsBaseUrl) {
+      // Replace ws:// or wss:// with the correct protocol based on current page
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsBaseUrl = wsBaseUrl.replace(/^(ws|wss):/, protocol);
+    } else {
       // Auto-detect based on current page protocol and host
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.host; // includes port

@@ -149,6 +149,7 @@ export interface SteamProfile {
     vac_bans: number;
     game_bans: number;
     days_since_last_ban?: number;
+    vac_ban_dates?: string[];
     community_banned: boolean;
     trade_ban: string;
   };

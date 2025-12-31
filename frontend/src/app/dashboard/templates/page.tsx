@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { templateAPI, serverAPI } from '@/lib/api';
 import {
   DocumentTextIcon,
@@ -56,6 +57,8 @@ interface SteamProfileData {
 }
 
 export default function TemplatesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [templates, setTemplates] = useState<RefundTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<RefundTemplate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,7 +77,15 @@ export default function TemplatesPage() {
   useEffect(() => {
     fetchTemplates();
     fetchServers();
-  }, []);
+    
+    // Load Steam ID from URL on mount
+    const steamIdFromUrl = searchParams?.get('steamid');
+    if (steamIdFromUrl) {
+      setSteamInput(steamIdFromUrl);
+      // Auto-lookup the Steam profile
+      lookupSteamProfile(steamIdFromUrl);
+    }
+  }, [searchParams]);
 
   const fetchTemplates = async () => {
     try {
@@ -98,9 +109,17 @@ export default function TemplatesPage() {
 
   const handleSteamLookup = async () => {
     if (!steamInput.trim()) return;
+    
+    // Update URL with Steam ID
+    router.push(`?steamid=${encodeURIComponent(steamInput.trim())}`, { scroll: false });
+    
+    await lookupSteamProfile(steamInput.trim());
+  };
+  
+  const lookupSteamProfile = async (steamId: string) => {
     setLookingUp(true);
     try {
-      const res = await templateAPI.steamLookup(steamInput);
+      const res = await templateAPI.steamLookup(steamId);
       setSteamProfile(res.data);
       
       // Extract past IGNs from search history and changes

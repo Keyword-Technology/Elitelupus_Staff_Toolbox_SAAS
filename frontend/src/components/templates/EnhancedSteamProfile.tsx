@@ -57,6 +57,7 @@ interface SteamProfileData {
     vac_bans: number;
     game_bans: number;
     days_since_last_ban?: number;
+    vac_ban_dates?: string[];
     community_banned: boolean;
     trade_ban: string;
   };
@@ -433,8 +434,15 @@ export default function EnhancedSteamProfile({ profile }: Props) {
             <p className="text-gray-400 text-sm">VAC Bans</p>
             <p className={`text-2xl font-bold ${hasVACBan ? 'text-red-400' : 'text-green-400'}`}>
               {profile.bans.vac_bans}
-            </p>
-          </div>
+            </p>            {profile.bans.vac_ban_dates && profile.bans.vac_ban_dates.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {profile.bans.vac_ban_dates.map((date, i) => (
+                  <p key={i} className="text-xs text-red-300">
+                    {date}
+                  </p>
+                ))}
+              </div>
+            )}          </div>
 
           <div className={`p-4 rounded-lg ${hasGameBan ? 'bg-red-900/20 border border-red-500/50' : 'bg-dark-bg'}`}>
             <p className="text-gray-400 text-sm">Game Bans</p>
