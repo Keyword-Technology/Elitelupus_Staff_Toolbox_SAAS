@@ -1,20 +1,10 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from .views import (
-    CustomTokenObtainPairView,
-    RegisterView,
-    ProfileView,
-    PasswordChangeView,
-    TimezonesView,
-    SocialLinkStatusView,
-    UnlinkSocialAccountView,
-    SteamAuthCallbackView,
-    StaffListView,
-    UserDetailView,
-    LogoutView,
-    OAuthCallbackView,
-)
+from .views import (CustomTokenObtainPairView, LogoutView, OAuthCallbackView,
+                    PasswordChangeView, ProfileView, RegisterView,
+                    SocialLinkStatusView, StaffListView, SteamAuthCallbackView,
+                    TimezonesView, UnlinkSocialAccountView, UserDetailView)
 
 urlpatterns = [
     # JWT Authentication
