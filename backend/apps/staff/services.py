@@ -134,7 +134,7 @@ class StaffSyncService:
         return staff_list
     
     def _parse_combined_format(self, csv_content):
-        """Parse CSV where each cell contains 'field value' pairs."""
+        """Parse CSV where each row contains multiple staff members with 'field value' pairs horizontally."""
         staff_list = []
         reader = csv.reader(StringIO(csv_content))
         
@@ -142,16 +142,9 @@ class StaffSyncService:
             if not row or len(row) < 4:  # Need at least rank, name, and an ID
                 continue
             
-            # Extract field:value pairs from each cell
-            staff_data = {
-                'rank': '',
-                'timezone': '',
-                'active_time': '',
-                'name': '',
-                'steam_id': None,
-                'discord_id': None,
-                'discord_tag': None,
-            }
+            # Process the row and split into individual staff members
+            # Staff data repeats horizontally: rank, timezone, time, name, steamid, discordid, discord tag, [repeat]
+            current_staff = None
             
             for cell in row:
                 if not cell or not cell.strip():
@@ -159,28 +152,42 @@ class StaffSyncService:
                 
                 cell_lower = cell.strip().lower()
                 
-                # Extract value after field name
+                # Start a new staff member when we see 'rank'
                 if cell_lower.startswith('rank '):
-                    staff_data['rank'] = cell.strip()[5:].strip()  # Remove 'rank '
-                elif cell_lower.startswith('timezone '):
-                    staff_data['timezone'] = cell.strip()[9:].strip()  # Remove 'timezone '
-                elif cell_lower.startswith('time '):
-                    staff_data['active_time'] = cell.strip()[5:].strip()  # Remove 'time '
-                elif cell_lower.startswith('name '):
-                    staff_data['name'] = cell.strip()[5:].strip()  # Remove 'name '
-                elif cell_lower.startswith('steamid '):
-                    staff_data['steam_id'] = self._parse_steam_id(cell.strip()[8:])  # Remove 'steamid '
-                elif cell_lower.startswith('discordid '):
-                    staff_data['discord_id'] = cell.strip()[10:].strip()  # Remove 'discordid '
-                elif cell_lower.startswith('discord tag '):
-                    staff_data['discord_tag'] = cell.strip()[12:].strip()  # Remove 'discord tag '
+                    # Save previous staff member if complete
+                    if current_staff and current_staff['rank'] and current_staff['name'] and (current_staff['steam_id'] or current_staff['discord_id']):
+                        staff_list.append(current_staff)
+                        logger.debug(f"Parsed staff member: {current_staff['name']} ({current_staff['rank']})")
+                    
+                    # Start new staff member
+                    current_staff = {
+                        'rank': cell.strip()[5:].strip(),  # Remove 'rank '
+                        'timezone': '',
+                        'active_time': '',
+                        'name': '',
+                        'steam_id': None,
+                        'discord_id': None,
+                        'discord_tag': None,
+                    }
+                elif current_staff:
+                    # Add fields to current staff member
+                    if cell_lower.startswith('timezone '):
+                        current_staff['timezone'] = cell.strip()[9:].strip()
+                    elif cell_lower.startswith('time '):
+                        current_staff['active_time'] = cell.strip()[5:].strip()
+                    elif cell_lower.startswith('name '):
+                        current_staff['name'] = cell.strip()[5:].strip()
+                    elif cell_lower.startswith('steamid '):
+                        current_staff['steam_id'] = self._parse_steam_id(cell.strip()[8:])
+                    elif cell_lower.startswith('discordid '):
+                        current_staff['discord_id'] = cell.strip()[10:].strip()
+                    elif cell_lower.startswith('discord tag '):
+                        current_staff['discord_tag'] = cell.strip()[12:].strip()
             
-            # Only add if we have required fields
-            if staff_data['rank'] and staff_data['name'] and (staff_data['steam_id'] or staff_data['discord_id']):
-                staff_list.append(staff_data)
-                logger.debug(f"Parsed staff member (combined format): {staff_data['name']} ({staff_data['rank']})")
-            else:
-                logger.debug(f"Skipped row {row_num}: missing required fields. Data: {staff_data}")
+            # Don't forget the last staff member in the row
+            if current_staff and current_staff['rank'] and current_staff['name'] and (current_staff['steam_id'] or current_staff['discord_id']):
+                staff_list.append(current_staff)
+                logger.debug(f"Parsed staff member: {current_staff['name']} ({current_staff['rank']})")
         
         logger.info(f"Parsed {len(staff_list)} staff members from combined format CSV")
         return staff_list
