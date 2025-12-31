@@ -21,6 +21,14 @@ DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
+# Add production domain if not already in ALLOWED_HOSTS
+if 'elitelupus.node-s.co.za' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('elitelupus.node-s.co.za')
+
+# Proxy configuration - needed when behind reverse proxy
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # Application definition
 INSTALLED_APPS = [
     'daphne',
@@ -255,6 +263,9 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:3000',
     'http://localhost:8000',
     'http://127.0.0.1:8000',
+    'http://0.0.0.0:8000',
+    'https://elitelupus.node-s.co.za',
+    'http://elitelupus.node-s.co.za',
 ]
 
 # Add any additional origins from environment variable
@@ -265,7 +276,12 @@ if os.getenv('CSRF_TRUSTED_ORIGINS'):
 if DEBUG:
     CSRF_COOKIE_SAMESITE = 'Lax'
     CSRF_COOKIE_HTTPONLY = False
+    CSRF_COOKIE_SECURE = False
     SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_SECURE = False
+    # Allow CSRF cookie to be sent with any request in development
+    CSRF_USE_SESSIONS = False
+    CSRF_COOKIE_DOMAIN = None
 else:
     # Production settings
     CSRF_COOKIE_SECURE = True
