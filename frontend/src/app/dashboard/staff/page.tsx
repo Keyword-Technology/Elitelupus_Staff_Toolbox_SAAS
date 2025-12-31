@@ -8,6 +8,8 @@ import {
   MagnifyingGlassIcon,
   ClockIcon,
   GlobeAltIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -46,15 +48,18 @@ export default function StaffPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [totalCount, setTotalCount] = useState(0);
+  const [sortBy, setSortBy] = useState('rank_priority');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     fetchData();
-  }, [currentPage, pageSize]);
+  }, [currentPage, pageSize, sortBy, sortOrder]);
 
   const fetchData = async () => {
     try {
+      const orderingParam = sortOrder === 'desc' ? `-${sortBy}` : sortBy;
       const [rosterRes, logsRes] = await Promise.all([
-        staffAPI.roster(`?page=${currentPage}&page_size=${pageSize}`),
+        staffAPI.roster(`?page=${currentPage}&page_size=${pageSize}&ordering=${orderingParam}`),
         staffAPI.syncLogs(),
       ]);
       // Handle paginated response
@@ -84,6 +89,29 @@ export default function StaffPage() {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      // Toggle sort order if clicking the same column
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Set new column and default to ascending
+      setSortBy(column);
+      setSortOrder('asc');
+    }
+    setCurrentPage(1); // Reset to first page when sorting
+  };
+
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sortBy !== column) {
+      return <ChevronUpIcon className="w-4 h-4 text-gray-600 opacity-0 group-hover:opacity-50 transition-opacity" />;
+    }
+    return sortOrder === 'asc' ? (
+      <ChevronUpIcon className="w-4 h-4 text-primary-500" />
+    ) : (
+      <ChevronDownIcon className="w-4 h-4 text-primary-500" />
+    );
   };
 
   const filteredStaff = staff.filter((member) => {
@@ -221,18 +249,50 @@ export default function StaffPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-dark-border bg-dark-bg">
-                <th className="text-left p-4 text-gray-400 font-medium">
-                  Staff Member
+                <th 
+                  onClick={() => handleSort('name')}
+                  className="text-left p-4 text-gray-400 font-medium cursor-pointer hover:text-gray-300 transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    Staff Member
+                    <SortIcon column="name" />
+                  </div>
                 </th>
-                <th className="text-left p-4 text-gray-400 font-medium">Role</th>
-                <th className="text-left p-4 text-gray-400 font-medium">
-                  Steam ID
+                <th 
+                  onClick={() => handleSort('rank_priority')}
+                  className="text-left p-4 text-gray-400 font-medium cursor-pointer hover:text-gray-300 transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    Role
+                    <SortIcon column="rank_priority" />
+                  </div>
                 </th>
-                <th className="text-left p-4 text-gray-400 font-medium">
-                  Timezone
+                <th 
+                  onClick={() => handleSort('steam_id')}
+                  className="text-left p-4 text-gray-400 font-medium cursor-pointer hover:text-gray-300 transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    Steam ID
+                    <SortIcon column="steam_id" />
+                  </div>
                 </th>
-                <th className="text-left p-4 text-gray-400 font-medium">
-                  Status
+                <th 
+                  onClick={() => handleSort('timezone')}
+                  className="text-left p-4 text-gray-400 font-medium cursor-pointer hover:text-gray-300 transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    Timezone
+                    <SortIcon column="timezone" />
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort('is_active')}
+                  className="text-left p-4 text-gray-400 font-medium cursor-pointer hover:text-gray-300 transition-colors group"
+                >
+                  <div className="flex items-center gap-2">
+                    Status
+                    <SortIcon column="is_active" />
+                  </div>
                 </th>
               </tr>
             </thead>

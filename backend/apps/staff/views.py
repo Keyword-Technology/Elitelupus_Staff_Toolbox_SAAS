@@ -24,7 +24,20 @@ class StaffRosterListView(generics.ListAPIView):
         if rank:
             queryset = queryset.filter(rank=rank)
         
-        # Order by rank_priority (lower = higher), then by name
+        # Handle ordering parameter
+        ordering = self.request.query_params.get('ordering', 'rank_priority,name')
+        # Allow multiple ordering fields separated by comma
+        order_fields = [field.strip() for field in ordering.split(',')]
+        # Validate ordering fields to prevent SQL injection
+        allowed_fields = ['name', '-name', 'rank_priority', '-rank_priority', 
+                         'steam_id', '-steam_id', 'timezone', '-timezone', 
+                         'is_active', '-is_active', 'rank', '-rank']
+        valid_order_fields = [field for field in order_fields if field in allowed_fields]
+        
+        if valid_order_fields:
+            return queryset.order_by(*valid_order_fields)
+        
+        # Default ordering
         return queryset.order_by('rank_priority', 'name')
     
     def get_paginate_by(self, queryset):
