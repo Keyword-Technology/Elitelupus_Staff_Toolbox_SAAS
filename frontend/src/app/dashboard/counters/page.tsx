@@ -93,6 +93,7 @@ export default function CountersPage() {
           title="Sits"
           count={stats?.total_sits || 0}
           todayCount={stats?.today_sits || 0}
+          weeklyCount={stats?.weekly_sits}
           type="sit"
           quota={quotas?.sit_quota}
         />
@@ -100,6 +101,7 @@ export default function CountersPage() {
           title="Tickets"
           count={stats?.total_tickets || 0}
           todayCount={stats?.today_tickets || 0}
+          weeklyCount={stats?.weekly_tickets}
           type="ticket"
           quota={quotas?.ticket_quota}
         />
@@ -149,7 +151,7 @@ export default function CountersPage() {
                 </span>
                 {quotas?.sit_quota && (
                   <span className="text-sm text-gray-500">
-                    / {quotas.sit_quota * 7}
+                    / {quotas.sit_quota}
                   </span>
                 )}
               </div>
@@ -158,13 +160,13 @@ export default function CountersPage() {
               <div
                 className="h-full bg-blue-500 transition-all duration-500"
                 style={{
-                  width: `${Math.min(100, quotas?.sit_quota ? ((stats?.weekly_sits || 0) / (quotas.sit_quota * 7)) * 100 : ((stats?.weekly_sits || 0) / 50) * 100)}%`,
+                  width: `${Math.min(100, quotas?.sit_quota ? ((stats?.weekly_sits || 0) / quotas.sit_quota) * 100 : ((stats?.weekly_sits || 0) / 50) * 100)}%`,
                 }}
               />
             </div>
             {quotas?.sit_quota && (
               <p className="text-xs text-gray-500 mt-1 text-right">
-                {Math.round((stats?.weekly_sits || 0) / (quotas.sit_quota * 7) * 100)}% of weekly quota
+                {Math.round((stats?.weekly_sits || 0) / quotas.sit_quota * 100)}% of weekly quota
               </p>
             )}
           </div>
@@ -177,7 +179,7 @@ export default function CountersPage() {
                 </span>
                 {quotas?.ticket_quota && (
                   <span className="text-sm text-gray-500">
-                    / {quotas.ticket_quota * 7}
+                    / {quotas.ticket_quota}
                   </span>
                 )}
               </div>
@@ -186,13 +188,13 @@ export default function CountersPage() {
               <div
                 className="h-full bg-purple-500 transition-all duration-500"
                 style={{
-                  width: `${Math.min(100, quotas?.ticket_quota ? ((stats?.weekly_tickets || 0) / (quotas.ticket_quota * 7)) * 100 : ((stats?.weekly_tickets || 0) / 50) * 100)}%`,
+                  width: `${Math.min(100, quotas?.ticket_quota ? ((stats?.weekly_tickets || 0) / quotas.ticket_quota) * 100 : ((stats?.weekly_tickets || 0) / 50) * 100)}%`,
                 }}
               />
             </div>
             {quotas?.ticket_quota && (
               <p className="text-xs text-gray-500 mt-1 text-right">
-                {Math.round((stats?.weekly_tickets || 0) / (quotas.ticket_quota * 7) * 100)}% of weekly quota
+                {Math.round((stats?.weekly_tickets || 0) / quotas.ticket_quota * 100)}% of weekly quota
               </p>
             )}
           </div>

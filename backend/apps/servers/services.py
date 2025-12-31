@@ -1,8 +1,9 @@
 import logging
+import re
 
 import a2s
 from a2s import BrokenMessageError
-from apps.staff.models import StaffRoster, ServerSession
+from apps.staff.models import ServerSession, StaffRoster
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
@@ -11,6 +12,51 @@ from django.utils import timezone
 from .models import GameServer, ServerPlayer, ServerStatusLog
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_name(name):
+    """
+    Normalize a player name by removing numbers from start/end for matching.
+    Examples:
+        'Cloudyman2' -> 'cloudyman'
+        '2Cloudyman' -> 'cloudyman'
+        'Admin123' -> 'admin'
+        'Player' -> 'player'
+    """
+    # Convert to lowercase
+    normalized = name.lower().strip()
+    # Remove numbers from the start
+    normalized = re.sub(r'^\d+', '', normalized)
+    # Remove numbers from the end
+    normalized = re.sub(r'\d+$', '', normalized)
+    return normalized
+
+
+def find_matching_staff(player_name, staff_roster_dict):
+    """
+    Find a matching staff member for a player name.
+    
+    Args:
+        player_name: The player name from the server
+        staff_roster_dict: Dictionary of normalized staff names -> StaffRoster objects
+    
+    Returns:
+        StaffRoster object if match found, None otherwise
+    """
+    # Direct match first (fastest)
+    normalized_player = player_name.lower().strip()
+    if normalized_player in staff_roster_dict:
+        return staff_roster_dict[normalized_player]
+    
+    # Try normalized match (remove numbers)
+    normalized_player = normalize_name(player_name)
+    
+    # Check if normalized player name matches any normalized staff name
+    for staff_key, staff_entry in staff_roster_dict.items():
+        if normalize_name(staff_key) == normalized_player:
+            return staff_entry
+    
+    return None
 
 
 class ServerQueryService:
@@ -95,7 +141,7 @@ class ServerQueryService:
         # Clear old players
         ServerPlayer.objects.filter(server=server).delete()
         
-        # Get staff list for matching
+        # Get staff list for matching (key by lowercase name)
         staff_roster = {
             entry.name.lower(): entry 
             for entry in StaffRoster.objects.filter(is_active=True)
@@ -105,8 +151,9 @@ class ServerQueryService:
         new_staff = {}
         
         for player in players:
-            is_staff = player.name.lower() in staff_roster
-            staff_entry = staff_roster.get(player.name.lower())
+            # Use flexible matching function
+            staff_entry = find_matching_staff(player.name, staff_roster)
+            is_staff = staff_entry is not None
             
             steam_id = staff_entry.steam_id if staff_entry else None
             
@@ -222,7 +269,15 @@ class ServerQueryService:
         
         # Get all active staff
         all_staff = list(StaffRoster.objects.filter(is_active=True))
-        online_staff_names = set()
+        
+        # Build staff roster dict for matching
+        staff_roster = {
+            entry.name.lower(): entry 
+            for entry in all_staff
+        }
+        
+        # Track which staff are found online (by their database object)
+        online_staff_ids = set()
         
         for server in servers:
             server_players = ServerPlayer.objects.filter(
@@ -230,23 +285,27 @@ class ServerQueryService:
             )
             
             for player in server_players:
-                online_staff_names.add(player.name.lower())
+                # Find matching staff member
+                staff_entry = find_matching_staff(player.name, staff_roster)
                 
-                staff_data = {
-                    'name': player.name,
-                    'rank': player.staff_rank,
-                    'duration': player.duration_formatted,
-                    'server': server.name,
-                }
-                
-                if server.display_order == 0:
-                    distribution['server_1'].append(staff_data)
-                else:
-                    distribution['server_2'].append(staff_data)
+                if staff_entry:
+                    online_staff_ids.add(staff_entry.id)
+                    
+                    staff_data = {
+                        'name': player.name,
+                        'rank': player.staff_rank,
+                        'duration': player.duration_formatted,
+                        'server': server.name,
+                    }
+                    
+                    if server.display_order == 0:
+                        distribution['server_1'].append(staff_data)
+                    else:
+                        distribution['server_2'].append(staff_data)
         
         # Add offline staff
         for staff in all_staff:
-            if staff.name.lower() not in online_staff_names:
+            if staff.id not in online_staff_ids:
                 distribution['offline'].append({
                     'name': staff.name,
                     'rank': staff.rank,

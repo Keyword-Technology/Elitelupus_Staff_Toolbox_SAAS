@@ -13,16 +13,17 @@ interface CounterCardProps {
   todayCount: number;
   type: 'sit' | 'ticket';
   quota?: number;
+  weeklyCount?: number;
 }
 
-export function CounterCard({ title, count: initialCount, todayCount, type, quota }: CounterCardProps) {
+export function CounterCard({ title, count: initialCount, todayCount, type, quota, weeklyCount }: CounterCardProps) {
   const [count, setCount] = useState(initialCount);
   const [isUpdating, setIsUpdating] = useState(false);
   const { sendCounterUpdate, onCounterUpdate } = useWebSocket();
   
-  const progress = quota ? (todayCount / quota) * 100 : 0;
-  const isComplete = quota ? todayCount >= quota : false;
-  const isNearComplete = quota ? todayCount >= quota * 0.8 : false;
+  const progress = quota && weeklyCount ? (weeklyCount / quota) * 100 : 0;
+  const isComplete = quota && weeklyCount ? weeklyCount >= quota : false;
+  const isNearComplete = quota && weeklyCount ? weeklyCount >= quota * 0.8 : false;
 
   useEffect(() => {
     setCount(initialCount);
@@ -58,16 +59,17 @@ export function CounterCard({ title, count: initialCount, todayCount, type, quot
     <div className="bg-dark-card rounded-lg p-6 border border-dark-border">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-white">{title}</h3>
-        <div className="flex items-center gap-2">
-          {quota && (
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-sm text-gray-400">Today: {todayCount}</span>
+          {quota && weeklyCount !== undefined && (
             <div className="flex items-center gap-1">
               {isComplete ? (
-                <CheckCircleIcon className="w-5 h-5 text-green-500" />
+                <CheckCircleIcon className="w-4 h-4 text-green-500" />
               ) : isNearComplete ? (
-                <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />
+                <ExclamationTriangleIcon className="w-4 h-4 text-yellow-500" />
               ) : null}
-              <span className="text-sm text-gray-400">
-                {todayCount} / {quota}
+              <span className="text-xs text-gray-500">
+                Week: {weeklyCount} / {quota}
               </span>
             </div>
           )}
@@ -75,7 +77,7 @@ export function CounterCard({ title, count: initialCount, todayCount, type, quot
       </div>
       
       {/* Progress Bar */}
-      {quota && (
+      {quota && weeklyCount !== undefined && (
         <div className="mb-4">
           <div className="w-full bg-gray-700 rounded-full h-2.5">
             <div
@@ -91,8 +93,8 @@ export function CounterCard({ title, count: initialCount, todayCount, type, quot
           </div>
           <p className="text-xs text-gray-400 mt-1 text-center">
             {isComplete
-              ? '✓ Quota completed!'
-              : `${Math.round(progress)}% of daily quota`}
+              ? '✓ Weekly quota completed!'
+              : `${Math.round(progress)}% of weekly quota`}
           </p>
         </div>
       )}

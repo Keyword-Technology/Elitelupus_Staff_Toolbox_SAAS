@@ -56,7 +56,7 @@ class SystemSetting(models.Model):
     
     @staticmethod
     def get_sit_quota():
-        """Get the daily sit quota target."""
+        """Get the weekly sit quota target."""
         try:
             setting = SystemSetting.objects.get(key='counter_sit_quota', is_active=True)
             return int(setting.value)
@@ -65,7 +65,7 @@ class SystemSetting(models.Model):
     
     @staticmethod
     def get_ticket_quota():
-        """Get the daily ticket quota target."""
+        """Get the weekly ticket quota target."""
         try:
             setting = SystemSetting.objects.get(key='counter_ticket_quota', is_active=True)
             return int(setting.value)

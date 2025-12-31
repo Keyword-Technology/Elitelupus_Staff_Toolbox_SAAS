@@ -14,7 +14,7 @@ def create_quota_settings(apps, schema_editor):
             'value': '25',
             'setting_type': 'integer',
             'category': 'counters',
-            'description': 'Daily sit quota target for staff members. Staff are expected to complete this many sits per day.',
+            'description': 'Weekly sit quota target for staff members. Staff are expected to complete this many sits per week.',
             'is_sensitive': False,
             'is_active': True,
         }
@@ -27,7 +27,7 @@ def create_quota_settings(apps, schema_editor):
             'value': '3',
             'setting_type': 'integer',
             'category': 'counters',
-            'description': 'Daily ticket quota target for staff members. Staff are expected to complete this many tickets per day.',
+            'description': 'Weekly ticket quota target for staff members. Staff are expected to complete this many tickets per week.',
             'is_sensitive': False,
             'is_active': True,
         }
