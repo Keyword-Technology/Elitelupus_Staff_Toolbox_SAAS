@@ -155,10 +155,7 @@ class RefundTemplate(models.Model):
         blank=True,
         related_name='refund_templates'
     )
-    server = models.CharField(max_length=50, choices=[
-        ('OG', 'OG Server'),
-        ('Normal', 'Normal Server'),
-    ])
+    server = models.CharField(max_length=100, blank=True)  # Allow any server name
     
     # Refund Details
     items_lost = models.TextField()

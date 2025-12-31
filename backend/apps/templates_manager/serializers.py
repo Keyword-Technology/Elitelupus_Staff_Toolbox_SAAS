@@ -55,12 +55,46 @@ class RefundTemplateSerializer(serializers.ModelSerializer):
 class RefundTemplateCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating refund templates."""
     
+    # Accept frontend field names (for backward compatibility)
+    items = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    proof = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    
+    # Make server and ticket_number optional
+    server = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    ticket_number = serializers.CharField(required=False, allow_blank=True, max_length=50)
+    
     class Meta:
         model = RefundTemplate
         fields = [
             'ticket_number', 'player_ign', 'steam_id', 'steam_id_64',
-            'server', 'items_lost', 'reason', 'evidence'
+            'server', 'items_lost', 'reason', 'evidence', 'items', 'proof'
         ]
+        extra_kwargs = {
+            'evidence': {'required': False, 'allow_blank': True},
+            'steam_id_64': {'required': False, 'allow_blank': True},
+            'items_lost': {'required': False, 'allow_blank': True},
+        }
+    
+    def validate(self, data):
+        """Map frontend field names to backend field names."""
+        # Map 'items' to 'items_lost'
+        if 'items' in data:
+            data['items_lost'] = data.pop('items')
+        
+        # Map 'proof' to 'evidence'
+        if 'proof' in data:
+            data['evidence'] = data.pop('proof')
+        
+        # Generate ticket number if not provided
+        if not data.get('ticket_number'):
+            import uuid
+            data['ticket_number'] = f"REF-{uuid.uuid4().hex[:8].upper()}"
+        
+        # Ensure items_lost has a value
+        if not data.get('items_lost'):
+            data['items_lost'] = 'Not specified'
+        
+        return data
 
 
 class TemplateCategorySerializer(serializers.ModelSerializer):
