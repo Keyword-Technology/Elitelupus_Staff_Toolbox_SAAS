@@ -48,24 +48,30 @@ class StaffSyncService:
         staff_list = []
         reader = csv.reader(StringIO(csv_content))
         
-        # Read first row
-        first_row = next(reader, None)
-        if not first_row:
-            logger.error("No data found in CSV")
+        # Find the header row - look for row containing "Rank" or "rank"
+        headers = None
+        normalized_headers = []
+        rows_to_skip = 0
+        
+        for row_num, row in enumerate(reader):
+            if not row:
+                rows_to_skip += 1
+                continue
+            
+            # Check if this row contains header keywords
+            row_lower = [str(cell).strip().lower() for cell in row if cell and str(cell).strip()]
+            if 'rank' in row_lower and 'name' in row_lower and 'steamid' in row_lower:
+                headers = row
+                normalized_headers = [h.strip().lower().replace('"', '') for h in headers]
+                logger.info(f"Found header row at position {row_num + 1}")
+                logger.info(f"CSV Headers: {normalized_headers}")
+                break
+            else:
+                rows_to_skip += 1
+        
+        if not headers:
+            logger.error("Could not find header row with 'rank', 'name', and 'steamid' columns")
             return staff_list
-        
-        # Check if this is a vertical format (field name + value in same cell)
-        # Example: ['', '99', 'rank manager', 'timezone gmt', 'time 17:26', 'name harry', ...]
-        if any('rank ' in str(cell).lower() and len(str(cell).split()) > 1 for cell in first_row):
-            logger.info("Detected vertical/combined format - parsing as field:value pairs")
-            return self._parse_combined_format(csv_content)
-        
-        # Standard horizontal format with header row
-        headers = first_row
-        
-        # Normalize headers (lowercase, strip whitespace)
-        normalized_headers = [h.strip().lower().replace('"', '') for h in headers]
-        logger.info(f"CSV Headers: {normalized_headers}")
         
         # Find column indices by header name (flexible to column order changes)
         def find_column(possible_names):
