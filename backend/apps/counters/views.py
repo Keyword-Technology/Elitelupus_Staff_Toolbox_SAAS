@@ -150,43 +150,55 @@ class CounterStatsView(APIView):
             user=user, counter_type='ticket', period_type='total'
         ).aggregate(total=Coalesce(Sum('count'), 0))['total']
         
-        # Today's counts (from history)
+        # Today's counts (from history) - include both increment and decrement
         today_history = CounterHistory.objects.filter(
             user=user,
             timestamp__date=today,
-            action='increment'
+            action__in=['increment', 'decrement']
         )
         
-        today_sits = today_history.filter(
+        # Calculate net change for today (increment adds, decrement subtracts)
+        today_sits_data = today_history.filter(
             counter_type='sit'
         ).aggregate(
-            total=Coalesce(Sum(F('new_value') - F('old_value')), 0)
-        )['total']
+            increments=Coalesce(Sum(F('new_value') - F('old_value'), output_field=models.IntegerField()), 0, output_field=models.IntegerField())
+        )
         
-        today_tickets = today_history.filter(
-            counter_type='ticket'
-        ).aggregate(
-            total=Coalesce(Sum(F('new_value') - F('old_value')), 0)
-        )['total']
+        today_sits = 0
+        for entry in today_history.filter(counter_type='sit'):
+            if entry.action == 'increment':
+                today_sits += (entry.new_value - entry.old_value)
+            elif entry.action == 'decrement':
+                today_sits -= (entry.new_value - entry.old_value)
         
-        # Weekly counts
+        today_tickets = 0
+        for entry in today_history.filter(counter_type='ticket'):
+            if entry.action == 'increment':
+                today_tickets += (entry.new_value - entry.old_value)
+            elif entry.action == 'decrement':
+                today_tickets -= (entry.new_value - entry.old_value)
+        
+        # Weekly counts - include both increment and decrement
         weekly_history = CounterHistory.objects.filter(
             user=user,
             timestamp__date__gte=week_start,
-            action='increment'
+            action__in=['increment', 'decrement']
         )
         
-        weekly_sits = weekly_history.filter(
-            counter_type='sit'
-        ).aggregate(
-            total=Coalesce(Sum(F('new_value') - F('old_value')), 0)
-        )['total']
+        # Calculate net change for week
+        weekly_sits = 0
+        for entry in weekly_history.filter(counter_type='sit'):
+            if entry.action == 'increment':
+                weekly_sits += (entry.new_value - entry.old_value)
+            elif entry.action == 'decrement':
+                weekly_sits -= (entry.new_value - entry.old_value)
         
-        weekly_tickets = weekly_history.filter(
-            counter_type='ticket'
-        ).aggregate(
-            total=Coalesce(Sum(F('new_value') - F('old_value')), 0)
-        )['total']
+        weekly_tickets = 0
+        for entry in weekly_history.filter(counter_type='ticket'):
+            if entry.action == 'increment':
+                weekly_tickets += (entry.new_value - entry.old_value)
+            elif entry.action == 'decrement':
+                weekly_tickets -= (entry.new_value - entry.old_value)
         
         return Response({
             'total_sits': total_sits,
