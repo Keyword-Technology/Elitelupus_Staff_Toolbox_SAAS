@@ -37,19 +37,11 @@ export function CounterCard({ title, count: initialCount, todayCount, type }: Co
     
     setIsUpdating(true);
     
-    // Optimistic update
-    const newCount = action === 'increment' ? count + 1 : Math.max(0, count - 1);
-    setCount(newCount);
-    
     try {
       // Send via WebSocket for real-time update
+      // The WebSocket callback will handle the state update
       sendCounterUpdate(type, action, 1);
-      
-      // Also send via REST for persistence
-      await counterAPI.update(type, action, 1);
     } catch (error) {
-      // Revert on error
-      setCount(count);
       toast.error('Failed to update counter');
     } finally {
       setIsUpdating(false);

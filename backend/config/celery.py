@@ -17,6 +17,13 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 # Load task modules from all registered Django apps.
 app.autodiscover_tasks()
 
+# Windows cannot fork processes; force a solo (in-process) worker pool when running locally
+# to avoid billiard PermissionError/Access is denied errors from the default prefork pool.
+if os.name == 'nt':
+    app.conf.worker_pool = 'solo'
+    app.conf.worker_concurrency = 1
+    app.conf.worker_prefetch_multiplier = 1
+
 # Celery Beat Schedule
 app.conf.beat_schedule = {
     # Refresh server status every minute
