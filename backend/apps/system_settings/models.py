@@ -14,6 +14,7 @@ class SystemSetting(models.Model):
     
     SETTING_CATEGORIES = [
         ('general', 'General'),
+        ('counters', 'Counters & Quotas'),
         ('api_keys', 'API Keys'),
         ('database', 'Database'),
         ('cache', 'Cache'),
@@ -52,6 +53,40 @@ class SystemSetting(models.Model):
         if self.is_sensitive and self.value:
             return '*' * 8 + self.value[-4:] if len(self.value) > 4 else '****'
         return self.value
+    
+    @staticmethod
+    def get_sit_quota():
+        """Get the daily sit quota target."""
+        try:
+            setting = SystemSetting.objects.get(key='counter_sit_quota', is_active=True)
+            return int(setting.value)
+        except (SystemSetting.DoesNotExist, ValueError):
+            return 25  # Default fallback
+    
+    @staticmethod
+    def get_ticket_quota():
+        """Get the daily ticket quota target."""
+        try:
+            setting = SystemSetting.objects.get(key='counter_ticket_quota', is_active=True)
+            return int(setting.value)
+        except (SystemSetting.DoesNotExist, ValueError):
+            return 3  # Default fallback
+    
+    @staticmethod
+    def get_setting_value(key, default=None):
+        """Get a setting value by key, with optional default."""
+        try:
+            setting = SystemSetting.objects.get(key=key, is_active=True)
+            if setting.setting_type == 'integer':
+                return int(setting.value)
+            elif setting.setting_type == 'boolean':
+                return setting.value.lower() in ('true', '1', 'yes')
+            elif setting.setting_type == 'json':
+                import json
+                return json.loads(setting.value)
+            return setting.value
+        except (SystemSetting.DoesNotExist, ValueError):
+            return default
 
 
 class ManagedServer(models.Model):

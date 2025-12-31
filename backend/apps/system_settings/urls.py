@@ -1,9 +1,10 @@
 from django.urls import re_path
 
-from .views import (EnvironmentVariableListView, EnvironmentVariableUpdateView,
-                    ManagedServerDetailView, ManagedServerListView,
-                    SettingAuditLogListView, SyncManagedServersView,
-                    SystemSettingDetailView, SystemSettingListView)
+from .views import (CounterQuotaView, EnvironmentVariableListView,
+                    EnvironmentVariableUpdateView, ManagedServerDetailView,
+                    ManagedServerListView, SettingAuditLogListView,
+                    SyncManagedServersView, SystemSettingDetailView,
+                    SystemSettingListView)
 
 urlpatterns = [
     # Environment Variables
@@ -13,6 +14,9 @@ urlpatterns = [
     # System Settings
     re_path(r'^settings/?$', SystemSettingListView.as_view(), name='system_settings_list'),
     re_path(r'^settings/(?P<pk>\d+)/?$', SystemSettingDetailView.as_view(), name='system_settings_detail'),
+    
+    # Counter Quotas (public endpoint)
+    re_path(r'^quotas/?$', CounterQuotaView.as_view(), name='counter_quotas'),
     
     # Managed Servers
     re_path(r'^servers/?$', ManagedServerListView.as_view(), name='managed_servers_list'),

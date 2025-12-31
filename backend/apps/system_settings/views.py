@@ -311,6 +311,19 @@ class SyncManagedServersView(APIView):
         })
 
 
+class CounterQuotaView(APIView):
+    """Get counter quota values - accessible to all authenticated users."""
+    
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        """Return current sit and ticket quota values."""
+        return Response({
+            'sit_quota': SystemSetting.get_sit_quota(),
+            'ticket_quota': SystemSetting.get_ticket_quota(),
+        })
+
+
 class SettingAuditLogListView(generics.ListAPIView):
     """List audit logs for system settings."""
     
