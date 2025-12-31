@@ -130,8 +130,8 @@ services:
       - DATABASE_URL=postgres://${POSTGRES_USER:-elitelupus}:${POSTGRES_PASSWORD:-changeme}@db:5432/elitelupus
       - REDIS_URL=redis://redis:6379/0
       - STEAM_API_KEY=${STEAM_API_KEY:-}
-    volumes:
-      # - ./backend:/app  # Development only - comment out for production
+    # volumes:  # Commented out for production - no local mounts needed
+    #   - ./backend:/app
     depends_on:
       db:
         condition: service_healthy
@@ -153,8 +153,8 @@ services:
       - SECRET_KEY=${SECRET_KEY:-change-this-to-a-secure-key}
       - DATABASE_URL=postgres://${POSTGRES_USER:-elitelupus}:${POSTGRES_PASSWORD:-changeme}@db:5432/elitelupus
       - REDIS_URL=redis://redis:6379/0
-    volumes:
-      # - ./backend:/app  # Development only - comment out for production
+    # volumes:  # Commented out for production - no local mounts needed
+    #   - ./backend:/app
     depends_on:
       db:
         condition: service_healthy
