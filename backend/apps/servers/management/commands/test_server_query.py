@@ -2,10 +2,10 @@
 Management command to test server status query with staff matching.
 This will query the servers and show which staff members are detected as online.
 """
-from django.core.management.base import BaseCommand
-from apps.servers.services import ServerQueryService
 from apps.servers.models import GameServer, ServerPlayer
+from apps.servers.services import ServerQueryService
 from apps.staff.models import StaffRoster
+from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
