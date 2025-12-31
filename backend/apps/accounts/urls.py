@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, re_path
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (CustomTokenObtainPairView, LogoutView, OAuthCallbackView,
@@ -8,27 +8,27 @@ from .views import (CustomTokenObtainPairView, LogoutView, OAuthCallbackView,
                     UnlinkSocialAccountView, UserDetailView)
 
 urlpatterns = [
-    # JWT Authentication
-    path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('register/', RegisterView.as_view(), name='register'),
-    path('logout/', LogoutView.as_view(), name='logout'),
+    # JWT Authentication (with optional trailing slash)
+    re_path(r'^token/?$', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    re_path(r'^token/refresh/?$', TokenRefreshView.as_view(), name='token_refresh'),
+    re_path(r'^register/?$', RegisterView.as_view(), name='register'),
+    re_path(r'^logout/?$', LogoutView.as_view(), name='logout'),
     
     # OAuth Callback (generates JWT tokens after social auth)
-    path('oauth/callback/', OAuthCallbackView.as_view(), name='oauth_callback'),
-    path('oauth/error/', OAuthErrorView.as_view(), name='oauth_error'),
+    re_path(r'^oauth/callback/?$', OAuthCallbackView.as_view(), name='oauth_callback'),
+    re_path(r'^oauth/error/?$', OAuthErrorView.as_view(), name='oauth_error'),
     
     # Profile Management
-    path('profile/', ProfileView.as_view(), name='profile'),
-    path('password/change/', PasswordChangeView.as_view(), name='password_change'),
-    path('timezones/', TimezonesView.as_view(), name='timezones'),
+    re_path(r'^profile/?$', ProfileView.as_view(), name='profile'),
+    re_path(r'^password/change/?$', PasswordChangeView.as_view(), name='password_change'),
+    re_path(r'^timezones/?$', TimezonesView.as_view(), name='timezones'),
     
     # Social Account Linking
-    path('social/status/', SocialLinkStatusView.as_view(), name='social_status'),
-    path('social/unlink/<str:provider>/', UnlinkSocialAccountView.as_view(), name='social_unlink'),
-    path('steam/callback/', SteamAuthCallbackView.as_view(), name='steam_callback'),
+    re_path(r'^social/status/?$', SocialLinkStatusView.as_view(), name='social_status'),
+    re_path(r'^social/unlink/(?P<provider>[^/]+)/?$', UnlinkSocialAccountView.as_view(), name='social_unlink'),
+    re_path(r'^steam/callback/?$', SteamAuthCallbackView.as_view(), name='steam_callback'),
     
     # Staff Management
-    path('staff/', StaffListView.as_view(), name='staff_list'),
-    path('users/<int:pk>/', UserDetailView.as_view(), name='user_detail'),
+    re_path(r'^staff/?$', StaffListView.as_view(), name='staff_list'),
+    re_path(r'^users/(?P<pk>\d+)/?$', UserDetailView.as_view(), name='user_detail'),
 ]
