@@ -84,8 +84,11 @@ export default function RulesPage() {
     setSearching(true);
     try {
       const res = await rulesAPI.search(searchQuery);
-      setSearchResults(res.data.results || res.data);
+      const results = Array.isArray(res.data) ? res.data : (res.data.results || []);
+      setSearchResults(results);
+      console.log('Search results:', results);
     } catch (error) {
+      console.error('Search error:', error);
       toast.error('Search failed');
     } finally {
       setSearching(false);
