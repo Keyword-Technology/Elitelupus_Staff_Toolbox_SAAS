@@ -228,3 +228,28 @@ class OAuthCallbackView(View):
             logger.warning("OAuthCallbackView: user not authenticated, redirecting to login")
         
         return redirect(redirect_url)
+
+class OAuthErrorView(View):
+    """Handle OAuth errors and redirect to frontend with error message."""
+    
+    def get(self, request):
+        import logging
+        import urllib.parse
+        logger = logging.getLogger(__name__)
+        
+        frontend_url = settings.FRONTEND_URL
+        
+        # Get error message from query params or session
+        error_message = request.GET.get('message', 'Authentication failed')
+        
+        # Log the error
+        logger.warning(f"OAuth Error: {error_message}")
+        
+        # Redirect to frontend login with error message
+        params = {
+            'error': 'not_authorized',
+            'message': error_message
+        }
+        redirect_url = f"{frontend_url}/login?{urlencode(params)}"
+        
+        return redirect(redirect_url)

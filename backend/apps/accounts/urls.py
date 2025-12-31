@@ -2,9 +2,10 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (CustomTokenObtainPairView, LogoutView, OAuthCallbackView,
-                    PasswordChangeView, ProfileView, RegisterView,
-                    SocialLinkStatusView, StaffListView, SteamAuthCallbackView,
-                    TimezonesView, UnlinkSocialAccountView, UserDetailView)
+                    OAuthErrorView, PasswordChangeView, ProfileView,
+                    RegisterView, SocialLinkStatusView, StaffListView,
+                    SteamAuthCallbackView, TimezonesView,
+                    UnlinkSocialAccountView, UserDetailView)
 
 urlpatterns = [
     # JWT Authentication
@@ -15,6 +16,7 @@ urlpatterns = [
     
     # OAuth Callback (generates JWT tokens after social auth)
     path('oauth/callback/', OAuthCallbackView.as_view(), name='oauth_callback'),
+    path('oauth/error/', OAuthErrorView.as_view(), name='oauth_error'),
     
     # Profile Management
     path('profile/', ProfileView.as_view(), name='profile'),

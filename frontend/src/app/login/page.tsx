@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -22,6 +23,21 @@ type LoginForm = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    // Check for error message in URL params
+    const error = searchParams.get('error');
+    const message = searchParams.get('message');
+    
+    if (error === 'not_authorized') {
+      const errorMsg = decodeURIComponent(message || 
+        'You are not authorized to access this application. Only staff members can log in.');
+      toast.error(errorMsg, { duration: 8000 });
+    } else if (error === 'auth_failed') {
+      toast.error('Authentication failed. Please try again.');
+    }
+  }, [searchParams]);
 
   const {
     register,

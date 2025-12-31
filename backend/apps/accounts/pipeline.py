@@ -1,4 +1,5 @@
 import logging
+import os
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -159,13 +160,39 @@ def sync_staff_role(backend, user, response, *args, **kwargs):
             user.save()
             logger.info(f"Synced staff role for {user.username}: {user.role}")
         else:
-            # Not in roster - check if SYSADMIN
-            if user.role != 'SYSADMIN':
+            # Check if this is a SYSADMIN by Steam ID or Discord ID
+            sysadmin_steam_ids = os.getenv('SYSADMIN_STEAM_IDS', '').split(',')
+            sysadmin_discord_ids = os.getenv('SYSADMIN_DISCORD_IDS', '').split(',')
+            
+            is_sysadmin = (
+                (user.steam_id and user.steam_id in sysadmin_steam_ids) or
+                (user.steam_id_64 and str(user.steam_id_64) in sysadmin_steam_ids) or
+                (user.discord_id and str(user.discord_id) in sysadmin_discord_ids)
+            )
+            
+            if is_sysadmin:
+                user.role = 'SYSADMIN'
+                user.role_priority = 0
+                user.is_active_staff = True
+                user.is_active = True
+                user.is_staff = True
+                user.is_superuser = True
+                user.save()
+                logger.info(f"Granted SYSADMIN access to {user.username}")
+            elif user.role != 'SYSADMIN':
                 # Block access for non-roster, non-SYSADMIN users
                 user.is_active = False
                 user.is_active_staff = False
                 user.save()
                 logger.warning(f"User {user.username} not in staff roster - access blocked")
+                # Raise an exception to prevent login and trigger error redirect
+                from social_core.exceptions import AuthForbidden
+                raise AuthForbidden(
+                    backend,
+                    "You are not authorized to access this application. "
+                    "Only staff members listed in the roster can log in. "
+                    "Please contact an administrator if you believe this is an error."
+                )
     except Exception as e:
         logger.error(f"Error syncing staff role: {e}")
 
