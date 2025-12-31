@@ -360,21 +360,21 @@ class StaffSyncService:
         else:
             return f"name:{name}"
     
-    def _link_to_user(self, roster_entry):
-        """Link roster entry to user account if exists."""
+    def _link_to_user(self, staff):
+        """Link staff to user account if exists."""
         user = None
         
         # Try to find by Steam ID first
-        if roster_entry.steam_id:
-            user = User.objects.filter(steam_id=roster_entry.steam_id).first()
+        if staff.steam_id:
+            user = User.objects.filter(steam_id=staff.steam_id).first()
         
         # Try Discord ID if no Steam match
-        if not user and roster_entry.discord_id:
-            user = User.objects.filter(discord_id=roster_entry.discord_id).first()
+        if not user and staff.discord_id:
+            user = User.objects.filter(discord_id=staff.discord_id).first()
         
         if user:
-            roster_entry.user = user
-            roster_entry.save(update_fields=['user'])
+            staff.user = user
+            staff.save(update_fields=['user'])
             
             # Check if user is returning from legacy staff
             if user.is_legacy_staff:
@@ -388,8 +388,8 @@ class StaffSyncService:
                 logger.info(f"Re-added legacy staff {user.username} as SYSADMIN")
             else:
                 # Update user role to match roster
-                user.role = roster_entry.rank
-                user.role_priority = settings.STAFF_ROLE_PRIORITIES.get(roster_entry.rank, 999)
+                user.role = staff.current_role
+                user.role_priority = staff.current_role_priority
                 user.is_active_staff = True
                 user.save(update_fields=['role', 'role_priority', 'is_active_staff'])
     
@@ -397,24 +397,28 @@ class StaffSyncService:
         """Get staff member data by Steam ID or Discord ID."""
         try:
             if steam_id:
-                roster = StaffRoster.objects.filter(steam_id=steam_id, is_active=True).first()
-                if roster:
-                    return {
-                        'rank': roster.rank,
-                        'name': roster.name,
-                        'timezone': roster.timezone,
-                        'discord_id': roster.discord_id,
-                    }
+                staff = Staff.objects.filter(steam_id=steam_id).first()
+                if staff:
+                    roster = StaffRoster.objects.filter(staff=staff, is_active=True).first()
+                    if roster:
+                        return {
+                            'rank': roster.rank,
+                            'name': staff.name,
+                            'timezone': roster.timezone,
+                            'discord_id': staff.discord_id,
+                        }
             
             if discord_id:
-                roster = StaffRoster.objects.filter(discord_id=discord_id, is_active=True).first()
-                if roster:
-                    return {
-                        'rank': roster.rank,
-                        'name': roster.name,
-                        'timezone': roster.timezone,
-                        'steam_id': roster.steam_id,
-                    }
+                staff = Staff.objects.filter(discord_id=discord_id).first()
+                if staff:
+                    roster = StaffRoster.objects.filter(staff=staff, is_active=True).first()
+                    if roster:
+                        return {
+                            'rank': roster.rank,
+                            'name': staff.name,
+                            'timezone': roster.timezone,
+                            'steam_id': staff.steam_id,
+                        }
             
             return None
         except Exception as e:
@@ -423,7 +427,10 @@ class StaffSyncService:
     
     def get_all_staff(self):
         """Get all active staff members."""
-        return list(StaffRoster.objects.filter(is_active=True).values())
+        return list(StaffRoster.objects.filter(is_active=True).select_related('staff').values(
+            'staff__steam_id', 'staff__name', 'staff__discord_id', 'staff__discord_tag',
+            'rank', 'timezone', 'active_time'
+        ))
     
     def sync_user_access(self):
         """Sync user account active status based on staff roster.
@@ -434,9 +441,9 @@ class StaffSyncService:
         activated_count = 0
         
         # Get all active roster entries with identifiers
-        active_roster = StaffRoster.objects.filter(is_active=True)
-        active_steam_ids = set(r.steam_id for r in active_roster if r.steam_id)
-        active_discord_ids = set(r.discord_id for r in active_roster if r.discord_id)
+        active_roster = StaffRoster.objects.filter(is_active=True).select_related('staff')
+        active_steam_ids = set(r.staff.steam_id for r in active_roster if r.staff.steam_id)
+        active_discord_ids = set(r.staff.discord_id for r in active_roster if r.staff.discord_id)
         
         # Process all users (except SYSADMIN - they're always allowed)
         for user in User.objects.exclude(role='SYSADMIN'):
@@ -477,12 +484,12 @@ class StaffSyncService:
         
         # Check by Steam ID
         if user.steam_id:
-            if StaffRoster.objects.filter(steam_id=user.steam_id, is_active=True).exists():
+            if StaffRoster.objects.filter(staff__steam_id=user.steam_id, is_active=True).exists():
                 return True
         
         # Check by Discord ID
         if user.discord_id:
-            if StaffRoster.objects.filter(discord_id=user.discord_id, is_active=True).exists():
+            if StaffRoster.objects.filter(staff__discord_id=user.discord_id, is_active=True).exists():
                 return True
         
         return False
