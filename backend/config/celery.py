@@ -2,6 +2,7 @@
 Celery configuration for Elitelupus Staff Toolbox SAAS.
 """
 import os
+
 from celery import Celery
 from celery.schedules import crontab
 
