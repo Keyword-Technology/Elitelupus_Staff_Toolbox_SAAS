@@ -334,9 +334,9 @@ export default function TemplatesPage() {
 
   // Filter templates
   const filteredTemplates = templates.filter((template) => {
-    const matchesSearch = template.name.toLowerCase().includes(templateSearchTerm.toLowerCase()) ||
-                          template.content.toLowerCase().includes(templateSearchTerm.toLowerCase());
-    const matchesFilter = templateFilter === 'all' || template.name.toLowerCase().includes(templateFilter);
+    const matchesSearch = (template.name?.toLowerCase() || '').includes(templateSearchTerm.toLowerCase()) ||
+                          (template.content?.toLowerCase() || '').includes(templateSearchTerm.toLowerCase());
+    const matchesFilter = templateFilter === 'all' || (template.name?.toLowerCase() || '').includes(templateFilter);
     return matchesSearch && matchesFilter;
   });
 

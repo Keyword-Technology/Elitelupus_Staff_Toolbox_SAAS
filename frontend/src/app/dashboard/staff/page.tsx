@@ -64,6 +64,7 @@ export default function StaffPage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -74,9 +75,27 @@ export default function StaffPage() {
   // Check if user has manager permissions (priority <= 10)
   const isManager = hasMinRole(10);
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      // Reset to page 1 when search changes
+      if (searchQuery !== debouncedSearch) {
+        setCurrentPage(1);
+      }
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reset to page 1 when role filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [roleFilter]);
+
   useEffect(() => {
     fetchData();
-  }, [currentPage, pageSize, sortBy, sortOrder, isManager]);
+  }, [currentPage, pageSize, sortBy, sortOrder, debouncedSearch, roleFilter, isManager]);
 
   useEffect(() => {
     setActions(
@@ -107,8 +126,25 @@ export default function StaffPage() {
     try {
       const orderingParam = sortOrder === 'desc' ? `-${sortBy}` : sortBy;
       
+      // Build query params
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        page_size: pageSize.toString(),
+        ordering: orderingParam,
+      });
+      
+      // Add search param if present
+      if (debouncedSearch.trim()) {
+        params.append('search', debouncedSearch.trim());
+      }
+      
+      // Add role filter if not 'all'
+      if (roleFilter !== 'all') {
+        params.append('role', roleFilter);
+      }
+      
       // Fetch roster data (all users can view)
-      const rosterRes = await staffAPI.roster(`?page=${currentPage}&page_size=${pageSize}&ordering=${orderingParam}`);
+      const rosterRes = await staffAPI.roster(`?${params.toString()}`);
       
       // Handle paginated response
       if (rosterRes.data.results) {
@@ -172,24 +208,9 @@ export default function StaffPage() {
     );
   };
 
-  const filteredStaff = staff
-    .filter((member) => {
-      const matchesSearch =
-        member.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        member.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        member.steam_id?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesRole =
-        roleFilter === 'all' || member.role === roleFilter;
-      return matchesSearch && matchesRole;
-    })
-    .sort((a, b) => {
-      // Sort by role priority first (lower number = higher priority)
-      if (a.role_priority !== b.role_priority) {
-        return a.role_priority - b.role_priority;
-      }
-      // Then sort alphabetically by name
-      return a.username.localeCompare(b.username);
-    });
+  // Note: Filtering and sorting now done server-side via API
+  // Client-side filtering would only filter the current page, not all results
+  const filteredStaff = staff;
 
   const uniqueRoles = [...new Set(staff.map((s) => s.role))].sort(
     (a, b) => {

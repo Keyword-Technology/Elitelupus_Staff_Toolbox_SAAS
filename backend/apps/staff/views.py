@@ -3,6 +3,7 @@ import asyncio
 from apps.accounts.permissions import IsManager, IsStaffManager
 from django.conf import settings
 from rest_framework import generics, permissions, status
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -16,10 +17,18 @@ from .serializers import (RolePrioritySerializer,
 from .services import StaffSyncService
 
 
+class StaffRosterPagination(PageNumberPagination):
+    """Custom pagination for staff roster with dynamic page size."""
+    page_size = 25
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
 class StaffRosterListView(generics.ListAPIView):
     """List all staff members from roster."""
     serializer_class = StaffRosterSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StaffRosterPagination
     
     def get_queryset(self):
         # By default, show only active staff
@@ -38,6 +47,21 @@ class StaffRosterListView(generics.ListAPIView):
         if rank:
             queryset = queryset.filter(rank=rank)
         
+        # Search by name or Steam ID
+        search = self.request.query_params.get('search')
+        if search:
+            from django.db.models import Q
+            queryset = queryset.filter(
+                Q(name__icontains=search) |
+                Q(username__icontains=search) |
+                Q(steam_id__icontains=search)
+            )
+        
+        # Filter by role
+        role = self.request.query_params.get('role')
+        if role and role != 'all':
+            queryset = queryset.filter(rank=role)
+        
         # Handle ordering parameter
         ordering = self.request.query_params.get('ordering', 'rank_priority,name')
         # Allow multiple ordering fields separated by comma
@@ -53,16 +77,6 @@ class StaffRosterListView(generics.ListAPIView):
         
         # Default ordering
         return queryset.order_by('rank_priority', 'name')
-    
-    def get_paginate_by(self, queryset):
-        """Allow dynamic page size from query parameter."""
-        page_size = self.request.query_params.get('page_size')
-        if page_size:
-            try:
-                return int(page_size)
-            except ValueError:
-                pass
-        return 25  # Default page size
 
 
 class StaffRosterDetailView(generics.RetrieveAPIView):
