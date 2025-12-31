@@ -1,22 +1,18 @@
-from rest_framework import generics, status, permissions
+from datetime import timedelta
+
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from django.db.models import F, Sum
+from django.db.models.functions import Coalesce
+from django.utils import timezone
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.utils import timezone
-from django.db.models import Sum, F
-from django.db.models.functions import Coalesce
-from datetime import timedelta
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
 
 from .models import Counter, CounterHistory, CounterSnapshot
-from .serializers import (
-    CounterSerializer,
-    CounterUpdateSerializer,
-    CounterHistorySerializer,
-    CounterSnapshotSerializer,
-    CounterStatsSerializer,
-    LeaderboardEntrySerializer,
-)
+from .serializers import (CounterHistorySerializer, CounterSerializer,
+                          CounterSnapshotSerializer, CounterStatsSerializer,
+                          CounterUpdateSerializer, LeaderboardEntrySerializer)
 
 
 class MyCountersView(APIView):
