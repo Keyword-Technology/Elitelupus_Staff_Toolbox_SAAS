@@ -56,7 +56,15 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     const token = Cookies.get('access_token');
     if (!token) return;
 
-    const wsBaseUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
+    // Determine WebSocket URL based on environment or current location
+    let wsBaseUrl = process.env.NEXT_PUBLIC_WS_URL;
+    
+    if (!wsBaseUrl) {
+      // Auto-detect based on current page protocol and host
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host; // includes port
+      wsBaseUrl = `${protocol}//${host}`;
+    }
 
     // Counter WebSocket
     const counterWs = new WebSocket(`${wsBaseUrl}/ws/counters/?token=${token}`);

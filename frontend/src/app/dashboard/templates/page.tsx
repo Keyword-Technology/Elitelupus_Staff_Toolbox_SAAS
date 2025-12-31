@@ -63,7 +63,13 @@ export default function TemplatesPage() {
   const [steamProfile, setSteamProfile] = useState<SteamProfileData | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showWizardModal, setShowWizardModal] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [selectedTemplateType, setSelectedTemplateType] = useState('');
+  const [templateSearchTerm, setTemplateSearchTerm] = useState('');
+  const [templateFilter, setTemplateFilter] = useState('all');
   const [newTemplate, setNewTemplate] = useState({ name: '', content: '' });
+  const [wizardData, setWizardData] = useState<any>({});
 
   useEffect(() => {
     fetchTemplates();
@@ -139,6 +145,59 @@ export default function TemplatesPage() {
     }
   };
 
+  const handleStartWizard = () => {
+    setWizardStep(1);
+    setSelectedTemplateType('');
+    setWizardData({});
+    setShowWizardModal(true);
+  };
+
+  const handleWizardNext = () => {
+    if (wizardStep === 1 && !selectedTemplateType) {
+      toast.error('Please select a template type');
+      return;
+    }
+    setWizardStep(wizardStep + 1);
+  };
+
+  const handleWizardSubmit = async () => {
+    try {
+      // Pre-fill with Steam profile data if available
+      const data = {
+        ...wizardData,
+        steam_id: steamProfile?.steam_id || wizardData.steam_id,
+        steam_id_64: steamProfile?.steam_id_64 || wizardData.steam_id_64,
+        player_ign: wizardData.player_ign || steamProfile?.profile.name,
+      };
+
+      // Call appropriate API based on template type
+      switch (selectedTemplateType) {
+        case 'refund':
+          await templateAPI.createRefund(data);
+          break;
+        // Add other template types when APIs are ready
+        default:
+          toast.error('Template type not yet implemented');
+          return;
+      }
+
+      toast.success('Template submitted successfully');
+      setShowWizardModal(false);
+      setWizardData({});
+      fetchTemplates();
+    } catch (error) {
+      toast.error('Failed to submit template');
+    }
+  };
+
+  // Filter templates
+  const filteredTemplates = templates.filter((template) => {
+    const matchesSearch = template.name.toLowerCase().includes(templateSearchTerm.toLowerCase()) ||
+                          template.content.toLowerCase().includes(templateSearchTerm.toLowerCase());
+    const matchesFilter = templateFilter === 'all' || template.name.toLowerCase().includes(templateFilter);
+    return matchesSearch && matchesFilter;
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -166,7 +225,7 @@ export default function TemplatesPage() {
         </button>
       </div>
 
-      {/* Steam Lookup */}
+      {/* Steam Lookup Bar */}
       <div className="bg-dark-card rounded-lg border border-dark-border p-6">
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <MagnifyingGlassIcon className="w-5 h-5 text-primary-400" />
@@ -199,85 +258,96 @@ export default function TemplatesPage() {
         </div>
       </div>
 
-      {/* Enhanced Profile Display - Inline */}
-      {steamProfile && (
-        <EnhancedSteamProfile profile={steamProfile} />
-      )}
+      {/* 2-Column Split Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column - Lookup Details */}
+        <div className="space-y-6">
+          <div className="bg-dark-card rounded-lg border border-dark-border p-6">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <DocumentTextIcon className="w-5 h-5 text-primary-400" />
+              Lookup
+            </h2>
+            {steamProfile ? (
+              <EnhancedSteamProfile profile={steamProfile} />
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                <MagnifyingGlassIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>Enter a Steam ID above to view profile details</p>
+              </div>
+            )}
+          </div>
+        </div>
 
-      {/* Templates Section - Only show if no profile or collapsed */}
-      {!steamProfile && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Template List */}
-          <div className="lg:col-span-1 space-y-3">
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+        {/* Right Column - Templates */}
+        <div className="space-y-6">
+          <div className="bg-dark-card rounded-lg border border-dark-border p-6">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <DocumentTextIcon className="w-5 h-5 text-primary-400" />
               Templates
             </h2>
-            {templates.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No templates yet</p>
-            ) : (
-              templates.map((template) => (
-                <div
-                  key={template.id}
-                  className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                    selectedTemplate?.id === template.id
-                      ? 'bg-primary-500/20 border-primary-500'
-                      : 'bg-dark-card border-dark-border hover:border-gray-600'
-                  }`}
-                  onClick={() => setSelectedTemplate(template)}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-white font-medium">{template.name}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteTemplate(template.id);
-                      }}
-                      className="p-1 text-gray-400 hover:text-red-400 transition-colors"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <p className="text-gray-500 text-sm mt-1 line-clamp-2">
-                    {template.content.substring(0, 100)}...
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Template Preview */}
-          <div className="lg:col-span-2">
-            <div className="bg-dark-card rounded-lg border border-dark-border p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white">
-                  {selectedTemplate ? selectedTemplate.name : 'Select a Template'}
-                </h2>
-                {selectedTemplate && (
-                  <button
-                    onClick={() => handleCopyTemplate(selectedTemplate.content)}
-                    className="btn-secondary flex items-center gap-2"
+            
+            {/* Template List */}
+            <div className="space-y-3 mb-6">
+              {templates.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No templates yet</p>
+              ) : (
+                templates.map((template) => (
+                  <div
+                    key={template.id}
+                    className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                      selectedTemplate?.id === template.id
+                        ? 'bg-primary-500/20 border-primary-500'
+                        : 'bg-dark-bg border-dark-border hover:border-gray-600'
+                    }`}
+                    onClick={() => setSelectedTemplate(template)}
                   >
-                    <ClipboardDocumentIcon className="w-4 h-4" />
-                    Copy
-                  </button>
-                )}
-              </div>
-              {selectedTemplate ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-white font-medium">{template.name}</span>
+                      <div className="flex gap-2">
+                        {selectedTemplate?.id === template.id && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyTemplate(template.content);
+                            }}
+                            className="p-1 text-gray-400 hover:text-blue-400 transition-colors"
+                          >
+                            <ClipboardDocumentIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteTemplate(template.id);
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-gray-500 text-sm mt-1 line-clamp-2">
+                      {template.content.substring(0, 100)}...
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Template Preview */}
+            {selectedTemplate && (
+              <div className="border-t border-dark-border pt-4">
+                <h3 className="text-white font-medium mb-3">Preview</h3>
                 <div className="bg-dark-bg rounded-lg p-4">
                   <pre className="text-gray-300 whitespace-pre-wrap font-mono text-sm">
                     {selectedTemplate.content}
                   </pre>
                 </div>
-              ) : (
-                <div className="text-center py-12 text-gray-500">
-                  Select a template from the list to preview
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Create Modal */}
       {showCreateModal && (
