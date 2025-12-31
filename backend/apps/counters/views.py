@@ -154,12 +154,6 @@ class CounterStatsView(APIView):
         )
         
         # Calculate net change for today (increment adds, decrement subtracts)
-        today_sits_data = today_history.filter(
-            counter_type='sit'
-        ).aggregate(
-            increments=Coalesce(Sum(F('new_value') - F('old_value'), output_field=models.IntegerField()), 0, output_field=models.IntegerField())
-        )
-        
         today_sits = 0
         for entry in today_history.filter(counter_type='sit'):
             if entry.action == 'increment':
