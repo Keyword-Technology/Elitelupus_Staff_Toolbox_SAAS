@@ -22,8 +22,8 @@ class ServerQueryService:
             address = (server.ip_address, server.port)
             
             # Query server info
-            info = a2s.info(address, timeout=5, retries=1, encoding='utf-8', challenge=False)
-            players = a2s.players(address, timeout=5, retries=1, encoding='utf-8', challenge=False)
+            info = a2s.info(address, timeout=5)
+            players = a2s.players(address, timeout=5)
             
             # Update server record
             server.server_name = info.server_name
