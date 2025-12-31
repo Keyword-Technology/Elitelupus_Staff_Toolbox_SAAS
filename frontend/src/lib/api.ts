@@ -81,6 +81,9 @@ export const staffAPI = {
   syncLogs: () => api.get('/staff/sync/logs/'),
   roles: () => api.get('/staff/roles/'),
   myProfile: () => api.get('/staff/me/'),
+  details: (id: number) => api.get(`/staff/roster/${id}/details/`),
+  sessions: (id: number, params?: string) => api.get(`/staff/roster/${id}/sessions/${params || ''}`),
+  stats: (id: number, params?: string) => api.get(`/staff/roster/${id}/stats/${params || ''}`),
 };
 
 export const counterAPI = {

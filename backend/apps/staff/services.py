@@ -7,7 +7,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from .models import StaffRoster, StaffSyncLog
+from .models import StaffRoster, StaffSyncLog, StaffHistoryEvent
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -150,9 +150,18 @@ class StaffSyncService:
                 
                 # Update or create the roster entry
                 if roster_entry:
+                    # Track if rank changed
+                    old_rank = roster_entry.rank
+                    old_rank_priority = roster_entry.rank_priority
+                    new_rank = data['rank']
+                    new_rank_priority = settings.STAFF_ROLE_PRIORITIES.get(data['rank'], 999)
+                    
+                    # Check if this staff was previously inactive (rejoining)
+                    was_inactive = not roster_entry.is_active
+                    
                     # Update existing entry
-                    roster_entry.rank = data['rank']
-                    roster_entry.rank_priority = settings.STAFF_ROLE_PRIORITIES.get(data['rank'], 999)
+                    roster_entry.rank = new_rank
+                    roster_entry.rank_priority = new_rank_priority
                     roster_entry.timezone = data['timezone']
                     roster_entry.active_time = data['active_time']
                     roster_entry.name = data['name']
@@ -162,6 +171,37 @@ class StaffSyncService:
                     roster_entry.is_active = True
                     roster_entry.save()
                     log.records_updated += 1
+                    
+                    # Track history events
+                    if was_inactive:
+                        # Staff member rejoined
+                        StaffHistoryEvent.objects.create(
+                            staff=roster_entry,
+                            event_type='rejoined',
+                            new_rank=new_rank,
+                            new_rank_priority=new_rank_priority,
+                            event_date=timezone.now(),
+                            auto_detected=True
+                        )
+                    elif old_rank != new_rank:
+                        # Rank changed - determine if promotion or demotion
+                        if new_rank_priority < old_rank_priority:
+                            event_type = 'promoted'
+                        elif new_rank_priority > old_rank_priority:
+                            event_type = 'demoted'
+                        else:
+                            event_type = 'role_change'
+                        
+                        StaffHistoryEvent.objects.create(
+                            staff=roster_entry,
+                            event_type=event_type,
+                            old_rank=old_rank,
+                            new_rank=new_rank,
+                            old_rank_priority=old_rank_priority,
+                            new_rank_priority=new_rank_priority,
+                            event_date=timezone.now(),
+                            auto_detected=True
+                        )
                 else:
                     # Create new entry
                     roster_entry = StaffRoster.objects.create(
@@ -176,6 +216,16 @@ class StaffSyncService:
                         is_active=True,
                     )
                     log.records_added += 1
+                    
+                    # Track join event
+                    StaffHistoryEvent.objects.create(
+                        staff=roster_entry,
+                        event_type='joined',
+                        new_rank=data['rank'],
+                        new_rank_priority=settings.STAFF_ROLE_PRIORITIES.get(data['rank'], 999),
+                        event_date=timezone.now(),
+                        auto_detected=True
+                    )
                 
                 # Link to user account if exists
                 self._link_to_user(roster_entry)
@@ -187,9 +237,22 @@ class StaffSyncService:
                 for entry in StaffRoster.objects.filter(is_active=True):
                     identifier = self._get_unique_identifier(entry.steam_id, entry.discord_id, entry.name)
                     if identifier in removed_identifiers:
+                        old_rank = entry.rank
+                        old_rank_priority = entry.rank_priority
+                        
                         entry.is_active = False
                         entry.save()
                         log.records_removed += 1
+                        
+                        # Track removal event
+                        StaffHistoryEvent.objects.create(
+                            staff=entry,
+                            event_type='removed',
+                            old_rank=old_rank,
+                            old_rank_priority=old_rank_priority,
+                            event_date=timezone.now(),
+                            auto_detected=True
+                        )
             
             log.success = True
             log.save()

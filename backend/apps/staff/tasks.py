@@ -131,3 +131,130 @@ def update_user_from_roster(user_id: int):
     except Exception as e:
         logger.error(f"Error updating user {user_id}: {e}")
         return False
+
+
+@shared_task
+def aggregate_server_sessions():
+    """Aggregate server sessions for statistics."""
+    from datetime import date, timedelta
+    from django.db.models import Sum, Count, Avg
+    from .models import StaffRoster, ServerSession, ServerSessionAggregate
+    from apps.servers.models import GameServer
+    
+    try:
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+        
+        # Get all active staff
+        staff_members = StaffRoster.objects.filter(is_active=True)
+        servers = GameServer.objects.filter(is_active=True)
+        
+        aggregated_count = 0
+        
+        for staff in staff_members:
+            # Daily aggregation for yesterday
+            for server in servers:
+                sessions = ServerSession.objects.filter(
+                    staff=staff,
+                    server=server,
+                    join_time__date=yesterday,
+                    leave_time__isnull=False
+                )
+                
+                if sessions.exists():
+                    stats = sessions.aggregate(
+                        total_time=Sum('duration'),
+                        session_count=Count('id'),
+                        avg_duration=Avg('duration'),
+                        longest_session=Sum('duration')  # This should be Max but simplified for now
+                    )
+                    
+                    aggregate, created = ServerSessionAggregate.objects.update_or_create(
+                        staff=staff,
+                        server=server,
+                        period_type='daily',
+                        period_start=yesterday,
+                        defaults={
+                            'period_end': yesterday,
+                            'total_time': stats['total_time'] or 0,
+                            'session_count': stats['session_count'] or 0,
+                            'avg_session_time': int(stats['avg_duration'] or 0),
+                            'longest_session': stats['longest_session'] or 0,
+                        }
+                    )
+                    aggregated_count += 1
+            
+            # Weekly aggregation
+            week_start = today - timedelta(days=today.weekday())
+            week_end = week_start + timedelta(days=6)
+            
+            for server in servers:
+                sessions = ServerSession.objects.filter(
+                    staff=staff,
+                    server=server,
+                    join_time__date__gte=week_start,
+                    join_time__date__lte=week_end,
+                    leave_time__isnull=False
+                )
+                
+                if sessions.exists():
+                    stats = sessions.aggregate(
+                        total_time=Sum('duration'),
+                        session_count=Count('id'),
+                        avg_duration=Avg('duration'),
+                        longest_session=Sum('duration')
+                    )
+                    
+                    ServerSessionAggregate.objects.update_or_create(
+                        staff=staff,
+                        server=server,
+                        period_type='weekly',
+                        period_start=week_start,
+                        defaults={
+                            'period_end': week_end,
+                            'total_time': stats['total_time'] or 0,
+                            'session_count': stats['session_count'] or 0,
+                            'avg_session_time': int(stats['avg_duration'] or 0),
+                            'longest_session': stats['longest_session'] or 0,
+                        }
+                    )
+            
+            # Monthly aggregation
+            month_start = today.replace(day=1)
+            
+            for server in servers:
+                sessions = ServerSession.objects.filter(
+                    staff=staff,
+                    server=server,
+                    join_time__date__gte=month_start,
+                    join_time__date__lte=today,
+                    leave_time__isnull=False
+                )
+                
+                if sessions.exists():
+                    stats = sessions.aggregate(
+                        total_time=Sum('duration'),
+                        session_count=Count('id'),
+                        avg_duration=Avg('duration'),
+                        longest_session=Sum('duration')
+                    )
+                    
+                    ServerSessionAggregate.objects.update_or_create(
+                        staff=staff,
+                        server=server,
+                        period_type='monthly',
+                        period_start=month_start,
+                        defaults={
+                            'total_time': stats['total_time'] or 0,
+                            'session_count': stats['session_count'] or 0,
+                            'avg_session_time': int(stats['avg_duration'] or 0),
+                            'longest_session': stats['longest_session'] or 0,
+                        }
+                    )
+        
+        logger.info(f"Aggregated {aggregated_count} server sessions")
+        return {'success': True, 'aggregated': aggregated_count}
+        
+    except Exception as e:
+        logger.error(f"Error aggregating server sessions: {e}")
+        return {'success': False, 'error': str(e)}

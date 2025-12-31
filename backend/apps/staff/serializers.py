@@ -1,7 +1,7 @@
 from django.conf import settings
 from rest_framework import serializers
 
-from .models import StaffRoster, StaffSyncLog
+from .models import StaffRoster, StaffSyncLog, ServerSession, ServerSessionAggregate, StaffHistoryEvent
 
 
 class StaffRosterSerializer(serializers.ModelSerializer):
@@ -42,12 +42,12 @@ class StaffRosterSerializer(serializers.ModelSerializer):
             'is_active', 'is_on_loa', 'loa_end_date',
             'user_id', 'user_avatar', 'last_synced',
             'joined_date', 'last_activity',
-            'is_online', 'server_name', 'server_id'
+            'is_online', 'server_name', 'server_id', 'discord_status_display'
         ]
         read_only_fields = [
             'last_synced', 'discord_status_updated', 'last_seen', 'is_active_in_app',
             'joined_date', 'last_activity',
-            'is_online', 'server_name', 'server_id'
+            'is_online', 'server_name', 'server_id', 'discord_status_display'
         ]
     
     def get_is_online(self, obj):
@@ -123,7 +123,6 @@ class StaffRosterSerializer(serializers.ModelSerializer):
         
         now = timezone.now()
         return (now - obj.last_seen) < timedelta(minutes=5)
-        return obj.last_synced.isoformat() if obj.last_synced else None
 
 
 class StaffSyncLogSerializer(serializers.ModelSerializer):
@@ -148,3 +147,212 @@ class RolePrioritySerializer(serializers.Serializer):
     role = serializers.CharField()
     priority = serializers.IntegerField()
     color = serializers.CharField()
+
+
+class ServerSessionSerializer(serializers.ModelSerializer):
+    """Serializer for server sessions."""
+    
+    staff_name = serializers.CharField(source='staff.name', read_only=True)
+    server_name = serializers.CharField(source='server.name', read_only=True)
+    duration_formatted = serializers.ReadOnlyField()
+    is_active = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = ServerSession
+        fields = [
+            'id', 'staff', 'staff_name', 'server', 'server_name',
+            'join_time', 'leave_time', 'duration', 'duration_formatted',
+            'is_active', 'steam_id', 'player_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'duration']
+
+
+class ServerSessionAggregateSerializer(serializers.ModelSerializer):
+    """Serializer for session aggregates."""
+    
+    staff_name = serializers.CharField(source='staff.name', read_only=True)
+    server_name = serializers.CharField(source='server.name', read_only=True)
+    total_time_formatted = serializers.ReadOnlyField()
+    avg_session_time_formatted = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = ServerSessionAggregate
+        fields = [
+            'id', 'staff', 'staff_name', 'server', 'server_name',
+            'period_type', 'period_start', 'period_end',
+            'total_time', 'total_time_formatted',
+            'session_count', 'avg_session_time', 'avg_session_time_formatted',
+            'longest_session', 'last_updated'
+        ]
+        read_only_fields = ['last_updated']
+
+
+class StaffDetailsSerializer(serializers.ModelSerializer):
+    """Comprehensive serializer for staff details page."""
+    
+    # Basic info from StaffRosterSerializer
+    role = serializers.CharField(source='rank', read_only=True)
+    role_color = serializers.ReadOnlyField(source='rank_color')
+    role_priority = serializers.IntegerField(source='rank_priority', read_only=True)
+    username = serializers.CharField(source='name', read_only=True)
+    display_name = serializers.CharField(source='name', read_only=True)
+    
+    # Time tracking statistics
+    total_server_time = serializers.SerializerMethodField()
+    total_sessions = serializers.SerializerMethodField()
+    avg_session_duration = serializers.SerializerMethodField()
+    last_server_join = serializers.SerializerMethodField()
+    
+    # Server-specific time
+    server_time_breakdown = serializers.SerializerMethodField()
+    
+    # Counter stats (from counters app)
+    sit_count = serializers.SerializerMethodField()
+    ticket_count = serializers.SerializerMethodField()
+    
+    # Recent sessions
+    recent_sessions = serializers.SerializerMethodField()
+    
+    # History timeline
+    history_events = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = StaffRoster
+        fields = [
+            'id', 'username', 'display_name', 'role', 'role_color', 'role_priority',
+            'steam_id', 'discord_id', 'discord_tag', 'timezone', 'is_active',
+            'total_server_time', 'total_sessions', 'avg_session_duration',
+            'last_server_join', 'server_time_breakdown',
+            'sit_count', 'ticket_count', 'recent_sessions', 'history_events'
+        ]
+    
+    def get_total_server_time(self, obj):
+        """Get total time spent on all servers (all time)."""
+        from django.db.models import Sum
+        total = ServerSession.objects.filter(
+            staff=obj,
+            leave_time__isnull=False
+        ).aggregate(total=Sum('duration'))['total'] or 0
+        return total
+    
+    def get_total_sessions(self, obj):
+        """Get total number of sessions."""
+        return ServerSession.objects.filter(staff=obj).count()
+    
+    def get_avg_session_duration(self, obj):
+        """Get average session duration."""
+        from django.db.models import Avg
+        avg = ServerSession.objects.filter(
+            staff=obj,
+            leave_time__isnull=False
+        ).aggregate(avg=Avg('duration'))['avg'] or 0
+        return int(avg)
+    
+    def get_last_server_join(self, obj):
+        """Get last time staff member joined a server."""
+        last_session = ServerSession.objects.filter(staff=obj).first()
+        return last_session.join_time.isoformat() if last_session else None
+    
+    def get_server_time_breakdown(self, obj):
+        """Get time breakdown by server."""
+        from django.db.models import Sum, Count, Avg
+        from apps.servers.models import GameServer
+        
+        breakdown = []
+        servers = GameServer.objects.filter(is_active=True)
+        
+        for server in servers:
+            stats = ServerSession.objects.filter(
+                staff=obj,
+                server=server,
+                leave_time__isnull=False
+            ).aggregate(
+                total_time=Sum('duration'),
+                session_count=Count('id'),
+                avg_duration=Avg('duration')
+            )
+            
+            if stats['session_count'] and stats['session_count'] > 0:
+                breakdown.append({
+                    'server_id': server.id,
+                    'server_name': server.name,
+                    'total_time': stats['total_time'] or 0,
+                    'session_count': stats['session_count'] or 0,
+                    'avg_duration': int(stats['avg_duration'] or 0),
+                })
+        
+        return breakdown
+    
+    def get_sit_count(self, obj):
+        """Get total sit count from counters."""
+        if not obj.user:
+            return 0
+        
+        from apps.counters.models import Counter
+        counter = Counter.objects.filter(
+            user=obj.user,
+            counter_type='sit',
+            period_type='total'
+        ).first()
+        
+        return counter.count if counter else 0
+    
+    def get_ticket_count(self, obj):
+        """Get total ticket count from counters."""
+        if not obj.user:
+            return 0
+        
+        from apps.counters.models import Counter
+        counter = Counter.objects.filter(
+            user=obj.user,
+            counter_type='ticket',
+            period_type='total'
+        ).first()
+        
+        return counter.count if counter else 0
+    
+    def get_recent_sessions(self, obj):
+        """Get recent server sessions."""
+        sessions = ServerSession.objects.filter(staff=obj)[:10]
+        return ServerSessionSerializer(sessions, many=True).data
+    
+    def get_history_events(self, obj):
+        """Get staff history timeline events."""
+        events = StaffHistoryEvent.objects.filter(staff=obj)[:20]
+        return StaffHistoryEventSerializer(events, many=True).data
+
+
+class StaffHistoryEventSerializer(serializers.ModelSerializer):
+    """Serializer for staff history events."""
+    
+    staff_name = serializers.CharField(source='staff.name', read_only=True)
+    event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
+    event_description = serializers.ReadOnlyField()
+    is_promotion = serializers.ReadOnlyField()
+    is_demotion = serializers.ReadOnlyField()
+    
+    old_rank_color = serializers.SerializerMethodField()
+    new_rank_color = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = StaffHistoryEvent
+        fields = [
+            'id', 'staff', 'staff_name', 'event_type', 'event_type_display',
+            'old_rank', 'new_rank', 'old_rank_priority', 'new_rank_priority',
+            'old_rank_color', 'new_rank_color',
+            'event_date', 'notes', 'auto_detected', 'created_by',
+            'event_description', 'is_promotion', 'is_demotion', 'created_at'
+        ]
+        read_only_fields = ['created_at', 'auto_detected']
+    
+    def get_old_rank_color(self, obj):
+        """Get color for old rank."""
+        if obj.old_rank:
+            return settings.STAFF_ROLE_COLORS.get(obj.old_rank, '#808080')
+        return None
+    
+    def get_new_rank_color(self, obj):
+        """Get color for new rank."""
+        if obj.new_rank:
+            return settings.STAFF_ROLE_COLORS.get(obj.new_rank, '#808080')
+        return None

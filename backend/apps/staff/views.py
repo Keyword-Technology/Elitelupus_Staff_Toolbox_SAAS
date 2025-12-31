@@ -1,15 +1,16 @@
 import asyncio
 
-from apps.accounts.permissions import IsManager
+from apps.accounts.permissions import IsManager, IsStaffManager
 from django.conf import settings
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .discord_service import get_bot_instance, sync_discord_statuses
-from .models import StaffRoster, StaffSyncLog
+from .models import StaffRoster, StaffSyncLog, ServerSession, ServerSessionAggregate
 from .serializers import (RolePrioritySerializer, StaffRosterSerializer,
-                          StaffSyncLogSerializer)
+                          StaffSyncLogSerializer, StaffDetailsSerializer,
+                          ServerSessionSerializer, ServerSessionAggregateSerializer)
 from .services import StaffSyncService
 
 
@@ -188,4 +189,78 @@ class DiscordBotStatusView(APIView):
             'configured': True,
             'is_running': bot.is_running,
             'guild_id': bot.guild_id,
+        })
+
+
+class StaffDetailsView(generics.RetrieveAPIView):
+    """Get comprehensive staff member details including time tracking."""
+    serializer_class = StaffDetailsSerializer
+    permission_classes = [permissions.IsAuthenticated, IsStaffManager]
+    queryset = StaffRoster.objects.filter(is_active=True)
+
+
+class StaffSessionsView(generics.ListAPIView):
+    """Get server sessions for a specific staff member."""
+    serializer_class = ServerSessionSerializer
+    permission_classes = [permissions.IsAuthenticated, IsStaffManager]
+    
+    def get_queryset(self):
+        staff_id = self.kwargs.get('pk')
+        queryset = ServerSession.objects.filter(staff_id=staff_id)
+        
+        # Filter by server if provided
+        server_id = self.request.query_params.get('server')
+        if server_id:
+            queryset = queryset.filter(server_id=server_id)
+        
+        # Filter by date range if provided
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+        
+        if start_date:
+            queryset = queryset.filter(join_time__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(join_time__lte=end_date)
+        
+        # Filter active sessions only
+        active_only = self.request.query_params.get('active_only')
+        if active_only == 'true':
+            queryset = queryset.filter(leave_time__isnull=True)
+        
+        return queryset.order_by('-join_time')
+
+
+class StaffStatsView(APIView):
+    """Get aggregated statistics for a specific staff member."""
+    permission_classes = [permissions.IsAuthenticated, IsStaffManager]
+    
+    def get(self, request, pk):
+        try:
+            staff = StaffRoster.objects.get(pk=pk, is_active=True)
+        except StaffRoster.DoesNotExist:
+            return Response(
+                {'error': 'Staff member not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        period_type = request.query_params.get('period', 'weekly')
+        server_id = request.query_params.get('server')
+        
+        # Build query
+        queryset = ServerSessionAggregate.objects.filter(
+            staff=staff,
+            period_type=period_type
+        )
+        
+        if server_id:
+            queryset = queryset.filter(server_id=server_id)
+        
+        # Get aggregates
+        aggregates = queryset.order_by('-period_start')[:30]
+        
+        return Response({
+            'staff_id': staff.id,
+            'staff_name': staff.name,
+            'period_type': period_type,
+            'aggregates': ServerSessionAggregateSerializer(aggregates, many=True).data
         })

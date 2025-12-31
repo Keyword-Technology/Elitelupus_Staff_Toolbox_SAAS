@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { staffAPI } from '@/lib/api';
 import {
   UsersIcon,
@@ -10,6 +11,7 @@ import {
   GlobeAltIcon,
   ChevronUpIcon,
   ChevronDownIcon,
+  EyeIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import DiscordStatusBadge from '@/components/staff/DiscordStatusBadge';
@@ -52,6 +54,7 @@ interface SyncLog {
 }
 
 export default function StaffPage() {
+  const router = useRouter();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -313,13 +316,16 @@ export default function StaffPage() {
                 <th className="text-left p-4 text-gray-400 font-medium">
                   Discord Status
                 </th>
+                <th className="text-left p-4 text-gray-400 font-medium">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {filteredStaff.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="text-center py-8 text-gray-500"
                   >
                     No staff members found
@@ -422,8 +428,18 @@ export default function StaffPage() {
                           </span>
                         </div>
                       ) : (
-                        <span className="text-gray-500 text-sm">No activity</span>
+                        <span className="text-gray-500 text-sm">Not linked</span>
                       )}
+                    </td>
+                    <td className="p-4">
+                      <button
+                        onClick={() => router.push(`/dashboard/staff/${member.id}`)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 transition-colors"
+                        title="View Details"
+                      >
+                        <EyeIcon className="w-4 h-4" />
+                        <span className="text-sm font-medium">Details</span>
+                      </button>
                     </td>
                   </tr>
                 ))
