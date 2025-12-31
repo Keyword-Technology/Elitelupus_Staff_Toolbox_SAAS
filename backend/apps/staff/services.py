@@ -198,6 +198,14 @@ class StaffSyncService:
                        f"{log.records_added} added, {log.records_updated} updated, "
                        f"{log.records_removed} removed")
             
+            # Sync user access based on roster
+            try:
+                access_result = self.sync_user_access()
+                logger.info(f"User access sync: {access_result['activated']} activated, "
+                           f"{access_result['deactivated']} deactivated")
+            except Exception as e:
+                logger.error(f"Error syncing user access: {e}")
+            
             return log
             
         except Exception as e:
@@ -271,3 +279,61 @@ class StaffSyncService:
     def get_all_staff(self):
         """Get all active staff members."""
         return list(StaffRoster.objects.filter(is_active=True).values())
+    
+    def sync_user_access(self):
+        """Sync user account active status based on staff roster.
+        Deactivates users not in roster (except SYSADMIN).
+        Activates users in roster.
+        """
+        deactivated_count = 0
+        activated_count = 0
+        
+        # Get all active roster entries with identifiers
+        active_roster = StaffRoster.objects.filter(is_active=True)
+        active_steam_ids = set(r.steam_id for r in active_roster if r.steam_id)
+        active_discord_ids = set(r.discord_id for r in active_roster if r.discord_id)
+        
+        # Process all users (except SYSADMIN)
+        for user in User.objects.exclude(role='SYSADMIN'):
+            # Check if user is in active roster by Steam ID or Discord ID
+            in_roster = False
+            if user.steam_id and user.steam_id in active_steam_ids:
+                in_roster = True
+            elif user.discord_id and user.discord_id in active_discord_ids:
+                in_roster = True
+            
+            # Update user active status
+            if in_roster and not user.is_active:
+                user.is_active = True
+                user.is_active_staff = True
+                user.save(update_fields=['is_active', 'is_active_staff'])
+                activated_count += 1
+                logger.info(f"Activated user: {user.username}")
+            elif not in_roster and user.is_active:
+                user.is_active = False
+                user.is_active_staff = False
+                user.save(update_fields=['is_active', 'is_active_staff'])
+                deactivated_count += 1
+                logger.info(f"Deactivated user: {user.username} (not in staff roster)")
+        
+        logger.info(f"User access sync completed: {activated_count} activated, {deactivated_count} deactivated")
+        return {'activated': activated_count, 'deactivated': deactivated_count}
+    
+    def is_user_in_roster(self, user):
+        """Check if a user is in the active staff roster.
+        SYSADMIN accounts are always allowed.
+        """
+        if user.role == 'SYSADMIN':
+            return True
+        
+        # Check by Steam ID
+        if user.steam_id:
+            if StaffRoster.objects.filter(steam_id=user.steam_id, is_active=True).exists():
+                return True
+        
+        # Check by Discord ID
+        if user.discord_id:
+            if StaffRoster.objects.filter(discord_id=user.discord_id, is_active=True).exists():
+                return True
+        
+        return False

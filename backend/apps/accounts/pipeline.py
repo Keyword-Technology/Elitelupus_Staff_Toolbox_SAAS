@@ -155,8 +155,17 @@ def sync_staff_role(backend, user, response, *args, **kwargs):
             user.role = staff_data.get('rank', 'User')
             user.role_priority = settings.STAFF_ROLE_PRIORITIES.get(user.role, 999)
             user.is_active_staff = True
+            user.is_active = True  # Activate user if in roster
             user.save()
             logger.info(f"Synced staff role for {user.username}: {user.role}")
+        else:
+            # Not in roster - check if SYSADMIN
+            if user.role != 'SYSADMIN':
+                # Block access for non-roster, non-SYSADMIN users
+                user.is_active = False
+                user.is_active_staff = False
+                user.save()
+                logger.warning(f"User {user.username} not in staff roster - access blocked")
     except Exception as e:
         logger.error(f"Error syncing staff role: {e}")
 

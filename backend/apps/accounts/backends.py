@@ -1,6 +1,13 @@
+import logging
+
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.auth.backends import ModelBackend
 from social_core.backends.discord import DiscordOAuth2 as BaseDiscordOAuth2
 from social_core.backends.steam import SteamOpenId as BaseSteamOpenId
+
+logger = logging.getLogger(__name__)
+User = get_user_model()
 
 
 class SteamOpenId(BaseSteamOpenId):
@@ -75,3 +82,52 @@ class DiscordOAuth2(BaseDiscordOAuth2):
 
     def get_user_id(self, details, response):
         return response.get('id')
+
+
+class StaffRosterAuthenticationBackend(ModelBackend):
+    """
+    Custom authentication backend that validates users against the staff roster.
+    SYSADMIN accounts are always allowed.
+    Other accounts must be in the active staff roster.
+    """
+    
+    def authenticate(self, request, username=None, password=None, **kwargs):
+        """Authenticate user and check roster status."""
+        # First, authenticate with the standard method
+        user = super().authenticate(request, username, password, **kwargs)
+        
+        if user is None:
+            return None
+        
+        # Check if user is active and in roster
+        if not self.user_can_authenticate(user):
+            logger.warning(f"Authentication failed for {username}: user inactive or not in roster")
+            return None
+        
+        return user
+    
+    def user_can_authenticate(self, user):
+        """
+        Check if user can authenticate.
+        - User must be active
+        - SYSADMIN accounts are always allowed
+        - Other accounts must be in active staff roster
+        """
+        # Check if user is active in Django
+        if not user.is_active:
+            return False
+        
+        # SYSADMIN accounts are always allowed
+        if user.role == 'SYSADMIN':
+            return True
+        
+        # Check if user is in active staff roster
+        from apps.staff.services import StaffSyncService
+        
+        try:
+            sync_service = StaffSyncService()
+            return sync_service.is_user_in_roster(user)
+        except Exception as e:
+            logger.error(f"Error checking roster status for {user.username}: {e}")
+            # On error, fall back to checking is_active_staff flag
+            return user.is_active_staff
