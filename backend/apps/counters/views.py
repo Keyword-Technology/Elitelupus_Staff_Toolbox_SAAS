@@ -153,20 +153,14 @@ class CounterStatsView(APIView):
             action__in=['increment', 'decrement']
         )
         
-        # Calculate net change for today (increment adds, decrement subtracts)
+        # Calculate net change for today (new_value - old_value is already signed correctly)
         today_sits = 0
         for entry in today_history.filter(counter_type='sit'):
-            if entry.action == 'increment':
-                today_sits += (entry.new_value - entry.old_value)
-            elif entry.action == 'decrement':
-                today_sits -= (entry.new_value - entry.old_value)
+            today_sits += (entry.new_value - entry.old_value)
         
         today_tickets = 0
         for entry in today_history.filter(counter_type='ticket'):
-            if entry.action == 'increment':
-                today_tickets += (entry.new_value - entry.old_value)
-            elif entry.action == 'decrement':
-                today_tickets -= (entry.new_value - entry.old_value)
+            today_tickets += (entry.new_value - entry.old_value)
         
         # Weekly counts - include both increment and decrement
         weekly_history = CounterHistory.objects.filter(
@@ -175,20 +169,14 @@ class CounterStatsView(APIView):
             action__in=['increment', 'decrement']
         )
         
-        # Calculate net change for week
+        # Calculate net change for week (new_value - old_value is already signed correctly)
         weekly_sits = 0
         for entry in weekly_history.filter(counter_type='sit'):
-            if entry.action == 'increment':
-                weekly_sits += (entry.new_value - entry.old_value)
-            elif entry.action == 'decrement':
-                weekly_sits -= (entry.new_value - entry.old_value)
+            weekly_sits += (entry.new_value - entry.old_value)
         
         weekly_tickets = 0
         for entry in weekly_history.filter(counter_type='ticket'):
-            if entry.action == 'increment':
-                weekly_tickets += (entry.new_value - entry.old_value)
-            elif entry.action == 'decrement':
-                weekly_tickets -= (entry.new_value - entry.old_value)
+            weekly_tickets += (entry.new_value - entry.old_value)
         
         return Response({
             'total_sits': total_sits,
