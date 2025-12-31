@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { PageActionsProvider } from '@/contexts/PageActionsContext';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { useRouter } from 'next/navigation';
@@ -33,12 +34,14 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-dark-bg flex">
-      <Sidebar />
-      <div className="flex-1 flex flex-col ml-0 md:ml-64">
-        <Header />
-        <main className="flex-1 p-4 md:p-6 overflow-auto">{children}</main>
+    <PageActionsProvider>
+      <div className="min-h-screen bg-dark-bg flex">
+        <Sidebar />
+        <div className="flex-1 flex flex-col ml-0 md:ml-64">
+          <Header />
+          <main className="flex-1 p-4 md:p-6 overflow-auto">{children}</main>
+        </div>
       </div>
-    </div>
+    </PageActionsProvider>
   );
 }

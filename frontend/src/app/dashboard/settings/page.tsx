@@ -143,15 +143,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Profile Settings</h1>
-        <p className="text-gray-400 mt-1">
-          Manage your account preferences and connected services
-        </p>
-      </div>
-
+    <div className="space-y-6\">
       {/* Tabs */}
       <div className="flex gap-4 border-b border-dark-border">
         <button

@@ -280,13 +280,6 @@ export default function SystemSettingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">System Settings</h1>
-        <p className="text-gray-400 mt-1">
-          Configure system-wide settings, manage servers, and view audit logs
-        </p>
-      </div>
 
       {/* Tabs */}
       <div className="flex gap-4 border-b border-dark-border">

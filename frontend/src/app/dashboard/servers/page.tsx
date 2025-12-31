@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { ServerStatusCard } from '@/components/servers/ServerStatusCard';
 import { serverAPI } from '@/lib/api';
 import { useWebSocket } from '@/contexts/WebSocketContext';
+import { usePageActions } from '@/contexts/PageActionsContext';
 import {
   ArrowPathIcon,
   ServerIcon,
@@ -44,6 +45,7 @@ interface StaffDistribution {
 }
 
 export default function ServersPage() {
+  const { setActions } = usePageActions();
   const [servers, setServers] = useState<Server[]>([]);
   const [distribution, setDistribution] = useState<StaffDistribution[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +69,20 @@ export default function ServersPage() {
 
     return unsubscribe;
   }, [onServerUpdate]);
+
+  useEffect(() => {
+    setActions(
+      <button
+        onClick={handleRefresh}
+        disabled={refreshing}
+        className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 text-white rounded-lg transition-colors text-sm"
+      >
+        <ArrowPathIcon className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+        {refreshing ? 'Refreshing...' : 'Refresh'}
+      </button>
+    );
+    return () => setActions(null);
+  }, [setActions, refreshing]);
 
   const fetchData = async () => {
     try {
@@ -111,38 +127,6 @@ export default function ServersPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Server Status</h1>
-          <p className="text-gray-400 mt-1">
-            Monitor Elitelupus game servers in real-time
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isConnected ? 'bg-green-500' : 'bg-red-500'
-              }`}
-            />
-            <span className="text-sm text-gray-400">
-              {isConnected ? 'Live' : 'Disconnected'}
-            </span>
-          </div>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="btn-primary flex items-center gap-2"
-          >
-            <ArrowPathIcon
-              className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`}
-            />
-            Refresh
-          </button>
-        </div>
-      </div>
-
       {/* Overview Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-dark-card rounded-lg border border-dark-border p-4">

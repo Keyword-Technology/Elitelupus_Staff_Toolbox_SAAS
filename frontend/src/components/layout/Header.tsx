@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWebSocket } from '@/contexts/WebSocketContext';
+import { usePageActions } from '@/contexts/PageActionsContext';
 import {
   BellIcon,
   Cog6ToothIcon,
@@ -16,6 +17,7 @@ import {
 export function Header() {
   const { user, logout, hasMinRole } = useAuth();
   const { isConnected } = useWebSocket();
+  const { actions } = usePageActions();
   const pathname = usePathname();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -72,6 +74,9 @@ export function Header() {
               {isConnected ? 'Connected' : 'Disconnected'}
             </span>
           </div>
+
+          {/* Page-specific actions */}
+          {actions && <div className="flex items-center gap-3">{actions}</div>}
 
           {/* Notifications */}
           <button className="p-2 text-gray-400 hover:text-white transition-colors">

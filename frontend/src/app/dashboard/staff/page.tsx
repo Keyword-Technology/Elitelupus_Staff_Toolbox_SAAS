@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { staffAPI } from '@/lib/api';
+import { usePageActions } from '@/contexts/PageActionsContext';
 import {
   UsersIcon,
   ArrowPathIcon,
@@ -55,6 +56,7 @@ interface SyncLog {
 
 export default function StaffPage() {
   const router = useRouter();
+  const { setActions } = usePageActions();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,6 +72,29 @@ export default function StaffPage() {
   useEffect(() => {
     fetchData();
   }, [currentPage, pageSize, sortBy, sortOrder]);
+
+  useEffect(() => {
+    setActions(
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => router.push('/dashboard/staff/legacy')}
+          className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm"
+        >
+          <ClockIcon className="w-4 h-4" />
+          Legacy Staff
+        </button>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 text-white rounded-lg transition-colors text-sm"
+        >
+          <ArrowPathIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+          {syncing ? 'Syncing...' : 'Sync Now'}
+        </button>
+      </div>
+    );
+    return () => setActions(null);
+  }, [setActions, syncing, router]);
 
   const fetchData = async () => {
     try {
@@ -162,34 +187,6 @@ export default function StaffPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Staff Roster</h1>
-          <p className="text-gray-400 mt-1">
-            Synced from Google Sheets • {staff.length} staff members
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => router.push('/dashboard/staff/legacy')}
-            className="btn-secondary flex items-center gap-2"
-          >
-            <ClockIcon className="w-4 h-4" />
-            Legacy Staff
-          </button>
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="btn-primary flex items-center gap-2"
-          >
-            <ArrowPathIcon
-              className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`}
-            />
-            {syncing ? 'Syncing...' : 'Sync Now'}
-          </button>
-        </div>
-      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
