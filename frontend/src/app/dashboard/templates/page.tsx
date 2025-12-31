@@ -11,6 +11,7 @@ import {
   PencilIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import EnhancedSteamProfile from '@/components/templates/EnhancedSteamProfile';
 
 interface RefundTemplate {
   id: number;
@@ -21,16 +22,37 @@ interface RefundTemplate {
   updated_at: string;
 }
 
-interface SteamProfile {
+interface SteamProfileData {
   steam_id: string;
-  steam_id64: string;
-  steam_id3: string;
-  persona_name: string;
-  profile_url: string;
-  avatar_url: string;
-  real_name: string;
-  country: string;
-  account_created: string;
+  steam_id_64: string;
+  profile: {
+    name: string;
+    profile_url: string;
+    avatar_url: string;
+    profile_state: string;
+    real_name?: string;
+    location?: string;
+    is_private: boolean;
+    is_limited: boolean;
+    level?: number;
+    account_created?: string;
+  };
+  bans: {
+    vac_bans: number;
+    game_bans: number;
+    days_since_last_ban?: number;
+    community_banned: boolean;
+    trade_ban: string;
+  };
+  search_stats: {
+    total_searches: number;
+    first_searched: string;
+    last_searched: string;
+    last_searched_by?: string;
+  };
+  changes: Record<string, { old: any; new: any }>;
+  related_templates: any[];
+  search_history: any[];
 }
 
 export default function TemplatesPage() {
@@ -38,10 +60,11 @@ export default function TemplatesPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<RefundTemplate | null>(null);
   const [loading, setLoading] = useState(true);
   const [steamInput, setSteamInput] = useState('');
-  const [steamProfile, setSteamProfile] = useState<SteamProfile | null>(null);
+  const [steamProfile, setSteamProfile] = useState<SteamProfileData | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTemplate, setNewTemplate] = useState({ name: '', content: '' });
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   useEffect(() => {
     fetchTemplates();
@@ -64,6 +87,7 @@ export default function TemplatesPage() {
     try {
       const res = await templateAPI.steamLookup(steamInput);
       setSteamProfile(res.data);
+      setShowProfileModal(true);
       toast.success('Steam profile found');
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Steam profile not found');
@@ -80,9 +104,9 @@ export default function TemplatesPage() {
     if (steamProfile) {
       finalContent = finalContent
         .replace(/\{steam_id\}/g, steamProfile.steam_id)
-        .replace(/\{steam_id64\}/g, steamProfile.steam_id64)
-        .replace(/\{steam_name\}/g, steamProfile.persona_name)
-        .replace(/\{profile_url\}/g, steamProfile.profile_url);
+        .replace(/\{steam_id64\}/g, steamProfile.steam_id_64)
+        .replace(/\{steam_name\}/g, steamProfile.profile.name)
+        .replace(/\{profile_url\}/g, steamProfile.profile.profile_url);
     }
     
     navigator.clipboard.writeText(finalContent);
@@ -168,43 +192,54 @@ export default function TemplatesPage() {
           </button>
         </div>
 
-        {steamProfile && (
-          <div className="mt-4 p-4 bg-dark-bg rounded-lg">
-            <div className="flex items-start gap-4">
-              <img
-                src={steamProfile.avatar_url}
-                alt={steamProfile.persona_name}
-                className="w-16 h-16 rounded-lg"
-              />
-              <div className="flex-1 grid grid-cols-2 gap-4">
+        {steamProfile && !showProfileModal && (
+          <div className="mt-4 p-4 bg-dark-bg rounded-lg border border-dark-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <img
+                  src={steamProfile.profile.avatar_url}
+                  alt={steamProfile.profile.name}
+                  className="w-12 h-12 rounded"
+                />
                 <div>
-                  <p className="text-gray-400 text-sm">Name</p>
-                  <p className="text-white font-medium">{steamProfile.persona_name}</p>
+                  <p className="text-white font-medium">{steamProfile.profile.name}</p>
+                  <p className="text-gray-400 text-sm font-mono">{steamProfile.steam_id}</p>
                 </div>
-                <div>
-                  <p className="text-gray-400 text-sm">Steam ID</p>
-                  <p className="text-white font-mono text-sm">{steamProfile.steam_id}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">Steam64</p>
-                  <p className="text-white font-mono text-sm">{steamProfile.steam_id64}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">Profile URL</p>
-                  <a
-                    href={steamProfile.profile_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary-400 hover:underline text-sm"
-                  >
-                    View Profile
-                  </a>
-                </div>
+                {steamProfile.bans.vac_bans > 0 && (
+                  <span className="px-2 py-1 text-xs bg-red-900/50 text-red-400 rounded">
+                    {steamProfile.bans.vac_bans} VAC Ban(s)
+                  </span>
+                )}
+                {steamProfile.bans.game_bans > 0 && (
+                  <span className="px-2 py-1 text-xs bg-red-900/50 text-red-400 rounded">
+                    {steamProfile.bans.game_bans} Game Ban(s)
+                  </span>
+                )}
               </div>
+              <button
+                onClick={() => setShowProfileModal(true)}
+                className="btn-secondary text-sm"
+              >
+                View Full Profile
+              </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* Enhanced Profile Modal */}
+      {showProfileModal && steamProfile && (
+        <div className="fixed inset-0 bg-black/80 flex items-start justify-center z-50 overflow-y-auto p-4">
+          <div className="bg-dark-bg rounded-lg max-w-5xl w-full my-8">
+            <div className="p-6">
+              <EnhancedSteamProfile
+                profile={steamProfile}
+                onClose={() => setShowProfileModal(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Templates Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

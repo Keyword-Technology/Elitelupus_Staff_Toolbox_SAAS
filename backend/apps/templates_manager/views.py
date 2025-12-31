@@ -1,18 +1,18 @@
-from rest_framework import generics, status, permissions
+import requests
+from apps.accounts.permissions import IsModerator
+from django.utils import timezone
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.utils import timezone
-import requests
 
-from .models import RefundTemplate, TemplateCategory, ResponseTemplate
-from .serializers import (
-    RefundTemplateSerializer,
-    RefundTemplateCreateSerializer,
-    TemplateCategorySerializer,
-    ResponseTemplateSerializer,
-    SteamProfileSerializer,
-)
-from apps.accounts.permissions import IsModerator
+from .models import (RefundTemplate, ResponseTemplate, SteamProfileHistory,
+                     SteamProfileSearch, TemplateCategory)
+from .serializers import (RefundTemplateCreateSerializer,
+                          RefundTemplateSerializer, ResponseTemplateSerializer,
+                          SteamProfileHistorySerializer,
+                          SteamProfileSearchSerializer, SteamProfileSerializer,
+                          TemplateCategorySerializer)
+from .services import SteamLookupService
 
 
 class RefundTemplateListCreateView(generics.ListCreateAPIView):
@@ -103,7 +103,7 @@ class ResponseTemplateDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class SteamProfileLookupView(APIView):
-    """Look up Steam profile information."""
+    """Look up Steam profile information with tracking and history."""
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
@@ -115,69 +115,65 @@ class SteamProfileLookupView(APIView):
             )
         
         try:
-            profile_data = self._lookup_steam_profile(steam_id)
-            return Response(profile_data)
+            # Use the enhanced lookup service
+            service = SteamLookupService()
+            profile_data = service.lookup_profile(steam_id, user=request.user)
+            
+            serializer = SteamProfileSerializer(data=profile_data)
+            if serializer.is_valid():
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
         except Exception as e:
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def _lookup_steam_profile(self, steam_id):
-        """Look up Steam profile using steamidfinder.com."""
-        from apps.accounts.pipeline import convert_steam_id_64_to_steam_id
+
+class SteamProfileSearchListView(generics.ListAPIView):
+    """List all Steam profile searches with statistics."""
+    serializer_class = SteamProfileSearchSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        queryset = SteamProfileSearch.objects.all()
         
-        # Convert to SteamID64 if needed
-        steam_id_64 = steam_id
-        if steam_id.startswith('STEAM_'):
-            # Convert STEAM_X:Y:Z to SteamID64
-            parts = steam_id.replace('STEAM_', '').split(':')
-            if len(parts) == 3:
-                y = int(parts[1])
-                z = int(parts[2])
-                steam_id_64 = str(76561197960265728 + (z * 2) + y)
+        # Filter by steam_id_64 if provided
+        steam_id_64 = self.request.query_params.get('steam_id_64')
+        if steam_id_64:
+            queryset = queryset.filter(steam_id_64=steam_id_64)
         
-        # Use Steam API if available
-        from django.conf import settings
-        api_key = settings.SOCIAL_AUTH_STEAM_API_KEY
+        # Order by most searched
+        order_by = self.request.query_params.get('order_by', '-search_count')
+        queryset = queryset.order_by(order_by)
         
-        if api_key:
-            response = requests.get(
-                f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/",
-                params={
-                    'key': api_key,
-                    'steamids': steam_id_64
-                },
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                players = data.get('response', {}).get('players', [])
-                if players:
-                    player = players[0]
-                    steam_id_converted = convert_steam_id_64_to_steam_id(steam_id_64)
-                    return {
-                        'steam_id': steam_id_converted,
-                        'steam_id_64': steam_id_64,
-                        'name': player.get('personaname'),
-                        'profile_url': player.get('profileurl'),
-                        'avatar_url': player.get('avatarfull'),
-                        'profile_state': 'public' if player.get('communityvisibilitystate') == 3 else 'private',
-                        'real_name': player.get('realname'),
-                        'location': player.get('loccountrycode'),
-                    }
+        return queryset[:100]  # Limit to top 100
+
+
+class SteamProfileSearchDetailView(generics.RetrieveAPIView):
+    """Get detailed information about a specific Steam profile search."""
+    serializer_class = SteamProfileSearchSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = SteamProfileSearch.objects.all()
+    lookup_field = 'steam_id_64'
+
+
+class SteamProfileHistoryListView(generics.ListAPIView):
+    """List search history for a Steam profile."""
+    serializer_class = SteamProfileHistorySerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        steam_id_64 = self.request.query_params.get('steam_id_64')
+        if not steam_id_64:
+            return SteamProfileHistory.objects.none()
         
-        return {
-            'steam_id': steam_id,
-            'steam_id_64': steam_id_64,
-            'name': None,
-            'profile_url': f"https://steamcommunity.com/profiles/{steam_id_64}",
-            'avatar_url': None,
-            'profile_state': 'unknown',
-            'real_name': None,
-            'location': None,
-        }
+        try:
+            search = SteamProfileSearch.objects.get(steam_id_64=steam_id_64)
+            return search.history.all()[:50]  # Last 50 searches
+        except SteamProfileSearch.DoesNotExist:
+            return SteamProfileHistory.objects.none()
 
 
 class RefundQuestionTemplateView(APIView):

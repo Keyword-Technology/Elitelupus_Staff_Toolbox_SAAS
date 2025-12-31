@@ -1,5 +1,40 @@
 from rest_framework import serializers
-from .models import RefundTemplate, TemplateCategory, ResponseTemplate
+
+from .models import (RefundTemplate, ResponseTemplate, SteamProfileHistory,
+                     SteamProfileSearch, TemplateCategory)
+
+
+class SteamProfileSearchSerializer(serializers.ModelSerializer):
+    """Serializer for Steam profile search records."""
+    
+    last_searched_by_name = serializers.CharField(
+        source='last_searched_by.username', 
+        read_only=True, 
+        allow_null=True
+    )
+    
+    class Meta:
+        model = SteamProfileSearch
+        fields = '__all__'
+        read_only_fields = [
+            'search_count', 'first_searched_at', 'last_searched_at',
+            'last_searched_by'
+        ]
+
+
+class SteamProfileHistorySerializer(serializers.ModelSerializer):
+    """Serializer for Steam profile history entries."""
+    
+    searched_by_name = serializers.CharField(
+        source='searched_by.username',
+        read_only=True,
+        allow_null=True
+    )
+    
+    class Meta:
+        model = SteamProfileHistory
+        fields = '__all__'
+        read_only_fields = ['searched_at']
 
 
 class RefundTemplateSerializer(serializers.ModelSerializer):
@@ -57,14 +92,14 @@ class SteamProfileLookupSerializer(serializers.Serializer):
 
 
 class SteamProfileSerializer(serializers.Serializer):
-    """Serializer for Steam profile data."""
+    """Serializer for enhanced Steam profile data with tracking."""
     
     steam_id = serializers.CharField()
-    steam_id_3 = serializers.CharField(allow_null=True)
     steam_id_64 = serializers.CharField()
-    name = serializers.CharField(allow_null=True)
-    profile_url = serializers.URLField(allow_null=True)
-    avatar_url = serializers.URLField(allow_null=True)
-    profile_state = serializers.CharField(allow_null=True)
-    real_name = serializers.CharField(allow_null=True)
-    location = serializers.CharField(allow_null=True)
+    
+    profile = serializers.DictField()
+    bans = serializers.DictField()
+    search_stats = serializers.DictField()
+    changes = serializers.DictField()
+    related_templates = serializers.ListField()
+    search_history = serializers.ListField()
