@@ -130,8 +130,6 @@ export default function SettingsPage() {
     }
   };
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">

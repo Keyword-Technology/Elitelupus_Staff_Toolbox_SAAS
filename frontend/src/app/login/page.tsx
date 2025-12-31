@@ -40,13 +40,11 @@ export default function LoginPage() {
   };
 
   const handleSteamLogin = () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    window.location.href = `${apiUrl}/auth/login/steam/`;
+    window.location.href = '/auth/login/steam/';
   };
 
   const handleDiscordLogin = () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    window.location.href = `${apiUrl}/auth/login/discord/`;
+    window.location.href = '/auth/login/discord/';
   };
 
   return (

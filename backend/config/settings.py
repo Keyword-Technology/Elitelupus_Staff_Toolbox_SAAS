@@ -141,7 +141,8 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTHENTICATION_BACKENDS = (
     'apps.accounts.backends.SteamOpenId',  # Custom backend that reads API key from database
     'apps.accounts.backends.DiscordOAuth2',
-    'django.contrib.auth.backends.ModelBackend',
+    'apps.accounts.backends.StaffRosterAuthenticationBackend',  # Validates roster membership
+    'django.contrib.auth.backends.ModelBackend',  # Fallback for local accounts
 )
 
 # Social Auth Settings

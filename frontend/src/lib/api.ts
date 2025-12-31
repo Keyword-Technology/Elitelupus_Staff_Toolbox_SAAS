@@ -1,10 +1,10 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export const api = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: API_URL ? `${API_URL}/api` : '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -37,7 +37,7 @@ api.interceptors.response.use(
       const refreshToken = Cookies.get('refresh_token');
       if (refreshToken) {
         try {
-          const response = await axios.post(`${API_URL}/api/auth/token/refresh/`, {
+          const response = await axios.post('/api/auth/token/refresh/', {
             refresh: refreshToken,
           });
 
