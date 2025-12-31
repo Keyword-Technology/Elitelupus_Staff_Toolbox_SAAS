@@ -8,21 +8,22 @@ class SteamOpenId(BaseSteamOpenId):
     
     name = 'steam'
     
-    def get_key_and_secret(self):
-        """Override to get API key from database system settings first."""
-        try:
-            from apps.system_settings.models import SystemSetting
-            setting = SystemSetting.objects.filter(
-                key='STEAM_API_KEY',
-                is_active=True
-            ).first()
-            if setting and setting.value:
-                return setting.value, ''
-        except Exception:
-            pass
+    def setting(self, name, default=None):
+        """Override to get API_KEY from database system settings first."""
+        if name == 'API_KEY':
+            try:
+                from apps.system_settings.models import SystemSetting
+                setting = SystemSetting.objects.filter(
+                    key='STEAM_API_KEY',
+                    is_active=True
+                ).first()
+                if setting and setting.value:
+                    return setting.value
+            except Exception:
+                pass
         
-        # Fall back to settings/environment variable
-        return self.setting('API_KEY'), ''
+        # Fall back to default behavior
+        return super().setting(name, default)
 
 
 class DiscordOAuth2(BaseDiscordOAuth2):
