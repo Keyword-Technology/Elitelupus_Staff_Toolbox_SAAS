@@ -17,10 +17,12 @@ class StaffSyncService:
     """Service for syncing staff data from Google Sheets."""
     
     SHEET_ID = settings.GOOGLE_SHEETS_ID
-    SHEET_NAME = "Roster"
+    SHEET_NAME = "Staff Roster"  # Changed from "Roster" to "Staff Roster"
+    SHEET_GID = "160655123"  # Alternative: can use GID instead
     
     @property
     def sheet_url(self):
+        # Using sheet name - can also use gid={self.SHEET_GID} instead of sheet={self.SHEET_NAME}
         return f"https://docs.google.com/spreadsheets/d/{self.SHEET_ID}/gviz/tq?tqx=out:csv&sheet={self.SHEET_NAME}"
     
     def fetch_sheet_data(self):
@@ -43,25 +45,31 @@ class StaffSyncService:
         if not headers:
             return staff_list
         
-        # Expected columns from Google Sheet:
-        # Column 0: Empty, Column 1: Rank, Column 2: Timezone, Column 3: Time, 
-        # Column 4: Name, Column 5: SteamID, Column 6: DiscordID, Column 7: Discord Tag
+        # Expected columns from "Staff Roster" Google Sheet:
+        # Column 0: Empty, Column 1: Number (99), Column 2: Rank, Column 3: Timezone, 
+        # Column 4: Time, Column 5: Name, Column 6: SteamID, Column 7: DiscordID, Column 8: Discord Tag
         for row in reader:
-            # Check if row has enough columns and has a valid rank (column 1)
-            if len(row) >= 8 and len(row) > 1 and row[1].strip():
+            # Check if row has enough columns and has a valid rank (column 2)
+            if len(row) >= 9 and len(row) > 2 and row[2].strip():
                 try:
-                    staff_data = {
-                        'rank': row[1].strip().replace('"', ''),
-                        'timezone': row[2].strip().replace('"', '') if len(row) > 2 else '',
-                        'active_time': row[3].strip().replace('"', '') if len(row) > 3 else '',
-                        'name': row[4].strip().replace('"', '') if len(row) > 4 else '',
-                        'steam_id': self._parse_steam_id(row[5]) if len(row) > 5 else None,
-                        'discord_id': row[6].strip().replace('"', '') if len(row) > 6 else None,
-                        'discord_tag': row[7].strip().replace('"', '') if len(row) > 7 else None,
-                    }
+                    rank = row[2].strip().replace('"', '')
                     
                     # Skip header rows or invalid data
-                    if staff_data['rank'].lower() not in ['rank', 'staff rank', '']:
+                    if rank.lower() in ['rank', 'staff rank', 'rank manager', '']:
+                        continue
+                    
+                    staff_data = {
+                        'rank': rank,
+                        'timezone': row[3].strip().replace('"', '').replace('Timezone ', '') if len(row) > 3 else '',
+                        'active_time': row[4].strip().replace('"', '').replace('Time ', '') if len(row) > 4 else '',
+                        'name': row[5].strip().replace('"', '').replace('Name ', '') if len(row) > 5 else '',
+                        'steam_id': self._parse_steam_id(row[6].replace('SteamID ', '').strip()) if len(row) > 6 else None,
+                        'discord_id': row[7].strip().replace('"', '').replace('DiscordID ', '') if len(row) > 7 else None,
+                        'discord_tag': row[8].strip().replace('"', '').replace('Discord Tag ', '') if len(row) > 8 else None,
+                    }
+                    
+                    # Only add if we have at least a name and one identifier
+                    if staff_data['name'] and (staff_data['steam_id'] or staff_data['discord_id']):
                         staff_list.append(staff_data)
                         logger.debug(f"Parsed staff member: {staff_data['name']} ({staff_data['rank']})")
                 except (IndexError, ValueError) as e:

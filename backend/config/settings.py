@@ -273,27 +273,38 @@ STAFF_ROLE_PRIORITIES = {
     'Manager': 10,
     'Staff Manager': 20,
     'Assistant Staff Manager': 30,
+    'Assistant SM': 30,  # Abbreviated form
     'Meta Manager': 40,
     'Event Manager': 50,
     'Senior Admin': 60,
+    'Snr Admin': 60,  # Abbreviated form
     'Admin': 70,
     'Senior Moderator': 80,
+    'Snr Moderator': 80,  # Abbreviated form
     'Moderator': 90,
     'Senior Operator': 100,
+    'Snr Operator': 100,  # Abbreviated form
     'Operator': 110,
     'T-Staff': 120,
 }
 
 # Role Colors for Frontend
 STAFF_ROLE_COLORS = {
+    'SYSADMIN': '#FF0000',
     'Manager': '#990000',
     'Staff Manager': '#F04000',
     'Assistant Staff Manager': '#8900F0',
+    'Assistant SM': '#8900F0',  # Abbreviated form
+    'Meta Manager': '#8900F0',
+    'Event Manager': '#8900F0',
     'Senior Admin': '#d207d3',
+    'Snr Admin': '#d207d3',  # Abbreviated form
     'Admin': '#FA1E8A',
     'Senior Moderator': '#15c000',
+    'Snr Moderator': '#15c000',  # Abbreviated form
     'Moderator': '#4a86e8',
     'Senior Operator': '#38761d',
+    'Snr Operator': '#38761d',  # Abbreviated form
     'Operator': '#93c47d',
     'T-Staff': '#b6d7a8',
 }
