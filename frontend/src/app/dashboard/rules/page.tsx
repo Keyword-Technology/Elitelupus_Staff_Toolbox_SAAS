@@ -21,11 +21,11 @@ interface RuleCategory {
 
 interface Rule {
   id: number;
-  number: string;
+  code: string;
   title: string;
   content: string;
-  severity: string;
-  punishment: string;
+  order: number;
+  is_active: boolean;
 }
 
 interface JobRule {
@@ -96,21 +96,6 @@ export default function RulesPage() {
     setExpandedCategories((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
     );
-  };
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity.toLowerCase()) {
-      case 'low':
-        return 'bg-green-500/20 text-green-400';
-      case 'medium':
-        return 'bg-yellow-500/20 text-yellow-400';
-      case 'high':
-        return 'bg-orange-500/20 text-orange-400';
-      case 'severe':
-        return 'bg-red-500/20 text-red-400';
-      default:
-        return 'bg-gray-500/20 text-gray-400';
-    }
   };
 
   if (loading) {
@@ -184,25 +169,15 @@ export default function RulesPage() {
                 key={rule.id}
                 className="p-4 bg-dark-bg rounded-lg border border-dark-border"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-primary-400 font-mono">
-                    {rule.number}
+                <div className="flex items-start gap-3">
+                  <span className="text-primary-400 font-mono font-medium text-sm">
+                    {rule.code}
                   </span>
-                  <span
-                    className={`text-xs px-2 py-1 rounded ${getSeverityColor(
-                      rule.severity
-                    )}`}
-                  >
-                    {rule.severity}
-                  </span>
+                  <div className="flex-1">
+                    <h4 className="text-white font-medium">{rule.title}</h4>
+                    <p className="text-gray-400 text-sm mt-1">{rule.content}</p>
+                  </div>
                 </div>
-                <h4 className="text-white font-medium">{rule.title}</h4>
-                <p className="text-gray-400 text-sm mt-1">{rule.content}</p>
-                {rule.punishment && (
-                  <p className="text-red-400 text-sm mt-2">
-                    Punishment: {rule.punishment}
-                  </p>
-                )}
               </div>
             ))}
           </div>
@@ -253,32 +228,19 @@ export default function RulesPage() {
                           key={rule.id}
                           className="p-4 bg-dark-bg rounded-lg"
                         >
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-primary-400 font-mono font-medium">
-                              {rule.number}
+                          <div className="flex items-start gap-3">
+                            <span className="text-primary-400 font-mono font-medium text-sm">
+                              {rule.code}
                             </span>
-                            <span
-                              className={`text-xs px-2 py-1 rounded ${getSeverityColor(
-                                rule.severity
-                              )}`}
-                            >
-                              {rule.severity}
-                            </span>
-                          </div>
-                          <h4 className="text-white font-medium">
-                            {rule.title}
-                          </h4>
-                          <p className="text-gray-400 text-sm mt-2">
-                            {rule.content}
-                          </p>
-                          {rule.punishment && (
-                            <div className="mt-3 pt-3 border-t border-dark-border">
-                              <p className="text-red-400 text-sm">
-                                <span className="font-medium">Punishment:</span>{' '}
-                                {rule.punishment}
+                            <div className="flex-1">
+                              <h4 className="text-white font-medium">
+                                {rule.title}
+                              </h4>
+                              <p className="text-gray-400 text-sm mt-2">
+                                {rule.content}
                               </p>
                             </div>
-                          )}
+                          </div>
                         </div>
                       ))
                     )}
