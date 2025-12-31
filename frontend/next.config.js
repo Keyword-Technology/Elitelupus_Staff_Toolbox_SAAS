@@ -27,8 +27,11 @@ const nextConfig = {
     ];
   },
   webpack: (config) => {
-    // Ensure the @ alias works during Docker/Portainer builds
-    config.resolve.alias['@'] = path.resolve(__dirname, 'src');
+    // Ensure the @ alias works during Docker/Portainer builds (merge with existing aliases)
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      '@': path.resolve(__dirname, 'src'),
+    };
     return config;
   },
 };
