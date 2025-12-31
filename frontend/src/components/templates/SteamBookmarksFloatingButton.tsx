@@ -72,8 +72,124 @@ export default function SteamBookmarksFloatingButton({ onSelectBookmark }: Steam
   };
 
   const handlePopout = () => {
-    setIsPopout(true);
     setIsOpen(false);
+    
+    // Create HTML content for the new window
+    const bookmarksHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Steam Bookmarks - Elitelupus Staff Toolbox</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://cdn.tailwindcss.com"></script>
+      </head>
+      <body class="bg-gray-50 p-6">
+        <div class="max-w-4xl mx-auto">
+          <div class="bg-white rounded-lg shadow-lg p-6 mb-4">
+            <h1 class="text-2xl font-bold text-gray-900 mb-4">Bookmarked Players</h1>
+            <p class="text-sm text-gray-600 mb-6">Total: ${bookmarks.length} player(s)</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              ${bookmarks.map(bookmark => `
+                <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors bg-gray-50">
+                  <div class="flex items-start gap-3">
+                    <img 
+                      src="${bookmark.steam_profile_data.avatar_url || '/default-avatar.png'}" 
+                      alt="${bookmark.steam_profile_data.persona_name}"
+                      class="w-16 h-16 rounded"
+                    />
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-start justify-between gap-2">
+                        <h3 class="font-semibold text-gray-900 truncate">
+                          ${bookmark.steam_profile_data.persona_name}
+                        </h3>
+                        ${bookmark.is_pinned ? '<span class="text-yellow-500">⭐</span>' : ''}
+                      </div>
+                      <p class="text-xs text-gray-600 font-mono truncate">${bookmark.steam_profile_data.steam_id_64}</p>
+                      
+                      ${bookmark.steam_profile_data.vac_bans > 0 ? `
+                        <div class="mt-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded">
+                          VAC Bans: ${bookmark.steam_profile_data.vac_bans}
+                        </div>
+                      ` : ''}
+                      
+                      ${bookmark.steam_profile_data.game_bans > 0 ? `
+                        <div class="mt-2 text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                          Game Bans: ${bookmark.steam_profile_data.game_bans}
+                        </div>
+                      ` : ''}
+                      
+                      ${bookmark.note ? `
+                        <p class="text-sm text-gray-700 mt-2 italic">"${bookmark.note}"</p>
+                      ` : ''}
+                      
+                      ${bookmark.tags && bookmark.tags.length > 0 ? `
+                        <div class="flex flex-wrap gap-1 mt-2">
+                          ${bookmark.tags.map(tag => `
+                            <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">${tag}</span>
+                          `).join('')}
+                        </div>
+                      ` : ''}
+                      
+                      <div class="mt-3 flex gap-2">
+                        <a 
+                          href="${bookmark.steam_profile_data.profile_url}" 
+                          target="_blank"
+                          class="text-xs text-blue-600 hover:text-blue-700 underline"
+                        >
+                          Steam Profile →
+                        </a>
+                        <button 
+                          onclick="if(window.opener && window.opener.selectBookmark) { window.opener.selectBookmark('${bookmark.steam_profile_data.steam_id_64}'); window.close(); }"
+                          class="text-xs text-green-600 hover:text-green-700 underline"
+                        >
+                          Lookup in Main Window
+                        </button>
+                      </div>
+                      
+                      <div class="text-xs text-gray-500 mt-2">
+                        Added: ${new Date(bookmark.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          
+          <div class="text-center text-sm text-gray-600">
+            <p>This window can be closed at any time. Changes will sync with the main window.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+    
+    // Open new window with bookmarks
+    const popoutWindow = window.open('', 'steamBookmarks', 'width=900,height=700,menubar=no,toolbar=no,location=no,status=no');
+    
+    if (popoutWindow) {
+      popoutWindow.document.write(bookmarksHTML);
+      popoutWindow.document.close();
+      
+      // Make the selectBookmark function available to the popup
+      (window as any).selectBookmark = (steamId64: string) => {
+        if (onSelectBookmark) {
+          onSelectBookmark(steamId64);
+        }
+      };
+      
+      // Clean up when popup closes
+      const checkClosed = setInterval(() => {
+        if (popoutWindow.closed) {
+          clearInterval(checkClosed);
+          delete (window as any).selectBookmark;
+        }
+      }, 1000);
+    } else {
+      alert('Popup blocked! Please allow popups for this site to use the popout feature.');
+    }
   };
 
   if (bookmarks.length === 0) {
