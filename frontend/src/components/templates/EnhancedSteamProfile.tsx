@@ -260,7 +260,7 @@ export default function EnhancedSteamProfile({ profile }: Props) {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-4 text-sm">
               <div>
                 <p className="text-gray-400">profile state</p>
-                <p className="text-white">{profile.profile.profile_state}</p>
+                <p className="text-white capitalize">{profile.profile.profile_state || 'Unknown'}</p>
               </div>
               
               {profile.profile.account_created && (
@@ -449,7 +449,7 @@ export default function EnhancedSteamProfile({ profile }: Props) {
           <div className={`p-4 rounded-lg ${hasTradeBan ? 'bg-red-900/20 border border-red-500/50' : 'bg-dark-bg'}`}>
             <p className="text-gray-400 text-sm">Trade Status</p>
             <p className={`text-sm font-semibold ${hasTradeBan ? 'text-red-400' : 'text-green-400'}`}>
-              {profile.bans.trade_ban === 'none' ? 'Clean' : profile.bans.trade_ban || 'Unknown'}
+              {profile.bans.trade_ban === 'none' || !profile.bans.trade_ban ? 'None' : profile.bans.trade_ban}
             </p>
           </div>
         </div>

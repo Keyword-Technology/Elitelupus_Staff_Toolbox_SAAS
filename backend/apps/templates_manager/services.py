@@ -107,7 +107,9 @@ class SteamLookupService:
             search_record.game_bans = ban_data.get('NumberOfGameBans', 0)
             search_record.days_since_last_ban = ban_data.get('DaysSinceLastBan', None)
             search_record.community_banned = ban_data.get('CommunityBanned', False)
-            search_record.trade_ban = ban_data.get('EconomyBan', '')
+            # Trade ban: empty string or 'none' means no ban
+            trade_ban_value = ban_data.get('EconomyBan', 'none')
+            search_record.trade_ban = trade_ban_value if trade_ban_value else 'none'
         
         # Update scraped data from steamid.pro (only fill missing fields)
         if scraped_data:
