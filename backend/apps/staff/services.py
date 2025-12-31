@@ -42,28 +42,32 @@ class StaffSyncService:
         if not headers:
             return staff_list
         
-        # Expected columns based on the screenshot:
-        # Rank, Timezone, Time, Name, SteamID, DiscordID, Discord Tag
+        # Expected columns from Google Sheet:
+        # Column 0: Empty, Column 1: Rank, Column 2: Timezone, Column 3: Time, 
+        # Column 4: Name, Column 5: SteamID, Column 6: DiscordID, Column 7: Discord Tag
         for row in reader:
-            if len(row) >= 7 and row[0].strip():  # Has at least required fields and rank
+            # Check if row has enough columns and has a valid rank (column 1)
+            if len(row) >= 8 and len(row) > 1 and row[1].strip():
                 try:
                     staff_data = {
-                        'rank': row[0].strip().replace('"', ''),
-                        'timezone': row[1].strip().replace('"', '') if len(row) > 1 else '',
-                        'active_time': row[2].strip().replace('"', '') if len(row) > 2 else '',
-                        'name': row[3].strip().replace('"', '') if len(row) > 3 else '',
-                        'steam_id': self._parse_steam_id(row[4]) if len(row) > 4 else None,
-                        'discord_id': row[5].strip().replace('"', '') if len(row) > 5 else None,
-                        'discord_tag': row[6].strip().replace('"', '') if len(row) > 6 else None,
+                        'rank': row[1].strip().replace('"', ''),
+                        'timezone': row[2].strip().replace('"', '') if len(row) > 2 else '',
+                        'active_time': row[3].strip().replace('"', '') if len(row) > 3 else '',
+                        'name': row[4].strip().replace('"', '') if len(row) > 4 else '',
+                        'steam_id': self._parse_steam_id(row[5]) if len(row) > 5 else None,
+                        'discord_id': row[6].strip().replace('"', '') if len(row) > 6 else None,
+                        'discord_tag': row[7].strip().replace('"', '') if len(row) > 7 else None,
                     }
                     
                     # Skip header rows or invalid data
-                    if staff_data['rank'].lower() not in ['rank', '']:
+                    if staff_data['rank'].lower() not in ['rank', 'staff rank', '']:
                         staff_list.append(staff_data)
+                        logger.debug(f"Parsed staff member: {staff_data['name']} ({staff_data['rank']})")
                 except (IndexError, ValueError) as e:
                     logger.warning(f"Error parsing row: {row}, error: {e}")
                     continue
         
+        logger.info(f"Parsed {len(staff_list)} staff members from CSV")
         return staff_list
     
     def _parse_steam_id(self, steam_id_raw):
@@ -103,46 +107,104 @@ class StaffSyncService:
             
             log.records_synced = len(staff_data)
             
-            # Track existing records
-            existing_steam_ids = set(
-                StaffRoster.objects.values_list('steam_id', flat=True)
-            )
-            processed_steam_ids = set()
+            # Track existing records by unique identifiers
+            existing_identifiers = set()
+            for entry in StaffRoster.objects.all():
+                identifier = self._get_unique_identifier(entry.steam_id, entry.discord_id, entry.name)
+                existing_identifiers.add(identifier)
+            
+            processed_identifiers = set()
             
             for data in staff_data:
                 steam_id = data.get('steam_id')
-                if not steam_id:
+                discord_id = data.get('discord_id')
+                name = data.get('name')
+                
+                # Skip if no identifiable information
+                if not steam_id and not discord_id and not name:
+                    logger.warning(f"Skipping entry with no identifiable information: {data}")
                     continue
                 
-                processed_steam_ids.add(steam_id)
+                identifier = self._get_unique_identifier(steam_id, discord_id, name)
+                processed_identifiers.add(identifier)
                 
-                # Try to find existing record
-                roster_entry, created = StaffRoster.objects.update_or_create(
-                    steam_id=steam_id,
-                    defaults={
-                        'rank': data['rank'],
-                        'timezone': data['timezone'],
-                        'active_time': data['active_time'],
-                        'name': data['name'],
-                        'discord_id': data['discord_id'],
-                        'discord_tag': data['discord_tag'],
-                        'is_active': True,
-                    }
-                )
+                # Try to find existing record by steam_id first, then discord_id, then name
+                roster_entry = None
+                if steam_id:
+                    roster_entry = StaffRoster.objects.filter(steam_id=steam_id).first()
                 
-                if created:
-                    log.records_added += 1
-                else:
+                if not roster_entry and discord_id:
+                    roster_entry = StaffRoster.objects.filter(discord_id=discord_id).first()
+                
+                if not roster_entry and name:
+                    roster_entry = StaffRoster.objects.filter(name=name).first()
+                
+                # Update or create the roster entry
+                if roster_entry:
+                    # Update existing entry
+                    roster_entry.rank = data['rank']
+                    roster_entry.timezone = data['timezone']
+                    roster_entry.active_time = data['active_time']
+                    roster_entry.name = data['name']
+                    roster_entry.steam_id = steam_id
+                    roster_entry.discord_id = discord_id
+                    roster_entry.discord_tag = data['discord_tag']
+                    roster_entry.is_active = True
+                    roster_entry.save()
                     log.records_updated += 1
+                else:
+                    # Create new entry
+                    roster_entry = StaffRoster.objects.create(
+                        rank=data['rank'],
+                        timezone=data['timezone'],
+                        active_time=data['active_time'],
+                        name=data['name'],
+                        steam_id=steam_id,
+                        discord_id=discord_id,
+                        discord_tag=data['discord_tag'],
+                        is_active=True,
+                    )
+                    log.records_added += 1
                 
                 # Link to user account if exists
                 self._link_to_user(roster_entry)
             
             # Mark removed staff as inactive
-            removed_ids = existing_steam_ids - processed_steam_ids
-            if removed_ids:
-                StaffRoster.objects.filter(steam_id__in=removed_ids).update(is_active=False)
-                log.records_removed = len(removed_ids)
+            removed_identifiers = existing_identifiers - processed_identifiers
+            if removed_identifiers:
+                # This is approximate - we need to find entries that weren't processed
+                for entry in StaffRoster.objects.filter(is_active=True):
+                    identifier = self._get_unique_identifier(entry.steam_id, entry.discord_id, entry.name)
+                    if identifier in removed_identifiers:
+                        entry.is_active = False
+                        entry.save()
+                        log.records_removed += 1
+            
+            log.success = True
+            log.save()
+            
+            logger.info(f"Staff sync completed: {log.records_synced} synced, "
+                       f"{log.records_added} added, {log.records_updated} updated, "
+                       f"{log.records_removed} removed")
+            
+            return log
+            
+        except Exception as e:
+            log.success = False
+            log.error_message = str(e)
+            log.save()
+            logger.error(f"Staff sync failed: {e}")
+            raise
+    
+    def _get_unique_identifier(self, steam_id, discord_id, name):
+        """Generate a unique identifier for a staff member."""
+        # Prefer steam_id, then discord_id, then name
+        if steam_id:
+            return f"steam:{steam_id}"
+        elif discord_id:
+            return f"discord:{discord_id}"
+        else:
+            return f"name:{name}"
             
             log.success = True
             log.save()

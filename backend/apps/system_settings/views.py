@@ -49,6 +49,30 @@ CONFIGURABLE_ENV_VARS = [
         'is_sensitive': False,
     },
     {
+        'key': 'GOOGLE_CLIENT_ID',
+        'category': 'api_keys',
+        'description': 'Google OAuth2 Client ID',
+        'is_sensitive': False,
+    },
+    {
+        'key': 'GOOGLE_CLIENT_SECRET',
+        'category': 'api_keys',
+        'description': 'Google OAuth2 Client Secret',
+        'is_sensitive': True,
+    },
+    {
+        'key': 'GOOGLE_PROJECT_ID',
+        'category': 'external',
+        'description': 'Google Cloud Project ID',
+        'is_sensitive': False,
+    },
+    {
+        'key': 'GOOGLE_SHEETS_CREDENTIALS',
+        'category': 'external',
+        'description': 'Path to Google service account JSON file',
+        'is_sensitive': False,
+    },
+    {
         'key': 'FRONTEND_URL',
         'category': 'general',
         'description': 'URL of the frontend application',
