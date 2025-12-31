@@ -1,16 +1,12 @@
-from django.urls import path
-from .views import (
-    MyCountersView,
-    CounterUpdateView,
-    CounterStatsView,
-    CounterHistoryView,
-    LeaderboardView,
-)
+from django.urls import re_path
+
+from .views import (CounterHistoryView, CounterStatsView, CounterUpdateView,
+                    LeaderboardView, MyCountersView)
 
 urlpatterns = [
-    path('', MyCountersView.as_view(), name='my_counters'),
-    path('update/<str:counter_type>/', CounterUpdateView.as_view(), name='counter_update'),
-    path('stats/', CounterStatsView.as_view(), name='counter_stats'),
-    path('history/', CounterHistoryView.as_view(), name='counter_history'),
-    path('leaderboard/', LeaderboardView.as_view(), name='leaderboard'),
+    re_path(r'^$', MyCountersView.as_view(), name='my_counters'),
+    re_path(r'^update/(?P<counter_type>[^/]+)/?$', CounterUpdateView.as_view(), name='counter_update'),
+    re_path(r'^stats/?$', CounterStatsView.as_view(), name='counter_stats'),
+    re_path(r'^history/?$', CounterHistoryView.as_view(), name='counter_history'),
+    re_path(r'^leaderboard/?$', LeaderboardView.as_view(), name='leaderboard'),
 ]
