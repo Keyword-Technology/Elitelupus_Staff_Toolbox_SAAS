@@ -237,23 +237,6 @@ export default function EnhancedSteamProfile({ profile }: Props) {
                 )}
               </div>
             </div>
-                  <div>
-                    <span className="text-gray-400">steamID3:</span>{' '}
-                    <span className="text-white font-mono">{profile.profile.steam_id_3}</span>
-                  </div>
-                )}
-                <div>
-                  <span className="text-gray-400">steamID64:</span>{' '}
-                  <span className="text-white font-mono">{profile.steam_id_64}</span>
-                </div>
-                <div>
-                  <span className="text-gray-400">customURL:</span>{' '}
-                  <span className="text-white font-mono">
-                    {profile.profile.custom_url || 'not set'}
-                  </span>
-                </div>
-              </div>
-            </div>
 
             {/* Profile Details Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-4 text-sm">
