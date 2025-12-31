@@ -5,7 +5,7 @@ from .views import (AllRulesView, JobActionDetailView, JobActionListView,
                     RuleCategoryListView, RuleListView, RuleSearchView)
 
 urlpatterns = [
-    re_path(r'^$', AllRulesView.as_view(), name='all_rules'),
+    re_path(r'^/?$', AllRulesView.as_view(), name='all_rules'),
     re_path(r'^categories/?$', RuleCategoryListView.as_view(), name='rule_categories'),
     re_path(r'^categories/(?P<pk>\d+)/?$', RuleCategoryDetailView.as_view(), name='rule_category_detail'),
     re_path(r'^list/?$', RuleListView.as_view(), name='rule_list'),

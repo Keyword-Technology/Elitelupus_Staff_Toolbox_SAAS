@@ -5,7 +5,7 @@ from .views import (RefreshServersView, ServerDetailView, ServerHistoryView,
                     ServerStatusView, StaffDistributionView)
 
 urlpatterns = [
-    re_path(r'^$', ServerListView.as_view(), name='server_list'),
+    re_path(r'^/?$', ServerListView.as_view(), name='server_list'),
     re_path(r'^status/?$', ServerStatusView.as_view(), name='server_status'),
     re_path(r'^refresh/?$', RefreshServersView.as_view(), name='refresh_servers'),
     re_path(r'^distribution/?$', StaffDistributionView.as_view(), name='staff_distribution'),
