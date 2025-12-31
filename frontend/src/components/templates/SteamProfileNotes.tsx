@@ -1,15 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SteamProfileNote } from '@/types/templates';
 import { templateAPI } from '@/lib/api';
 import { 
   ChatBubbleLeftIcon, 
-  ExclamationTriangleIcon, 
-  ShieldExclamationIcon,
-  DocumentTextIcon,
+  ExclamationTriangleIcon,
   UserGroupIcon,
-  MagnifyingGlassIcon,
   PlusIcon,
   TrashIcon,
   CheckIcon,
@@ -25,19 +22,13 @@ interface SteamProfileNotesProps {
 const NOTE_TYPE_ICONS = {
   general: ChatBubbleLeftIcon,
   warning_verbal: ExclamationTriangleIcon,
-  warning_written: ShieldExclamationIcon,
-  ban_history: DocumentTextIcon,
   behavior: UserGroupIcon,
-  investigation: MagnifyingGlassIcon,
 };
 
 const NOTE_TYPE_COLORS = {
   general: 'bg-gray-100 text-gray-700',
   warning_verbal: 'bg-yellow-100 text-yellow-700',
-  warning_written: 'bg-orange-100 text-orange-700',
-  ban_history: 'bg-red-100 text-red-700',
   behavior: 'bg-blue-100 text-blue-700',
-  investigation: 'bg-purple-100 text-purple-700',
 };
 
 const SEVERITY_COLORS = {
@@ -60,6 +51,24 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [servers, setServers] = useState<any[]>([]);
+
+  // Fetch servers on component mount
+  useEffect(() => {
+    const fetchServers = async () => {
+      try {
+        const response = await templateAPI.getServers();
+        setServers(response.data || []);
+        // Auto-select server if only one exists
+        if (response.data.length === 1) {
+          setFormData(prev => ({ ...prev, server: response.data[0].name }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch servers:', err);
+      }
+    };
+    fetchServers();
+  }, []);
 
   const resetForm = () => {
     setFormData({
@@ -129,9 +138,9 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Admin Notes & Warnings</h3>
+          <h3 className="text-lg font-semibold text-white">Admin Notes & Warnings</h3>
           {activeWarnings.length > 0 && (
-            <p className="text-sm text-red-600 font-medium">
+            <p className="text-sm text-red-400 font-medium">
               {activeWarnings.length} Active Warning{activeWarnings.length !== 1 ? 's' : ''}
             </p>
           )}
@@ -154,31 +163,28 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
             {/* Note Type & Severity */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Note Type
                 </label>
                 <select
                   value={formData.note_type}
                   onChange={(e) => setFormData({ ...formData, note_type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-dark-bg text-white"
                   required
                 >
                   <option value="general">General Note</option>
                   <option value="warning_verbal">Verbal Warning</option>
-                  <option value="warning_written">Written Warning</option>
-                  <option value="ban_history">Ban History</option>
                   <option value="behavior">Behavior Note</option>
-                  <option value="investigation">Under Investigation</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Severity
                 </label>
                 <select
                   value={formData.severity}
                   onChange={(e) => setFormData({ ...formData, severity: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-dark-bg text-white"
                   required
                 >
                   <option value="1">Low</option>
@@ -191,55 +197,62 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
 
             {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Title (Optional)
               </label>
               <input
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-dark-bg text-white"
                 placeholder="Brief title for this note"
               />
             </div>
 
             {/* Content */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Note Content *
               </label>
               <textarea
                 value={formData.content}
                 onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 min-h-[100px] bg-dark-bg text-white"
                 placeholder="Detailed note about the player's behavior, warnings given, etc."
                 required
               />
             </div>
 
             {/* Server & Incident Date */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className={`grid ${servers.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
+              {servers.length > 1 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Server
+                  </label>
+                  <select
+                    value={formData.server}
+                    onChange={(e) => setFormData({ ...formData, server: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-dark-bg text-white"
+                  >
+                    <option value="">Select server...</option>
+                    {servers.map((server) => (
+                      <option key={server.id} value={server.name}>
+                        {server.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Server
-                </label>
-                <input
-                  type="text"
-                  value={formData.server}
-                  onChange={(e) => setFormData({ ...formData, server: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., Server 1, Server 2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Incident Date
                 </label>
                 <input
                   type="datetime-local"
                   value={formData.incident_date}
                   onChange={(e) => setFormData({ ...formData, incident_date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-dark-bg text-white"
                 />
               </div>
             </div>
@@ -275,8 +288,8 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
       {/* Notes List */}
       <div className="space-y-3">
         {notesList.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <ChatBubbleLeftIcon className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+          <div className="text-center py-8 text-gray-400">
+            <ChatBubbleLeftIcon className="w-12 h-12 mx-auto mb-2 text-gray-500" />
             <p>No notes or warnings recorded for this player</p>
           </div>
         ) : (
@@ -289,7 +302,7 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
               <div
                 key={note.id}
                 className={`border rounded-lg p-4 ${
-                  note.is_active ? 'border-gray-300 bg-white' : 'border-gray-200 bg-gray-50 opacity-75'
+                  note.is_active ? 'border-gray-300 bg-gray-50' : 'border-gray-200 bg-gray-100 opacity-75'
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -320,7 +333,7 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
                           <h4 className="font-medium text-gray-900 mt-1">{note.title}</h4>
                         )}
                       </div>
-                      
+
                       {/* Actions */}
                       {note.is_active && (
                         <div className="flex gap-1">
@@ -348,16 +361,16 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
                     </p>
 
                     {/* Metadata */}
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
                       <span>
-                        By <span className="font-medium text-gray-700">{note.author_name}</span>
+                        By <span className="font-medium text-gray-900">{note.author_name}</span>
                         {note.author_role && (
-                          <span className="text-gray-500"> ({note.author_role})</span>
+                          <span className="text-gray-600"> ({note.author_role})</span>
                         )}
                       </span>
                       <span>{new Date(note.created_at).toLocaleString()}</span>
                       {note.server && (
-                        <span>Server: <span className="font-medium text-gray-700">{note.server}</span></span>
+                        <span>Server: <span className="font-medium text-gray-900">{note.server}</span></span>
                       )}
                       {note.incident_date && (
                         <span>Incident: {new Date(note.incident_date).toLocaleString()}</span>

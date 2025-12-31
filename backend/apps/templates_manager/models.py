@@ -461,10 +461,7 @@ class SteamProfileNote(models.Model):
     NOTE_TYPE_CHOICES = [
         ('general', 'General Note'),
         ('warning_verbal', 'Verbal Warning'),
-        ('warning_written', 'Written Warning'),
-        ('ban_history', 'Ban History'),
         ('behavior', 'Behavior Note'),
-        ('investigation', 'Under Investigation'),
     ]
     
     # Steam profile this note is for
@@ -528,7 +525,7 @@ class SteamProfileNote(models.Model):
     def warning_count(self):
         """Get count of warnings for this profile."""
         return self.steam_profile.notes.filter(
-            note_type__in=['warning_verbal', 'warning_written'],
+            note_type='warning_verbal',
             is_active=True
         ).count()
 

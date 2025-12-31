@@ -142,6 +142,9 @@ export const templateAPI = {
   updateSteamBookmark: (id: number, data: any) =>
     api.patch(`/templates/steam-bookmarks/${id}/`, data),
   deleteSteamBookmark: (id: number) => api.delete(`/templates/steam-bookmarks/${id}/`),
+  
+  // Get servers list
+  getServers: () => api.get('/servers/'),
 };
 
 export const rulesAPI = {
