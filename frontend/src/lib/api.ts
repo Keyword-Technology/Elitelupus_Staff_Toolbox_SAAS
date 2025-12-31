@@ -76,7 +76,7 @@ export const authAPI = {
 };
 
 export const staffAPI = {
-  roster: () => api.get('/staff/roster/'),
+  roster: (params?: string) => api.get(`/staff/roster/${params || ''}`),
   sync: () => api.post('/staff/sync/'),
   syncLogs: () => api.get('/staff/sync/logs/'),
   roles: () => api.get('/staff/roles/'),

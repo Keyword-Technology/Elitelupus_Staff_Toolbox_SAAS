@@ -43,18 +43,28 @@ export default function StaffPage() {
   const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [currentPage, pageSize]);
 
   const fetchData = async () => {
     try {
       const [rosterRes, logsRes] = await Promise.all([
-        staffAPI.roster(),
+        staffAPI.roster(`?page=${currentPage}&page_size=${pageSize}`),
         staffAPI.syncLogs(),
       ]);
-      setStaff(rosterRes.data.results || rosterRes.data);
+      // Handle paginated response
+      if (rosterRes.data.results) {
+        setStaff(rosterRes.data.results);
+        setTotalCount(rosterRes.data.count || 0);
+      } else {
+        setStaff(rosterRes.data);
+        setTotalCount(rosterRes.data.length);
+      }
       setSyncLogs(logsRes.data.results || logsRes.data);
     } catch (error) {
       toast.error('Failed to load staff roster');
@@ -189,6 +199,19 @@ export default function StaffPage() {
               </option>
             ))}
           </select>
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="input md:w-32"
+          >
+            <option value="10">10 per page</option>
+            <option value="25">25 per page</option>
+            <option value="50">50 per page</option>
+            <option value="100">100 per page</option>
+          </select>
         </div>
       </div>
 
@@ -282,6 +305,59 @@ export default function StaffPage() {
             </tbody>
           </table>
         </div>
+        
+        {/* Pagination */}
+        {totalCount > pageSize && (
+          <div className="px-4 py-3 border-t border-dark-border flex items-center justify-between">
+            <div className="text-sm text-gray-400">
+              Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} staff members
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 rounded border border-dark-border text-gray-400 hover:bg-dark-bg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <div className="flex gap-1">
+                {Array.from({ length: Math.ceil(totalCount / pageSize) }, (_, i) => i + 1)
+                  .filter((page) => {
+                    // Show first, last, current, and adjacent pages
+                    return (
+                      page === 1 ||
+                      page === Math.ceil(totalCount / pageSize) ||
+                      Math.abs(page - currentPage) <= 1
+                    );
+                  })
+                  .map((page, idx, arr) => (
+                    <div key={page} className="flex gap-1">
+                      {idx > 0 && arr[idx - 1] !== page - 1 && (
+                        <span className="px-2 py-1 text-gray-500">...</span>
+                      )}
+                      <button
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-1 rounded border ${
+                          currentPage === page
+                            ? 'bg-primary-500 border-primary-500 text-white'
+                            : 'border-dark-border text-gray-400 hover:bg-dark-bg'
+                        } transition-colors`}
+                      >
+                        {page}
+                      </button>
+                    </div>
+                  ))}
+              </div>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(Math.ceil(totalCount / pageSize), p + 1))}
+                disabled={currentPage >= Math.ceil(totalCount / pageSize)}
+                className="px-3 py-1 rounded border border-dark-border text-gray-400 hover:bg-dark-bg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Recent Sync Logs */}

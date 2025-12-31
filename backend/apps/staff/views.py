@@ -16,7 +16,8 @@ class StaffRosterListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        queryset = StaffRoster.objects.filter(is_active=True)
+        # Exclude Builder role and inactive staff
+        queryset = StaffRoster.objects.filter(is_active=True).exclude(rank='Builder')
         
         # Filter by rank if provided
         rank = self.request.query_params.get('rank')
@@ -25,6 +26,16 @@ class StaffRosterListView(generics.ListAPIView):
         
         # Order by rank_priority (lower = higher), then by name
         return queryset.order_by('rank_priority', 'name')
+    
+    def get_paginate_by(self, queryset):
+        """Allow dynamic page size from query parameter."""
+        page_size = self.request.query_params.get('page_size')
+        if page_size:
+            try:
+                return int(page_size)
+            except ValueError:
+                pass
+        return 25  # Default page size
 
 
 class StaffRosterDetailView(generics.RetrieveAPIView):
