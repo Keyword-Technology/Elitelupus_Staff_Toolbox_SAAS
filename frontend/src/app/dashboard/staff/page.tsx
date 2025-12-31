@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { staffAPI } from '@/lib/api';
 import { usePageActions } from '@/contexts/PageActionsContext';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   UsersIcon,
   ArrowPathIcon,
@@ -57,6 +58,7 @@ interface SyncLog {
 export default function StaffPage() {
   const router = useRouter();
   const { setActions } = usePageActions();
+  const { hasMinRole } = useAuth();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,9 +71,12 @@ export default function StaffPage() {
   const [sortBy, setSortBy] = useState('rank_priority');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
+  // Check if user has manager permissions (priority <= 10)
+  const isManager = hasMinRole(10);
+
   useEffect(() => {
     fetchData();
-  }, [currentPage, pageSize, sortBy, sortOrder]);
+  }, [currentPage, pageSize, sortBy, sortOrder, isManager]);
 
   useEffect(() => {
     setActions(
@@ -83,26 +88,28 @@ export default function StaffPage() {
           <ClockIcon className="w-4 h-4" />
           Legacy Staff
         </button>
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 text-white rounded-lg transition-colors text-sm"
-        >
-          <ArrowPathIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-          {syncing ? 'Syncing...' : 'Sync Now'}
-        </button>
+        {isManager && (
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 text-white rounded-lg transition-colors text-sm"
+          >
+            <ArrowPathIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Sync Now'}
+          </button>
+        )}
       </div>
     );
     return () => setActions(null);
-  }, [setActions, syncing, router]);
+  }, [setActions, syncing, router, isManager]);
 
   const fetchData = async () => {
     try {
       const orderingParam = sortOrder === 'desc' ? `-${sortBy}` : sortBy;
-      const [rosterRes, logsRes] = await Promise.all([
-        staffAPI.roster(`?page=${currentPage}&page_size=${pageSize}&ordering=${orderingParam}`),
-        staffAPI.syncLogs(),
-      ]);
+      
+      // Fetch roster data (all users can view)
+      const rosterRes = await staffAPI.roster(`?page=${currentPage}&page_size=${pageSize}&ordering=${orderingParam}`);
+      
       // Handle paginated response
       if (rosterRes.data.results) {
         setStaff(rosterRes.data.results);
@@ -111,7 +118,17 @@ export default function StaffPage() {
         setStaff(rosterRes.data);
         setTotalCount(rosterRes.data.length);
       }
-      setSyncLogs(logsRes.data.results || logsRes.data);
+      
+      // Only fetch sync logs if user is a manager
+      if (isManager) {
+        try {
+          const logsRes = await staffAPI.syncLogs();
+          setSyncLogs(logsRes.data.results || logsRes.data);
+        } catch (error) {
+          // Silently fail if sync logs can't be fetched
+          console.warn('Could not fetch sync logs:', error);
+        }
+      }
     } catch (error) {
       toast.error('Failed to load staff roster');
     } finally {

@@ -143,34 +143,58 @@ export default function CountersPage() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400">Weekly Sits</span>
-              <span className="text-2xl font-bold text-white">
-                {stats?.weekly_sits || 0}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold text-white">
+                  {stats?.weekly_sits || 0}
+                </span>
+                {quotas?.sit_quota && (
+                  <span className="text-sm text-gray-500">
+                    / {quotas.sit_quota * 7}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="h-2 bg-dark-bg rounded-full overflow-hidden">
               <div
                 className="h-full bg-blue-500 transition-all duration-500"
                 style={{
-                  width: `${Math.min(100, ((stats?.weekly_sits || 0) / 50) * 100)}%`,
+                  width: `${Math.min(100, quotas?.sit_quota ? ((stats?.weekly_sits || 0) / (quotas.sit_quota * 7)) * 100 : ((stats?.weekly_sits || 0) / 50) * 100)}%`,
                 }}
               />
             </div>
+            {quotas?.sit_quota && (
+              <p className="text-xs text-gray-500 mt-1 text-right">
+                {Math.round((stats?.weekly_sits || 0) / (quotas.sit_quota * 7) * 100)}% of weekly quota
+              </p>
+            )}
           </div>
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400">Weekly Tickets</span>
-              <span className="text-2xl font-bold text-white">
-                {stats?.weekly_tickets || 0}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold text-white">
+                  {stats?.weekly_tickets || 0}
+                </span>
+                {quotas?.ticket_quota && (
+                  <span className="text-sm text-gray-500">
+                    / {quotas.ticket_quota * 7}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="h-2 bg-dark-bg rounded-full overflow-hidden">
               <div
                 className="h-full bg-purple-500 transition-all duration-500"
                 style={{
-                  width: `${Math.min(100, ((stats?.weekly_tickets || 0) / 50) * 100)}%`,
+                  width: `${Math.min(100, quotas?.ticket_quota ? ((stats?.weekly_tickets || 0) / (quotas.ticket_quota * 7)) * 100 : ((stats?.weekly_tickets || 0) / 50) * 100)}%`,
                 }}
               />
             </div>
+            {quotas?.ticket_quota && (
+              <p className="text-xs text-gray-500 mt-1 text-right">
+                {Math.round((stats?.weekly_tickets || 0) / (quotas.ticket_quota * 7) * 100)}% of weekly quota
+              </p>
+            )}
           </div>
         </div>
       </div>
