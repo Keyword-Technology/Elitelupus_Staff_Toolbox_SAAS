@@ -196,7 +196,7 @@ class StaffSyncService:
                         'staff_status': 'active',
                         'current_role': data['rank'],
                         'current_role_priority': settings.STAFF_ROLE_PRIORITIES.get(data['rank'], 999),
-                        'staff_since': timezone.now() if staff_created else None,
+                        'staff_since': timezone.now(),
                     }
                 )
                 
@@ -208,6 +208,8 @@ class StaffSyncService:
                     staff.current_role = data['rank']
                     staff.current_role_priority = settings.STAFF_ROLE_PRIORITIES.get(data['rank'], 999)
                     staff.staff_status = 'active'
+                    staff.last_seen = timezone.now()
+                    staff.save()
                     staff.last_seen = timezone.now()
                     staff.save()
                 
