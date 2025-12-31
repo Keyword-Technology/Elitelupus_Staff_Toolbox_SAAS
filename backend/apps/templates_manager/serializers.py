@@ -178,7 +178,7 @@ class SteamProfileNoteCreateSerializer(serializers.ModelSerializer):
         model = SteamProfileNote
         fields = [
             'steam_profile', 'note_type', 'title', 'content',
-            'severity', 'server', 'incident_date'
+            'severity', 'server', 'expires_at'
         ]
 
 

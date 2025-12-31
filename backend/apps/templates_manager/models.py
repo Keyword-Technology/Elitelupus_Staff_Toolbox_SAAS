@@ -493,7 +493,7 @@ class SteamProfileNote(models.Model):
     
     # Server context
     server = models.CharField(max_length=50, blank=True, help_text='Server where incident occurred')
-    incident_date = models.DateTimeField(null=True, blank=True, help_text='When the incident occurred')
+    expires_at = models.DateTimeField(null=True, blank=True, help_text='When the note expires')
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

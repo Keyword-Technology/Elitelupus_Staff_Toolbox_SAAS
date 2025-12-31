@@ -47,7 +47,7 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
     content: '',
     severity: 1,
     server: '',
-    incident_date: '',
+    expiry_hours: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -77,7 +77,7 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
       content: '',
       severity: 1,
       server: '',
-      incident_date: '',
+      expiry_hours: '',
     });
     setIsCreating(false);
     setEditingNote(null);
@@ -90,13 +90,24 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
     setError('');
 
     try {
+      // Calculate expires_at from expiry_hours
+      const submitData: any = {
+        ...formData,
+        steam_profile: steamId64,
+      };
+      
+      // Remove expiry_hours and add expires_at if set
+      delete submitData.expiry_hours;
+      if (formData.expiry_hours) {
+        const expiryDate = new Date();
+        expiryDate.setHours(expiryDate.getHours() + parseInt(formData.expiry_hours));
+        submitData.expires_at = expiryDate.toISOString();
+      }
+      
       if (editingNote) {
-        await templateAPI.updateSteamNote(editingNote, formData);
+        await templateAPI.updateSteamNote(editingNote, submitData);
       } else {
-        await templateAPI.createSteamNote({
-          ...formData,
-          steam_profile: steamId64,
-        });
+        await templateAPI.createSteamNote(submitData);
       }
       resetForm();
       onNotesUpdate();
@@ -130,7 +141,7 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
   // Ensure notes is always an array
   const notesList = Array.isArray(notes) ? notes : [];
   const activeWarnings = notesList.filter(
-    n => n.is_active && (n.note_type === 'warning_verbal' || n.note_type === 'warning_written')
+    n => n.is_active && n.note_type === 'warning_verbal'
   );
 
   return (
@@ -246,14 +257,21 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
               )}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Incident Date
+                  Note Expiry
                 </label>
-                <input
-                  type="datetime-local"
-                  value={formData.incident_date}
-                  onChange={(e) => setFormData({ ...formData, incident_date: e.target.value })}
+                <select
+                  value={formData.expiry_hours}
+                  onChange={(e) => setFormData({ ...formData, expiry_hours: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-dark-bg text-white"
-                />
+                >
+                  <option value="">No expiry</option>
+                  <option value="12">12 hours</option>
+                  <option value="24">24 hours</option>
+                  <option value="48">48 hours</option>
+                  <option value="72">3 days</option>
+                  <option value="168">7 days</option>
+                  <option value="672">28 days</option>
+                </select>
               </div>
             </div>
 
@@ -372,8 +390,8 @@ export default function SteamProfileNotes({ steamId64, notes, onNotesUpdate }: S
                       {note.server && (
                         <span>Server: <span className="font-medium text-gray-900">{note.server}</span></span>
                       )}
-                      {note.incident_date && (
-                        <span>Incident: {new Date(note.incident_date).toLocaleString()}</span>
+                      {note.expires_at && (
+                        <span>Expires: {new Date(note.expires_at).toLocaleString()}</span>
                       )}
                       {note.resolved_at && (
                         <span>

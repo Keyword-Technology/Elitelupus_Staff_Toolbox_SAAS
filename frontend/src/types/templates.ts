@@ -183,7 +183,7 @@ export interface SteamProfileNote {
   author: number;
   author_name: string;
   author_role: string;
-  note_type: 'general' | 'warning_verbal' | 'warning_written' | 'ban_history' | 'behavior' | 'investigation';
+  note_type: 'general' | 'warning_verbal' | 'behavior';
   note_type_display: string;
   title?: string;
   content: string;
@@ -191,7 +191,7 @@ export interface SteamProfileNote {
   severity: 1 | 2 | 3 | 4;
   severity_display: string;
   server?: string;
-  incident_date?: string;
+  expires_at?: string;
   created_at: string;
   updated_at: string;
   resolved_at?: string;
