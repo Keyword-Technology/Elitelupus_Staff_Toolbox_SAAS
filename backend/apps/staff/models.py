@@ -10,6 +10,19 @@ class Staff(models.Model):
     
     # Basic info
     name = models.CharField(max_length=100)
+    steam_name = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True,
+        verbose_name='Steam Display Name',
+        help_text='Current Steam persona name, synced periodically from Steam API'
+    )
+    steam_name_last_updated = models.DateTimeField(
+        null=True, 
+        blank=True,
+        verbose_name='Steam Name Last Updated',
+        help_text='When the Steam name was last fetched from Steam API'
+    )
     discord_id = models.CharField(max_length=50, blank=True, null=True)
     discord_tag = models.CharField(max_length=100, blank=True, null=True)
     

@@ -36,9 +36,16 @@ def find_matching_staff(player_name, staff_roster_dict):
     """
     Find a matching staff member for a player name.
     
+    The staff_roster_dict should contain both roster names and Steam names
+    (when available) as keys, mapped to their StaffRoster objects.
+    
+    Matching logic:
+    1. Direct case-insensitive match against roster name or Steam name
+    2. Normalized match (numbers removed from start/end) for flexibility
+    
     Args:
         player_name: The player name from the server
-        staff_roster_dict: Dictionary of normalized staff names -> StaffRoster objects
+        staff_roster_dict: Dictionary of lowercase staff names (roster + steam) -> StaffRoster objects
     
     Returns:
         StaffRoster object if match found, None otherwise
@@ -141,11 +148,21 @@ class ServerQueryService:
         # Clear old players
         ServerPlayer.objects.filter(server=server).delete()
         
-        # Get staff list for matching (key by lowercase name)
-        staff_roster = {
-            entry.name.lower(): entry 
-            for entry in StaffRoster.objects.filter(is_active=True)
-        }
+        # Get staff list for matching
+        # Build multiple lookup dictionaries for different name sources:
+        # 1. Roster name (from Google Sheets)
+        # 2. Steam name (from Steam API, synced periodically)
+        staff_roster = {}
+        for entry in StaffRoster.objects.filter(is_active=True).select_related('staff'):
+            # Key by roster name (lowercase)
+            staff_roster[entry.name.lower()] = entry
+            
+            # Also key by Steam name if available (lowercase)
+            if entry.staff and entry.staff.steam_name:
+                steam_name_lower = entry.staff.steam_name.lower()
+                # Only add if not already present (roster name takes priority)
+                if steam_name_lower not in staff_roster:
+                    staff_roster[steam_name_lower] = entry
         
         # Track new staff on server
         new_staff = {}

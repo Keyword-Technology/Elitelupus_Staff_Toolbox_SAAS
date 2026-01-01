@@ -3,8 +3,11 @@ Celery tasks for staff roster management.
 """
 import asyncio
 import logging
+import time
 
+import requests
 from celery import shared_task
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +54,183 @@ def sync_staff_roster():
         except:
             pass
         return {'success': False, 'error': str(e)}
+
+
+@shared_task
+def sync_staff_steam_names():
+    """
+    Sync Steam display names for all active staff members.
+    
+    This task fetches the current Steam persona name for each staff member
+    using the Steam Web API. These names are then used to match players
+    on game servers to identify staff members.
+    
+    Runs twice daily (configured in celery beat schedule).
+    """
+    from django.utils import timezone
+
+    from .models import Staff
+    
+    steam_api_key = getattr(settings, 'SOCIAL_AUTH_STEAM_API_KEY', None)
+    
+    if not steam_api_key:
+        logger.warning("Steam API key not configured, skipping Steam name sync")
+        return {'success': False, 'error': 'Steam API key not configured'}
+    
+    # Get all active staff with valid Steam IDs
+    staff_members = Staff.objects.filter(staff_status='active').exclude(steam_id__isnull=True).exclude(steam_id='')
+    
+    if not staff_members.exists():
+        logger.info("No active staff members with Steam IDs found")
+        return {'success': True, 'updated': 0, 'total': 0}
+    
+    # Convert Steam IDs to Steam64 format for API call
+    steam_ids_64 = []
+    staff_by_steam64 = {}
+    
+    for staff in staff_members:
+        steam64 = _convert_to_steam64(staff.steam_id)
+        if steam64:
+            steam_ids_64.append(steam64)
+            staff_by_steam64[steam64] = staff
+    
+    if not steam_ids_64:
+        logger.warning("No valid Steam64 IDs found for staff members")
+        return {'success': False, 'error': 'No valid Steam64 IDs'}
+    
+    # Steam API allows up to 100 Steam IDs per request
+    updated_count = 0
+    errors = []
+    batch_size = 100
+    
+    for i in range(0, len(steam_ids_64), batch_size):
+        batch = steam_ids_64[i:i + batch_size]
+        
+        try:
+            response = requests.get(
+                "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/",
+                params={
+                    'key': steam_api_key,
+                    'steamids': ','.join(batch)
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                players = data.get('response', {}).get('players', [])
+                
+                for player in players:
+                    steam_id_64 = player.get('steamid')
+                    persona_name = player.get('personaname')
+                    
+                    if steam_id_64 and persona_name and steam_id_64 in staff_by_steam64:
+                        staff = staff_by_steam64[steam_id_64]
+                        
+                        # Only update if name changed or never synced
+                        if staff.steam_name != persona_name:
+                            old_name = staff.steam_name
+                            staff.steam_name = persona_name
+                            staff.steam_name_last_updated = timezone.now()
+                            staff.save(update_fields=['steam_name', 'steam_name_last_updated'])
+                            
+                            if old_name:
+                                logger.info(f"Updated Steam name for {staff.name}: '{old_name}' -> '{persona_name}'")
+                            else:
+                                logger.info(f"Set Steam name for {staff.name}: '{persona_name}'")
+                            
+                            updated_count += 1
+                        else:
+                            # Update timestamp even if name unchanged
+                            staff.steam_name_last_updated = timezone.now()
+                            staff.save(update_fields=['steam_name_last_updated'])
+                            
+            else:
+                error_msg = f"Steam API returned status {response.status_code}"
+                logger.error(error_msg)
+                errors.append(error_msg)
+                
+        except requests.exceptions.Timeout:
+            error_msg = f"Steam API request timed out for batch starting at index {i}"
+            logger.error(error_msg)
+            errors.append(error_msg)
+            
+        except Exception as e:
+            error_msg = f"Error fetching Steam names for batch {i}: {e}"
+            logger.error(error_msg)
+            errors.append(error_msg)
+        
+        # Rate limiting - small delay between batches
+        if i + batch_size < len(steam_ids_64):
+            time.sleep(1)
+    
+    result = {
+        'success': len(errors) == 0,
+        'updated': updated_count,
+        'total': len(steam_ids_64),
+        'errors': errors if errors else None,
+    }
+    
+    logger.info(f"Steam name sync completed: {updated_count}/{len(steam_ids_64)} names updated")
+    
+    return result
+
+
+def _convert_to_steam64(steam_id):
+    """
+    Convert various Steam ID formats to Steam64.
+    
+    Supports:
+    - Steam64 (76561198xxxxxxxxx)
+    - STEAM_X:Y:Z format
+    - [U:1:X] format
+    """
+    if not steam_id:
+        return None
+    
+    steam_id = str(steam_id).strip()
+    
+    # Already Steam64
+    if steam_id.isdigit() and len(steam_id) == 17 and steam_id.startswith('7656119'):
+        return steam_id
+    
+    # STEAM_X:Y:Z format
+    if steam_id.upper().startswith('STEAM_'):
+        try:
+            parts = steam_id.upper().replace('STEAM_', '').split(':')
+            if len(parts) == 3:
+                y = int(parts[1])
+                z = int(parts[2])
+                steam64 = 76561197960265728 + (z * 2) + y
+                return str(steam64)
+        except (ValueError, IndexError):
+            pass
+    
+    # [U:1:X] format
+    if steam_id.startswith('[U:'):
+        try:
+            account_id = int(steam_id.replace('[U:1:', '').replace(']', ''))
+            steam64 = 76561197960265728 + account_id
+            return str(steam64)
+        except ValueError:
+            pass
+    
+    # Try as raw account ID
+    try:
+        if steam_id.isdigit():
+            account_id = int(steam_id)
+            if account_id < 76561197960265728:
+                # Likely an account ID
+                steam64 = 76561197960265728 + account_id
+                return str(steam64)
+            else:
+                # Already a Steam64
+                return steam_id
+    except ValueError:
+        pass
+    
+    logger.warning(f"Could not convert Steam ID to Steam64: {steam_id}")
+    return None
 
 
 @shared_task

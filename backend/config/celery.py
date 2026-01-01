@@ -37,6 +37,11 @@ app.conf.beat_schedule = {
         'task': 'apps.staff.tasks.sync_staff_roster',
         'schedule': crontab(minute=0),  # Every hour at minute 0
     },
+    # Sync Steam names for staff members twice daily (6 AM and 6 PM)
+    'sync-staff-steam-names-twice-daily': {
+        'task': 'apps.staff.tasks.sync_staff_steam_names',
+        'schedule': crontab(hour='6,18', minute=0),  # 6:00 AM and 6:00 PM
+    },
     # Daily leaderboard reset check
     'daily-leaderboard-check': {
         'task': 'apps.counters.tasks.check_daily_reset',
