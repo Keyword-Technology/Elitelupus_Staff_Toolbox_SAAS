@@ -175,6 +175,7 @@ class StaffRosterSerializer(serializers.ModelSerializer):
             if most_recent_session:
                 last_seen = most_recent_session.leave_time
             else:
+                # Staff member has never been on the server
                 return 'Never'
         
         now = timezone.now()
