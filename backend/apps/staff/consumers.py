@@ -99,46 +99,81 @@ class StaffStatusConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def _get_staff_summary(self):
-        from .models import StaffRoster
+        from apps.servers.models import ServerPlayer
+
+        from .models import Staff, StaffRoster
         
-        staff = StaffRoster.objects.filter(is_active=True).select_related('user')[:100]
+        staff = StaffRoster.objects.filter(is_active=True).select_related('staff')[:100]
+        
+        # Get all online staff steam_ids from ServerPlayer
+        online_steam_ids = set(
+            ServerPlayer.objects.filter(is_staff=True).values_list('steam_id', flat=True)
+        )
+        
+        # Count online staff (those in roster with matching steam_id in ServerPlayer)
+        total_online = sum(1 for s in staff if s.steam_id in online_steam_ids)
+        
+        # Count LOA staff
+        total_on_loa = Staff.objects.filter(staff_status='loa').count()
+        
+        def get_server_info(steam_id):
+            """Get server name and ID for a staff member."""
+            player = ServerPlayer.objects.filter(steam_id=steam_id, is_staff=True).first()
+            if player:
+                return player.server.name, player.server.id
+            return None, None
+        
+        staff_list = []
+        for s in staff:
+            is_online = s.steam_id in online_steam_ids
+            server_name, server_id = get_server_info(s.steam_id) if is_online else (None, None)
+            is_on_loa = s.staff.staff_status == 'loa' if hasattr(s, 'staff') else False
+            
+            staff_list.append({
+                'id': s.id,
+                'name': s.name,
+                'role': s.rank,
+                'role_color': s.rank_color,
+                'is_online': is_online,
+                'server_name': server_name,
+                'server_id': server_id,
+                'discord_status': s.discord_status,
+                'is_on_loa': is_on_loa,
+            })
         
         return {
             'total_active': StaffRoster.objects.filter(is_active=True).count(),
-            'total_online': StaffRoster.objects.filter(is_active=True, is_online=True).count(),
-            'total_on_loa': StaffRoster.objects.filter(is_active=True, is_on_loa=True).count(),
-            'staff': [
-                {
-                    'id': s.id,
-                    'name': s.name,
-                    'role': s.role,
-                    'role_color': s.role_color,
-                    'is_online': s.is_online,
-                    'server_name': s.server_name,
-                    'server_id': s.server_id,
-                    'discord_status': s.discord_status,
-                    'is_on_loa': s.is_on_loa,
-                }
-                for s in staff
-            ]
+            'total_online': total_online,
+            'total_on_loa': total_on_loa,
+            'staff': staff_list
         }
 
     @database_sync_to_async
     def _get_online_staff(self):
+        from apps.servers.models import ServerPlayer
+
         from .models import StaffRoster
+
+        # Get all online staff steam_ids from ServerPlayer
+        online_players = ServerPlayer.objects.filter(is_staff=True).select_related('server')
+        online_steam_ids = {p.steam_id: p for p in online_players}
         
-        online = StaffRoster.objects.filter(is_active=True, is_online=True)
+        # Get roster entries for online staff
+        roster_entries = StaffRoster.objects.filter(
+            is_active=True,
+            staff__steam_id__in=online_steam_ids.keys()
+        ).select_related('staff')
         
         return [
             {
                 'id': s.id,
                 'name': s.name,
-                'role': s.role,
-                'role_color': s.role_color,
-                'server_name': s.server_name,
-                'server_id': s.server_id,
+                'role': s.rank,
+                'role_color': s.rank_color,
+                'server_name': online_steam_ids[s.steam_id].server.name if s.steam_id in online_steam_ids else None,
+                'server_id': online_steam_ids[s.steam_id].server.id if s.steam_id in online_steam_ids else None,
             }
-            for s in online
+            for s in roster_entries
         ]
 
 
