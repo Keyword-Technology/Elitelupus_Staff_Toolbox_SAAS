@@ -75,6 +75,31 @@ export default function StaffPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [sortBy, setSortBy] = useState('rank_priority');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update current time every minute for local time display
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  // Helper function to get current time in a specific timezone
+  const getTimeInTimezone = (timezone: string | null): string => {
+    if (!timezone) return '-';
+    try {
+      return currentTime.toLocaleTimeString('en-US', {
+        timeZone: timezone,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } catch (e) {
+      // Invalid timezone
+      return '-';
+    }
+  };
 
   // Check if user has manager permissions (priority <= 10)
   const isManager = hasMinRole(10);
@@ -412,6 +437,12 @@ export default function StaffPage() {
                   </div>
                 </th>
                 <th className="text-left p-4 text-gray-400 font-medium">
+                  <div className="flex items-center gap-2">
+                    <ClockIcon className="w-4 h-4" />
+                    Local Time
+                  </div>
+                </th>
+                <th className="text-left p-4 text-gray-400 font-medium">
                   Online
                 </th>
                 <th className="text-left p-4 text-gray-400 font-medium">
@@ -426,7 +457,7 @@ export default function StaffPage() {
               {filteredStaff.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="text-center py-8 text-gray-500"
                   >
                     No staff members found
@@ -471,6 +502,11 @@ export default function StaffPage() {
                         <GlobeAltIcon className="w-4 h-4" />
                         {member.timezone || 'Not set'}
                       </div>
+                    </td>
+                    <td className="p-4">
+                      <span className="text-gray-300 text-sm font-mono">
+                        {getTimeInTimezone(member.timezone)}
+                      </span>
                     </td>
                     <td className="p-4">
                       {member.is_online ? (
