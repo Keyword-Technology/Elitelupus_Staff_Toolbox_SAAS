@@ -18,6 +18,7 @@ import {
   EyeIcon,
   WifiIcon,
   SignalIcon,
+  CloudArrowDownIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import DiscordStatusBadge from '@/components/staff/DiscordStatusBadge';
@@ -70,6 +71,7 @@ export default function StaffPage() {
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [syncingSteamNames, setSyncingSteamNames] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -124,6 +126,9 @@ export default function StaffPage() {
 
   // Check if user has manager permissions (priority <= 10)
   const isManager = hasMinRole(10);
+  
+  // Check if user is sysadmin (priority = 0)
+  const isSysAdmin = currentUser?.role === 'SYSADMIN' || hasMinRole(0);
 
   // Handle real-time staff online status changes
   useEffect(() => {
@@ -208,6 +213,17 @@ export default function StaffPage() {
           <ClockIcon className="w-4 h-4" />
           Legacy Staff
         </button>
+        {isSysAdmin && (
+          <button
+            onClick={handleSyncSteamNames}
+            disabled={syncingSteamNames}
+            className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg transition-colors text-sm"
+            title="Fetch Steam display names for all staff members"
+          >
+            <CloudArrowDownIcon className={`w-4 h-4 ${syncingSteamNames ? 'animate-pulse' : ''}`} />
+            {syncingSteamNames ? 'Syncing...' : 'Sync Steam Names'}
+          </button>
+        )}
         {isManager && (
           <button
             onClick={handleSync}
@@ -221,7 +237,7 @@ export default function StaffPage() {
       </div>
     );
     return () => setActions(null);
-  }, [setActions, syncing, router, isManager]);
+  }, [setActions, syncing, syncingSteamNames, router, isManager, isSysAdmin]);
 
   const fetchData = async () => {
     try {
@@ -283,6 +299,27 @@ export default function StaffPage() {
       toast.error('Failed to sync staff roster');
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleSyncSteamNames = async () => {
+    setSyncingSteamNames(true);
+    try {
+      const response = await staffAPI.syncSteamNames();
+      const { updated, total, success, errors } = response.data;
+      
+      if (success) {
+        toast.success(`Steam names synced: ${updated}/${total} updated`);
+      } else if (errors && errors.length > 0) {
+        toast.error(`Steam name sync completed with errors: ${errors[0]}`);
+      } else {
+        toast.error('Steam name sync failed');
+      }
+    } catch (error: any) {
+      const message = error?.response?.data?.error || 'Failed to sync Steam names';
+      toast.error(message);
+    } finally {
+      setSyncingSteamNames(false);
     }
   };
 

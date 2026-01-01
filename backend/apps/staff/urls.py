@@ -5,7 +5,7 @@ from .views import (BackfillLastSeenView, DiscordBotStatusView,
                     RolePrioritiesView, StaffDetailsView,
                     StaffRosterDetailView, StaffRosterListView,
                     StaffSessionsView, StaffStatsView, StaffSyncLogListView,
-                    StaffSyncView)
+                    StaffSyncView, SteamNameSyncView)
 
 urlpatterns = [
     re_path(r'^roster/?$', StaffRosterListView.as_view(), name='staff_roster_list'),
@@ -15,6 +15,7 @@ urlpatterns = [
     re_path(r'^roster/(?P<pk>\d+)/stats/?$', StaffStatsView.as_view(), name='staff_stats'),
     re_path(r'^sync/?$', StaffSyncView.as_view(), name='staff_sync'),
     re_path(r'^sync/logs/?$', StaffSyncLogListView.as_view(), name='staff_sync_logs'),
+    re_path(r'^sync/steam-names/?$', SteamNameSyncView.as_view(), name='steam_name_sync'),
     re_path(r'^roles/?$', RolePrioritiesView.as_view(), name='role_priorities'),
     re_path(r'^me/?$', MyStaffProfileView.as_view(), name='my_staff_profile'),
     re_path(r'^discord/sync/?$', DiscordStatusSyncView.as_view(), name='discord_status_sync'),

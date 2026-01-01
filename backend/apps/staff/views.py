@@ -1,6 +1,6 @@
 import asyncio
 
-from apps.accounts.permissions import IsManager, IsStaffManager
+from apps.accounts.permissions import IsManager, IsStaffManager, IsSysAdmin
 from django.conf import settings
 from rest_framework import generics, permissions, status
 from rest_framework.pagination import PageNumberPagination
@@ -124,6 +124,65 @@ class StaffSyncLogListView(generics.ListAPIView):
     serializer_class = StaffSyncLogSerializer
     permission_classes = [permissions.IsAuthenticated, IsManager]
     queryset = StaffSyncLog.objects.all()[:20]
+
+
+class SteamNameSyncView(APIView):
+    """Trigger Steam name sync for all staff members. SYSADMIN only."""
+    permission_classes = [permissions.IsAuthenticated, IsSysAdmin]
+
+    def post(self, request):
+        """Trigger an immediate Steam name sync."""
+        from .tasks import sync_staff_steam_names
+        
+        try:
+            # Run the task synchronously for immediate feedback
+            result = sync_staff_steam_names()
+            
+            return Response({
+                'message': 'Steam name sync completed',
+                'success': result.get('success', False),
+                'updated': result.get('updated', 0),
+                'total': result.get('total', 0),
+                'errors': result.get('errors'),
+            })
+        except Exception as e:
+            return Response({
+                'error': str(e),
+                'success': False,
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def get(self, request):
+        """Get Steam name sync status for staff members."""
+        from django.db.models import Count, Q
+
+        from .models import Staff
+
+        # Get counts
+        total_staff = Staff.objects.filter(staff_status='active').count()
+        with_steam_name = Staff.objects.filter(
+            staff_status='active',
+            steam_name__isnull=False
+        ).exclude(steam_name='').count()
+        
+        # Get recently synced
+        recently_synced = Staff.objects.filter(
+            staff_status='active',
+            steam_name_last_updated__isnull=False
+        ).order_by('-steam_name_last_updated')[:5]
+        
+        return Response({
+            'total_staff': total_staff,
+            'with_steam_name': with_steam_name,
+            'without_steam_name': total_staff - with_steam_name,
+            'recently_synced': [
+                {
+                    'name': s.name,
+                    'steam_name': s.steam_name,
+                    'last_updated': s.steam_name_last_updated.isoformat() if s.steam_name_last_updated else None,
+                }
+                for s in recently_synced
+            ],
+        })
 
 
 class RolePrioritiesView(APIView):
