@@ -6,6 +6,7 @@ import { staffAPI } from '@/lib/api';
 import { usePageActions } from '@/contexts/PageActionsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWebSocket } from '@/contexts/WebSocketContext';
+import { useFormatDate } from '@/hooks/useFormatDate';
 import {
   UsersIcon,
   ArrowPathIcon,
@@ -64,6 +65,7 @@ export default function StaffPage() {
   const { setActions } = usePageActions();
   const { hasMinRole, user: currentUser } = useAuth();
   const { onStaffOnlineChange, onStaffDiscordStatus, onRosterSync, connectionStatus } = useWebSocket();
+  const { formatDateTime } = useFormatDate();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -685,7 +687,7 @@ export default function StaffPage() {
                   </span>
                 </div>
                 <span className="text-sm text-gray-500">
-                  {new Date(log.synced_at).toLocaleString()}
+                  {formatDateTime(log.synced_at)}
                 </span>
               </div>
             ))}

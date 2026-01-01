@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { CounterCard } from '@/components/counters/CounterCard';
 import { counterAPI, systemAPI } from '@/lib/api';
 import { useWebSocket } from '@/contexts/WebSocketContext';
+import { useFormatDate } from '@/hooks/useFormatDate';
 import {
   ChartBarIcon,
   ClockIcon,
@@ -42,6 +43,7 @@ export default function CountersPage() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const { isConnected, onCounterUpdate } = useWebSocket();
+  const { formatDateTime } = useFormatDate();
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -236,7 +238,7 @@ export default function CountersPage() {
                   </span>
                 </div>
                 <span className="text-sm text-gray-500">
-                  {new Date(entry.timestamp).toLocaleString()}
+                  {formatDateTime(entry.timestamp)}
                 </span>
               </div>
             ))

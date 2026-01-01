@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { SteamProfileBookmark } from '@/types/templates';
 import { templateAPI } from '@/lib/api';
+import { useFormatDate } from '@/hooks/useFormatDate';
 import { 
   BookmarkIcon as BookmarkIconSolid,
   XMarkIcon,
@@ -18,6 +19,7 @@ interface SteamBookmarksFloatingButtonProps {
 }
 
 export default function SteamBookmarksFloatingButton({ onSelectBookmark }: SteamBookmarksFloatingButtonProps) {
+  const { formatDateTime } = useFormatDate();
   const [bookmarks, setBookmarks] = useState<SteamProfileBookmark[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isPopout, setIsPopout] = useState(false);
@@ -149,7 +151,7 @@ export default function SteamBookmarksFloatingButton({ onSelectBookmark }: Steam
                       </div>
                       
                       <div class="text-xs text-gray-500 mt-2">
-                        Added: ${new Date(bookmark.created_at).toLocaleString()}
+                        Added: ${formatDateTime(bookmark.created_at)}
                       </div>
                     </div>
                   </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { staffAPI } from '@/lib/api';
+import { useFormatDate } from '@/hooks/useFormatDate';
 import {
   ArrowLeftIcon,
   ClockIcon,
@@ -77,6 +78,7 @@ export default function StaffDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const staffId = params?.id as string;
+  const { formatDateTime, formatDate, formatTime } = useFormatDate();
   
   const [loading, setLoading] = useState(true);
   const [details, setDetails] = useState<StaffDetails | null>(null);
@@ -112,12 +114,6 @@ export default function StaffDetailsPage() {
       return `${hours}h ${minutes}m`;
     }
     return `${minutes}m`;
-  };
-
-  const formatDate = (dateString: string | null): string => {
-    if (!dateString) return 'Never';
-    const date = new Date(dateString);
-    return date.toLocaleString();
   };
 
   if (loading) {
@@ -198,7 +194,7 @@ export default function StaffDetailsPage() {
               <div className="text-sm text-gray-300 space-y-1">
                 <p><span className="text-gray-400">Server:</span> {activeSession.server_name}</p>
                 <p><span className="text-gray-400">Session Duration:</span> {activeSession.duration_formatted}</p>
-                <p><span className="text-gray-400">Joined:</span> {formatDate(activeSession.join_time)}</p>
+                <p><span className="text-gray-400">Joined:</span> {formatDateTime(activeSession.join_time)}</p>
               </div>
             </div>
           </div>
@@ -272,7 +268,7 @@ export default function StaffDetailsPage() {
             <div className="flex items-center justify-between">
               <span className="text-gray-400">Last Server Join</span>
               <span className="text-white font-medium">
-                {formatDate(details.last_server_join)}
+                {formatDateTime(details.last_server_join)}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -387,12 +383,12 @@ export default function StaffDetailsPage() {
                     </td>
                     <td className="p-4">
                       <span className="text-gray-400 text-sm">
-                        {formatDate(session.join_time)}
+                        {formatDateTime(session.join_time)}
                       </span>
                     </td>
                     <td className="p-4">
                       <span className="text-gray-400 text-sm">
-                        {formatDate(session.leave_time)}
+                        {formatDateTime(session.leave_time)}
                       </span>
                     </td>
                     <td className="p-4">
@@ -538,17 +534,10 @@ export default function StaffDetailsPage() {
                   {/* Date */}
                   <div className="text-right">
                     <div className="text-sm text-gray-400">
-                      {new Date(event.event_date).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
+                      {formatDate(event.event_date)}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {new Date(event.event_date).toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {formatTime(event.event_date)}
                     </div>
                   </div>
                 </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { systemAPI } from '@/lib/api';
+import { useFormatDate } from '@/hooks/useFormatDate';
 import {
   Cog6ToothIcon,
   ServerIcon,
@@ -60,6 +61,7 @@ type TabType = 'environment' | 'servers' | 'audit';
 export default function SystemSettingsPage() {
   const { user, hasMinRole } = useAuth();
   const router = useRouter();
+  const { formatDateTime } = useFormatDate();
   const [activeTab, setActiveTab] = useState<TabType>('environment');
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
@@ -574,7 +576,7 @@ export default function SystemSettingsPage() {
                     auditLogs.map((log) => (
                       <tr key={log.id} className="hover:bg-dark-bg/50 transition-colors">
                         <td className="px-6 py-4 text-sm text-gray-400">
-                          {new Date(log.changed_at).toLocaleString()}
+                          {formatDateTime(log.changed_at)}
                         </td>
                         <td className="px-6 py-4">
                           <code className="text-sm text-primary-400">{log.setting_key}</code>

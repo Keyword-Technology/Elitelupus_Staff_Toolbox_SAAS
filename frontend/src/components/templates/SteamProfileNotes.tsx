@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { SteamProfileNote } from '@/types/templates';
 import { templateAPI } from '@/lib/api';
+import { useFormatDate } from '@/hooks/useFormatDate';
 import { 
   ChatBubbleLeftIcon, 
   ExclamationTriangleIcon,
@@ -42,6 +43,7 @@ const SEVERITY_COLORS = {
 };
 
 export default function SteamProfileNotes({ steamId64, steamProfileId, notes, onNotesUpdate }: SteamProfileNotesProps) {
+  const { formatDateTime, formatDate } = useFormatDate();
   const [isCreating, setIsCreating] = useState(false);
   const [editingNote, setEditingNote] = useState<number | null>(null);
   const [formData, setFormData] = useState({
@@ -196,9 +198,9 @@ export default function SteamProfileNotes({ steamId64, steamProfileId, notes, on
                   <p className="text-sm mb-2">{note.content}</p>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs opacity-75">
                     <span>By {note.author_name}</span>
-                    <span>{new Date(note.created_at).toLocaleDateString()}</span>
+                    <span>{formatDate(note.created_at)}</span>
                     {note.expires_at && (
-                      <span>Expires: {new Date(note.expires_at).toLocaleDateString()}</span>
+                      <span>Expires: {formatDate(note.expires_at)}</span>
                     )}
                   </div>
                 </div>
@@ -441,16 +443,16 @@ export default function SteamProfileNotes({ steamId64, steamProfileId, notes, on
                           <span className="text-gray-600"> ({note.author_role})</span>
                         )}
                       </span>
-                      <span>{new Date(note.created_at).toLocaleString()}</span>
+                      <span>{formatDateTime(note.created_at)}</span>
                       {note.server && (
                         <span>Server: <span className="font-medium text-gray-900">{note.server}</span></span>
                       )}
                       {note.expires_at && (
-                        <span>Expires: {new Date(note.expires_at).toLocaleString()}</span>
+                        <span>Expires: {formatDateTime(note.expires_at)}</span>
                       )}
                       {note.resolved_at && (
                         <span>
-                          Resolved: {new Date(note.resolved_at).toLocaleString()}
+                          Resolved: {formatDateTime(note.resolved_at)}
                           {note.resolved_by_name && ` by ${note.resolved_by_name}`}
                         </span>
                       )}
@@ -532,16 +534,16 @@ export default function SteamProfileNotes({ steamId64, steamProfileId, notes, on
                               <span className="text-gray-600"> ({note.author_role})</span>
                             )}
                           </span>
-                          <span>{new Date(note.created_at).toLocaleString()}</span>
+                          <span>{formatDateTime(note.created_at)}</span>
                           {note.server && (
                             <span>Server: <span className="font-medium text-gray-900">{note.server}</span></span>
                           )}
                           {note.expires_at && (
-                            <span>Expired: {new Date(note.expires_at).toLocaleString()}</span>
+                            <span>Expired: {formatDateTime(note.expires_at)}</span>
                           )}
                           {note.resolved_at && (
                             <span>
-                              Resolved: {new Date(note.resolved_at).toLocaleString()}
+                              Resolved: {formatDateTime(note.resolved_at)}
                               {note.resolved_by_name && ` by ${note.resolved_by_name}`}
                             </span>
                           )}

@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { ArrowLeftIcon, ClockIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { serverAPI } from '@/lib/api';
+import { useFormatDate } from '@/hooks/useFormatDate';
 
 interface ServerStatsData {
   server: {
@@ -48,6 +49,7 @@ export default function ServerStatsPage() {
   const params = useParams();
   const router = useRouter();
   const serverId = params?.id as string;
+  const { formatTimeShort, formatDateTime, formatHour } = useFormatDate();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,20 +71,6 @@ export default function ServerStatsPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const formatHour = (hour: number) => {
-    const period = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    return `${displayHour}${period}`;
   };
 
   if (loading) {
@@ -112,10 +100,10 @@ export default function ServerStatsPage() {
 
   // Prepare data for 24-hour chart
   const last24hData = statsData.last_24h.map((log) => ({
-    time: formatTimestamp(log.timestamp),
+    time: formatTimeShort(log.timestamp),
     staff: log.staff_count,
     players: log.player_count,
-    fullTime: new Date(log.timestamp).toLocaleString(),
+    fullTime: formatDateTime(log.timestamp),
   }));
 
   // Prepare data for hourly averages chart
