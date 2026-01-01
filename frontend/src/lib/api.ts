@@ -154,6 +154,24 @@ export const rulesAPI = {
   search: (q: string) => api.get('/rules/search/', { params: { q } }),
   jobs: () => api.get('/rules/jobs/'),
   jobSearch: (q: string) => api.get('/rules/jobs/search/', { params: { q } }),
+  
+  // Management endpoints (Manager+ only)
+  manageCategories: () => api.get('/rules/manage/categories/'),
+  createCategory: (data: any) => api.post('/rules/manage/categories/', data),
+  updateCategory: (id: number, data: any) => api.patch(`/rules/manage/categories/${id}/`, data),
+  deleteCategory: (id: number) => api.delete(`/rules/manage/categories/${id}/`),
+  
+  manageRules: (categoryId?: number) => api.get('/rules/manage/rules/', { params: categoryId ? { category: categoryId } : {} }),
+  createRule: (data: any) => api.post('/rules/manage/rules/', data),
+  updateRule: (id: number, data: any) => api.patch(`/rules/manage/rules/${id}/`, data),
+  deleteRule: (id: number) => api.delete(`/rules/manage/rules/${id}/`),
+  
+  manageJobs: () => api.get('/rules/manage/jobs/'),
+  createJob: (data: any) => api.post('/rules/manage/jobs/', data),
+  updateJob: (id: number, data: any) => api.patch(`/rules/manage/jobs/${id}/`, data),
+  deleteJob: (id: number) => api.delete(`/rules/manage/jobs/${id}/`),
+  
+  bulkImport: (data: any) => api.post('/rules/manage/import/', data),
 };
 
 export const systemAPI = {
