@@ -314,7 +314,7 @@ class BackfillLastSeenView(APIView):
         Shows how many staff members need backfilling.
         """
         from django.utils import timezone
-        
+
         # Count staff members that need backfilling
         all_staff = Staff.objects.all()
         needs_update = 0
