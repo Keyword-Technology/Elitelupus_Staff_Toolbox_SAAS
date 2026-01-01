@@ -88,6 +88,22 @@ export default function StaffPage() {
   // Helper function to get current time in a specific timezone
   const getTimeInTimezone = (timezone: string | null): string => {
     if (!timezone) return '-';
+    
+    // Try to parse GMT offset format (e.g., "GMT", "GMT-5", "GMT+3")
+    const gmtMatch = timezone.match(/^GMT([+-]?\d+)?$/i);
+    if (gmtMatch) {
+      const offset = gmtMatch[1] ? parseInt(gmtMatch[1]) : 0;
+      const utcTime = currentTime.getTime() + (currentTime.getTimezoneOffset() * 60000);
+      const targetTime = new Date(utcTime + (offset * 3600000));
+      
+      return targetTime.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+    }
+    
+    // Try as IANA timezone (e.g., "America/New_York")
     try {
       return currentTime.toLocaleTimeString('en-US', {
         timeZone: timezone,

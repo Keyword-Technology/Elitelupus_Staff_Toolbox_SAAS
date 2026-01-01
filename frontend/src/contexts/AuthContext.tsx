@@ -49,8 +49,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const response = await api.get('/auth/profile/');
       setUser(response.data);
-    } catch (error) {
-      console.error('Error refreshing user:', error);
+    } catch (error: any) {
+      // Only log errors that aren't network connection failures
+      // (Network errors are expected when backend is starting up)
+      if (error?.code !== 'ERR_NETWORK' || Cookies.get('access_token')) {
+        console.error('Error refreshing user:', error);
+      }
       setUser(null);
       Cookies.remove('access_token');
       Cookies.remove('refresh_token');
