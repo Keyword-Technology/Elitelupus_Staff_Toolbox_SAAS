@@ -165,8 +165,17 @@ class StaffRosterSerializer(serializers.ModelSerializer):
         # Check if staff has a last_seen timestamp
         last_seen = obj.staff.last_seen if hasattr(obj, 'staff') else obj.last_seen
         
+        # If no last_seen, check if there are any completed sessions and use the most recent leave_time
         if not last_seen:
-            return 'Never'
+            most_recent_session = ServerSession.objects.filter(
+                staff=obj.staff if hasattr(obj, 'staff') else obj,
+                leave_time__isnull=False
+            ).order_by('-leave_time').first()
+            
+            if most_recent_session:
+                last_seen = most_recent_session.leave_time
+            else:
+                return 'Never'
         
         now = timezone.now()
         diff = now - last_seen
