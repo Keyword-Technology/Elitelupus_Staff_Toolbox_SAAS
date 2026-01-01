@@ -460,7 +460,7 @@ export default function TemplatesPage() {
                   {filter.charAt(0).toUpperCase() + filter.slice(1)}
                   <span className="ml-1 text-xs opacity-75">
                     ({filteredTemplates.filter(t => 
-                      filter === 'all' ? true : t.name.toLowerCase().includes(filter)
+                      filter === 'all' ? true : (t.name?.toLowerCase() || '').includes(filter)
                     ).length})
                   </span>
                 </button>
