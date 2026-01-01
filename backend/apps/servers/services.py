@@ -207,18 +207,14 @@ class ServerQueryService:
                     leave_time__isnull=True
                 ).exists()
                 
-                if not still_online:
-                    staff_entry.is_online = False
-                    staff_entry.server_name = None
-                    staff_entry.server_id = None
-                    staff_entry.save(update_fields=['is_online', 'server_name', 'server_id', 'last_seen'])
-                else:
-                    staff_entry.save(update_fields=['last_seen'])
+                # Save last_seen timestamp
+                staff_entry.save(update_fields=['last_seen'])
                     
-                    # Broadcast staff went offline
+                # Broadcast staff went offline from this server
+                if not still_online:
                     try:
                         broadcast_staff_online_change(
-                            staff_id=staff_entry.id,
+                            staff_id=staff_entry.steam_id,
                             is_online=False,
                             server_name=None,
                             server_id=None
@@ -239,32 +235,74 @@ class ServerQueryService:
             ).first()
             
             if not existing_session:
-                # Create new session
-                ServerSession.objects.create(
-                    staff=staff_entry,
-                    server=server,
-                    join_time=now,
-                    steam_id=steam_id,
-                    player_name=staff_entry.name
-                )
-                logger.info(f"Started session for {staff_entry.name} on {server.name}")
-                
-                # Update staff roster online status
-                staff_entry.is_online = True
-                staff_entry.server_name = server.name
-                staff_entry.server_id = server.id
-                staff_entry.save(update_fields=['is_online', 'server_name', 'server_id'])
+                # Create new session - use staff_entry.staff (Staff object), not staff_entry (StaffRoster)
+                try:
+                    ServerSession.objects.create(
+                        staff=staff_entry.staff,
+                        server=server,
+                        join_time=now,
+                        steam_id=steam_id,
+                        player_name=staff_entry.name
+                    )
+                    logger.info(f"Started session for {staff_entry.name} on {server.name}")
+                except Exception as e:
+                    logger.error(f"Failed to create session for {staff_entry.name}: {e}")
+                    continue
                 
                 # Broadcast staff came online
                 try:
                     broadcast_staff_online_change(
-                        staff_id=staff_entry.id,
+                        staff_id=staff_entry.staff.steam_id,
                         is_online=True,
                         server_name=server.name,
                         server_id=server.id
                     )
                 except Exception as e:
                     logger.warning(f"Could not broadcast staff online: {e}")
+        
+        # Also check for staff who are online but don't have active sessions
+        # This handles edge cases like system restarts or missed join events
+        for steam_id, staff_entry in new_staff.items():
+            existing_session = ServerSession.objects.filter(
+                server=server,
+                steam_id=steam_id,
+                leave_time__isnull=True
+            ).first()
+            
+            if not existing_session:
+                # Staff is online but has no active session - create one
+                try:
+                    ServerSession.objects.create(
+                        staff=staff_entry.staff,
+                        server=server,
+                        join_time=now,
+                        steam_id=steam_id,
+                        player_name=staff_entry.name
+                    )
+                    logger.info(f"Created missing session for {staff_entry.name} on {server.name} (recovery)")
+                except Exception as e:
+                    logger.error(f"Failed to create recovery session for {staff_entry.name}: {e}")
+        
+        # Close any orphaned sessions - active sessions for staff who are NOT currently on this server
+        # This handles edge cases where staff left but their session wasn't properly closed
+        online_steam_ids = set(new_staff.keys())
+        orphaned_sessions = ServerSession.objects.filter(
+            server=server,
+            leave_time__isnull=True
+        ).exclude(steam_id__in=online_steam_ids)
+        
+        for session in orphaned_sessions:
+            session.leave_time = now
+            session.calculate_duration()
+            session.save()
+            logger.info(f"Closed orphaned session for {session.player_name} on {server.name} (cleanup)")
+            
+            # Update last_seen for the staff member
+            try:
+                session.staff.last_seen = now
+                session.staff.save(update_fields=['last_seen'])
+            except Exception as e:
+                logger.warning(f"Could not update last_seen for {session.player_name}: {e}")
     
     def query_all_servers(self):
         """Query all active servers and return a list payload safe for WebSocket serialization."""
