@@ -56,15 +56,34 @@ interface AuditLog {
   ip_address: string;
 }
 
-type TabType = 'environment' | 'servers' | 'audit';
+interface SystemSetting {
+  id: number;
+  key: string;
+  value: string;
+  display_value: string;
+  setting_type: 'string' | 'integer' | 'boolean' | 'json';
+  category: string;
+  description: string;
+  is_sensitive: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+type TabType = 'settings' | 'environment' | 'servers' | 'audit';
 
 export default function SystemSettingsPage() {
   const { user, hasMinRole } = useAuth();
   const router = useRouter();
   const { formatDateTime } = useFormatDate();
-  const [activeTab, setActiveTab] = useState<TabType>('environment');
+  const [activeTab, setActiveTab] = useState<TabType>('settings');
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
+  
+  // System Settings State
+  const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([]);
+  const [editingSettingId, setEditingSettingId] = useState<number | null>(null);
+  const [editingSettingValue, setEditingSettingValue] = useState('');
   
   // Environment Variables State
   const [envVars, setEnvVars] = useState<EnvironmentVariable[]>([]);
@@ -117,7 +136,10 @@ export default function SystemSettingsPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      if (activeTab === 'environment') {
+      if (activeTab === 'settings') {
+        const res = await systemAPI.settings();
+        setSystemSettings(toArray<SystemSetting>(res.data));
+      } else if (activeTab === 'environment') {
         const res = await systemAPI.envList();
         setEnvVars(toArray<EnvironmentVariable>(res.data));
       } else if (activeTab === 'servers') {
@@ -136,6 +158,23 @@ export default function SystemSettingsPage() {
   };
 
   // Environment Variable handlers
+  const handleEditSetting = (setting: SystemSetting) => {
+    setEditingSettingId(setting.id);
+    setEditingSettingValue(setting.value);
+  };
+
+  const handleSaveSetting = async (id: number) => {
+    try {
+      await systemAPI.updateSetting(id, { value: editingSettingValue });
+      toast.success('Setting updated');
+      setEditingSettingId(null);
+      setEditingSettingValue('');
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to update setting');
+    }
+  };
+
   const handleEditEnvVar = (envVar: EnvironmentVariable) => {
     setEditingEnvKey(envVar.key);
     setEditingEnvValue(envVar.is_overridden ? '' : envVar.effective_value);
@@ -249,6 +288,8 @@ export default function SystemSettingsPage() {
   const getCategoryLabel = (category: string) => {
     const labels: Record<string, string> = {
       general: 'General',
+      counters: 'Counters & Quotas',
+      sit_recording: 'Sit Recording',
       api_keys: 'API Keys',
       database: 'Database',
       cache: 'Cache',
@@ -285,6 +326,17 @@ export default function SystemSettingsPage() {
 
       {/* Tabs */}
       <div className="flex gap-4 border-b border-dark-border">
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`pb-3 px-1 font-medium transition-colors flex items-center gap-2 ${
+            activeTab === 'settings'
+              ? 'text-primary-400 border-b-2 border-primary-400'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          <Cog6ToothIcon className="w-5 h-5" />
+          System Settings
+        </button>
         <button
           onClick={() => setActiveTab('environment')}
           className={`pb-3 px-1 font-medium transition-colors flex items-center gap-2 ${
@@ -326,6 +378,121 @@ export default function SystemSettingsPage() {
         </div>
       ) : (
         <>
+          {/* System Settings Tab */}
+          {activeTab === 'settings' && (
+            <div className="space-y-4">
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-6">
+                <p className="text-blue-400 text-sm">
+                  💡 System settings control features and behavior across the application. 
+                  Changes take effect immediately without requiring a server restart.
+                </p>
+              </div>
+
+              {/* Group by category */}
+              {['sit_recording', 'counters', 'general'].map((category) => {
+                const categorySettings = systemSettings.filter((s) => s.category === category && s.is_active);
+                if (categorySettings.length === 0) return null;
+
+                return (
+                  <div key={category} className="bg-dark-card rounded-lg border border-dark-border">
+                    <div className="px-6 py-4 border-b border-dark-border">
+                      <h3 className="text-lg font-semibold text-white">
+                        {getCategoryLabel(category)}
+                      </h3>
+                    </div>
+                    <div className="divide-y divide-dark-border">
+                      {categorySettings.map((setting) => (
+                        <div key={setting.id} className="px-6 py-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <code className="text-sm font-mono text-primary-400">
+                                  {setting.key}
+                                </code>
+                                {setting.is_sensitive && (
+                                  <span className="px-2 py-0.5 text-xs bg-red-500/20 text-red-400 rounded">
+                                    Sensitive
+                                  </span>
+                                )}
+                                <span className="px-2 py-0.5 text-xs bg-gray-500/20 text-gray-400 rounded">
+                                  {setting.setting_type}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-400 mt-1">{setting.description}</p>
+                              
+                              {editingSettingId === setting.id ? (
+                                <div className="mt-3 flex items-center gap-2">
+                                  {setting.setting_type === 'boolean' ? (
+                                    <select
+                                      value={editingSettingValue}
+                                      onChange={(e) => setEditingSettingValue(e.target.value)}
+                                      className="input flex-1"
+                                    >
+                                      <option value="true">True</option>
+                                      <option value="false">False</option>
+                                    </select>
+                                  ) : setting.setting_type === 'integer' ? (
+                                    <input
+                                      type="number"
+                                      value={editingSettingValue}
+                                      onChange={(e) => setEditingSettingValue(e.target.value)}
+                                      className="input flex-1"
+                                    />
+                                  ) : setting.setting_type === 'json' ? (
+                                    <textarea
+                                      value={editingSettingValue}
+                                      onChange={(e) => setEditingSettingValue(e.target.value)}
+                                      className="input flex-1 font-mono text-sm"
+                                      rows={4}
+                                    />
+                                  ) : (
+                                    <input
+                                      type={setting.is_sensitive ? 'password' : 'text'}
+                                      value={editingSettingValue}
+                                      onChange={(e) => setEditingSettingValue(e.target.value)}
+                                      className="input flex-1"
+                                    />
+                                  )}
+                                  <button
+                                    onClick={() => handleSaveSetting(setting.id)}
+                                    className="p-2 text-green-400 hover:bg-green-500/20 rounded transition-colors"
+                                  >
+                                    <CheckIcon className="w-5 h-5" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setEditingSettingId(null);
+                                      setEditingSettingValue('');
+                                    }}
+                                    className="p-2 text-red-400 hover:bg-red-500/20 rounded transition-colors"
+                                  >
+                                    <XMarkIcon className="w-5 h-5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="mt-2 flex items-center gap-2">
+                                  <code className="text-sm bg-dark-hover px-3 py-1.5 rounded font-mono flex-1">
+                                    {setting.display_value}
+                                  </code>
+                                  <button
+                                    onClick={() => handleEditSetting(setting)}
+                                    className="p-2 text-primary-400 hover:bg-primary-500/20 rounded transition-colors"
+                                  >
+                                    <PencilIcon className="w-5 h-5" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Environment Variables Tab */}
           {activeTab === 'environment' && (
             <div className="space-y-4">

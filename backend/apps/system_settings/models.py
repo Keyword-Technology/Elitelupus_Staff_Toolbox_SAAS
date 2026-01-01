@@ -15,6 +15,7 @@ class SystemSetting(models.Model):
     SETTING_CATEGORIES = [
         ('general', 'General'),
         ('counters', 'Counters & Quotas'),
+        ('sit_recording', 'Sit Recording'),
         ('api_keys', 'API Keys'),
         ('database', 'Database'),
         ('cache', 'Cache'),

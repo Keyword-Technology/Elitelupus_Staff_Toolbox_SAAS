@@ -2,17 +2,24 @@ from datetime import timedelta
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from django.db.models import F, Sum
+from django.db.models import Avg, Count, F, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework import generics, permissions, status
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Counter, CounterHistory, CounterSnapshot
+from .models import (Counter, CounterHistory, CounterSnapshot, Sit, SitNote,
+                     UserSitPreferences)
 from .serializers import (CounterHistorySerializer, CounterSerializer,
                           CounterSnapshotSerializer, CounterStatsSerializer,
-                          CounterUpdateSerializer, LeaderboardEntrySerializer)
+                          CounterUpdateSerializer, LeaderboardEntrySerializer,
+                          SitCreateSerializer, SitListSerializer,
+                          SitNoteCreateSerializer, SitNoteSerializer,
+                          SitRecordingUploadSerializer, SitSerializer,
+                          SitStatsSerializer, SitUpdateSerializer,
+                          UserSitPreferencesSerializer)
 
 
 class MyCountersView(APIView):
@@ -249,3 +256,348 @@ class LeaderboardView(APIView):
             leaderboard.sort(key=lambda x: x['total_count'], reverse=True)
         
         return Response(leaderboard)
+
+
+# ============================================================================
+# SIT RECORDING SYSTEM VIEWS
+# ============================================================================
+
+class SitRecordingEnabledView(APIView):
+    """Check if sit recording feature is enabled (system-wide and user preference)."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        from apps.system_settings.models import SystemSetting
+
+        # Check system-wide setting
+        try:
+            system_enabled = SystemSetting.objects.get(key='sit_recording_enabled')
+            system_enabled = system_enabled.typed_value if system_enabled.is_active else False
+        except SystemSetting.DoesNotExist:
+            system_enabled = True  # Default to enabled
+        
+        # Check user preference
+        user_prefs, _ = UserSitPreferences.objects.get_or_create(user=request.user)
+        
+        return Response({
+            'system_enabled': system_enabled,
+            'user_recording_enabled': user_prefs.recording_enabled,
+            'user_ocr_enabled': user_prefs.ocr_enabled,
+            'is_fully_enabled': system_enabled and user_prefs.recording_enabled,
+        })
+
+
+class UserSitPreferencesView(APIView):
+    """Get and update user sit preferences."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        prefs, _ = UserSitPreferences.objects.get_or_create(user=request.user)
+        return Response(UserSitPreferencesSerializer(prefs).data)
+    
+    def patch(self, request):
+        prefs, _ = UserSitPreferences.objects.get_or_create(user=request.user)
+        serializer = UserSitPreferencesSerializer(prefs, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+class SitListCreateView(APIView):
+    """List and create sits for the current user."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        """List sits for current user with filtering."""
+        queryset = Sit.objects.filter(staff=request.user)
+        
+        # Optional filters
+        has_recording = request.query_params.get('has_recording')
+        outcome = request.query_params.get('outcome')
+        report_type = request.query_params.get('report_type')
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        
+        if has_recording is not None:
+            queryset = queryset.filter(has_recording=has_recording.lower() == 'true')
+        if outcome:
+            queryset = queryset.filter(outcome=outcome)
+        if report_type:
+            queryset = queryset.filter(report_type=report_type)
+        if date_from:
+            queryset = queryset.filter(started_at__date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(started_at__date__lte=date_to)
+        
+        # Pagination
+        limit = int(request.query_params.get('limit', 50))
+        offset = int(request.query_params.get('offset', 0))
+        
+        total = queryset.count()
+        sits = queryset[offset:offset + limit]
+        
+        return Response({
+            'total': total,
+            'limit': limit,
+            'offset': offset,
+            'results': SitListSerializer(sits, many=True).data
+        })
+    
+    def post(self, request):
+        """Create a new sit (start recording)."""
+        serializer = SitCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        sit = Sit.objects.create(
+            staff=request.user,
+            **serializer.validated_data
+        )
+        
+        return Response(
+            SitSerializer(sit, context={'request': request}).data,
+            status=status.HTTP_201_CREATED
+        )
+
+
+class SitDetailView(APIView):
+    """Get, update, or delete a specific sit."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_object(self, sit_id, user):
+        try:
+            return Sit.objects.get(id=sit_id, staff=user)
+        except Sit.DoesNotExist:
+            return None
+    
+    def get(self, request, sit_id):
+        sit = self.get_object(sit_id, request.user)
+        if not sit:
+            return Response({'error': 'Sit not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(SitSerializer(sit, context={'request': request}).data)
+    
+    def patch(self, request, sit_id):
+        """Update sit details (e.g., complete the sit)."""
+        sit = self.get_object(sit_id, request.user)
+        if not sit:
+            return Response({'error': 'Sit not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = SitUpdateSerializer(sit, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        
+        # If sit is being completed (ended_at is set), also increment counter
+        if 'ended_at' in request.data and sit.ended_at:
+            self._increment_sit_counter(request.user, sit)
+        
+        return Response(SitSerializer(sit, context={'request': request}).data)
+    
+    def delete(self, request, sit_id):
+        sit = self.get_object(sit_id, request.user)
+        if not sit:
+            return Response({'error': 'Sit not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Delete associated recording files
+        if sit.recording_file:
+            sit.recording_file.delete()
+        if sit.recording_thumbnail:
+            sit.recording_thumbnail.delete()
+        
+        sit.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    def _increment_sit_counter(self, user, sit):
+        """Increment the legacy sit counter and link to the sit record."""
+        counter, _ = Counter.objects.get_or_create(
+            user=user,
+            counter_type='sit',
+            period_type='total',
+            defaults={'count': 0}
+        )
+        
+        old_value = counter.count
+        counter.count += 1
+        counter.save()
+        
+        # Create history entry
+        history = CounterHistory.objects.create(
+            user=user,
+            counter_type='sit',
+            action='increment',
+            old_value=old_value,
+            new_value=counter.count,
+            note=f"Sit recording completed: {sit.reporter_name or 'Unknown'}"
+        )
+        
+        # Link history to sit
+        sit.counter_history = history
+        sit.save()
+        
+        # Broadcast counter update via WebSocket
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"counters_{user.id}",
+            {
+                'type': 'counter_update',
+                'counter_type': 'sit',
+                'count': counter.count,
+                'user_id': user.id,
+                'username': user.username,
+            }
+        )
+
+
+class SitRecordingUploadView(APIView):
+    """Upload recording for a sit."""
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    
+    def post(self, request, sit_id):
+        try:
+            sit = Sit.objects.get(id=sit_id, staff=request.user)
+        except Sit.DoesNotExist:
+            return Response({'error': 'Sit not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = SitRecordingUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        recording = serializer.validated_data['recording']
+        thumbnail = serializer.validated_data.get('thumbnail')
+        
+        # Save recording
+        sit.recording_file = recording
+        sit.recording_size_bytes = recording.size
+        sit.has_recording = True
+        
+        if thumbnail:
+            sit.recording_thumbnail = thumbnail
+        
+        sit.save()
+        
+        return Response({
+            'message': 'Recording uploaded successfully',
+            'recording_size_bytes': sit.recording_size_bytes,
+        })
+
+
+class SitNoteListCreateView(APIView):
+    """List and create notes for a sit."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, sit_id):
+        try:
+            sit = Sit.objects.get(id=sit_id, staff=request.user)
+        except Sit.DoesNotExist:
+            return Response({'error': 'Sit not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        notes = sit.notes.all()
+        return Response(SitNoteSerializer(notes, many=True).data)
+    
+    def post(self, request, sit_id):
+        try:
+            sit = Sit.objects.get(id=sit_id, staff=request.user)
+        except Sit.DoesNotExist:
+            return Response({'error': 'Sit not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = SitNoteCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        note = SitNote.objects.create(sit=sit, **serializer.validated_data)
+        return Response(SitNoteSerializer(note).data, status=status.HTTP_201_CREATED)
+
+
+class SitNoteDeleteView(APIView):
+    """Delete a specific note."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def delete(self, request, sit_id, note_id):
+        try:
+            sit = Sit.objects.get(id=sit_id, staff=request.user)
+            note = SitNote.objects.get(id=note_id, sit=sit)
+        except (Sit.DoesNotExist, SitNote.DoesNotExist):
+            return Response({'error': 'Note not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        note.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SitStatsView(APIView):
+    """Get sit statistics for current user."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user
+        today = timezone.now().date()
+        week_start = today - timedelta(days=today.weekday())
+        month_start = today.replace(day=1)
+        
+        base_queryset = Sit.objects.filter(staff=user)
+        
+        # Total sits
+        total_sits = base_queryset.count()
+        
+        # Today's sits
+        today_sits = base_queryset.filter(started_at__date=today).count()
+        
+        # Weekly sits
+        weekly_sits = base_queryset.filter(started_at__date__gte=week_start).count()
+        
+        # Monthly sits
+        monthly_sits = base_queryset.filter(started_at__date__gte=month_start).count()
+        
+        # Sits with recording
+        sits_with_recording = base_queryset.filter(has_recording=True).count()
+        
+        # Average duration
+        avg_duration = base_queryset.filter(
+            duration_seconds__isnull=False
+        ).aggregate(avg=Avg('duration_seconds'))['avg'] or 0
+        
+        # Average rating
+        avg_rating = base_queryset.filter(
+            player_rating__isnull=False
+        ).aggregate(avg=Avg('player_rating'))['avg']
+        
+        # Outcome breakdown
+        outcome_breakdown = dict(
+            base_queryset.exclude(outcome='').values('outcome')
+            .annotate(count=Count('id'))
+            .values_list('outcome', 'count')
+        )
+        
+        # Detection method breakdown
+        detection_breakdown = dict(
+            base_queryset.values('detection_method')
+            .annotate(count=Count('id'))
+            .values_list('detection_method', 'count')
+        )
+        
+        return Response({
+            'total_sits': total_sits,
+            'today_sits': today_sits,
+            'weekly_sits': weekly_sits,
+            'monthly_sits': monthly_sits,
+            'sits_with_recording': sits_with_recording,
+            'average_duration_seconds': avg_duration,
+            'average_rating': avg_rating,
+            'outcome_breakdown': outcome_breakdown,
+            'detection_method_breakdown': detection_breakdown,
+        })
+
+
+class ActiveSitView(APIView):
+    """Get the currently active (uncompleted) sit for the user."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        # Find sits that have started but not ended
+        active_sit = Sit.objects.filter(
+            staff=request.user,
+            ended_at__isnull=True
+        ).order_by('-started_at').first()
+        
+        if not active_sit:
+            return Response({'active_sit': None})
+        
+        return Response({
+            'active_sit': SitSerializer(active_sit, context={'request': request}).data
+        })

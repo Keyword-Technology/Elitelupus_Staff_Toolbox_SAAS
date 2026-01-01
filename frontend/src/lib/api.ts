@@ -103,6 +103,41 @@ export const counterAPI = {
     api.get('/counters/leaderboard/', { params: { period, type } }),
 };
 
+// Sit Recording API
+export const sitAPI = {
+  // Check if feature is enabled (system + user level)
+  isEnabled: () => api.get('/counters/sits/enabled/'),
+  
+  // User preferences
+  getPreferences: () => api.get('/counters/sits/preferences/'),
+  updatePreferences: (data: any) => api.patch('/counters/sits/preferences/', data),
+  
+  // Sit CRUD
+  list: (params?: { status?: string; start_date?: string; end_date?: string; page?: number }) =>
+    api.get('/counters/sits/', { params }),
+  get: (id: string) => api.get(`/counters/sits/${id}/`),
+  create: (data: any) => api.post('/counters/sits/', data),
+  update: (id: string, data: any) => api.patch(`/counters/sits/${id}/`, data),
+  delete: (id: string) => api.delete(`/counters/sits/${id}/`),
+  
+  // Active sit management
+  getActive: () => api.get('/counters/sits/active/'),
+  
+  // Recording upload (multipart form data)
+  uploadRecording: (sitId: string, formData: FormData) =>
+    api.post(`/counters/sits/${sitId}/recording/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  
+  // Notes
+  getNotes: (sitId: string) => api.get(`/counters/sits/${sitId}/notes/`),
+  createNote: (sitId: string, data: any) => api.post(`/counters/sits/${sitId}/notes/`, data),
+  
+  // Stats
+  getStats: (params?: { period?: string; start_date?: string; end_date?: string }) =>
+    api.get('/counters/sits/stats/', { params }),
+};
+
 export const serverAPI = {
   list: () => api.get('/servers/'),
   status: () => api.get('/servers/status/'),
