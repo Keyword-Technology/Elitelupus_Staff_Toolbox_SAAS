@@ -542,56 +542,280 @@ Legend: 🎬 = Has Recording  📝 = Has Notes  ⭐ = Flagged
 
 Since we're already capturing the game screen for recording, we can analyze frames from that video stream to automatically detect when sits are claimed and closed using browser-based OCR (Tesseract.js).
 
-### How It Works
+### Visual Reference - Elitelupus Report System
 
-1. **Continuous Monitoring**: Staff starts "monitoring mode" which captures the game screen
-2. **Frame Analysis**: Every 1-2 seconds, capture a frame and analyze specific regions
-3. **OCR Detection**: Use Tesseract.js to read text from sit notification areas
-4. **Auto-Trigger**: When sit claim detected → start recording + show sit panel
-5. **Auto-End**: When sit close detected → stop recording + show completion modal
+Based on actual in-game screenshots, the report system has these distinct visual states:
 
-### Screen Regions for OCR
+#### State Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     GAME SCREEN                                 │
-│  ┌─────────────────────────────────────────┐                   │
-│  │  OCR REGION 1 (Top notifications)       │  ← Chat/ULX msgs  │
-│  └─────────────────────────────────────────┘                   │
-│                    [Game World]                                 │
-│  ┌──────────────────┐                                          │
-│  │ OCR REGION 2     │  ← Admin menu area                       │
-│  └──────────────────┘                                          │
-│                                           ┌──────────────────┐ │
-│                                           │ OCR REGION 3     │ │
-│                                           │ (Chat box)       │ │
-│                                           └──────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│  STATE: 0 SITS (No Active Reports)                                  │
+│                                                                     │
+│  • No report popup visible in top-left                              │
+│  • Only HUD elements (Staff on Duty badge, props counter)           │
+│  • Chat area may show admin activity                                │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓ New report filed
+┌─────────────────────────────────────────────────────────────────────┐
+│  STATE: 1+ SITS UNCLAIMED                                           │
+│  ┌─────────────────────────────┐                                    │
+│  │ [PlayerName]'s Report    ✕  │                                    │
+│  │ Report Type: RDM            │                                    │
+│  │ Reported Player: [Name]     │                                    │
+│  │ Reason: [description...]    │                                    │
+│  │ ┌───────┐  ┌───────┐        │                                    │
+│  │ │ Claim │  │ Close │        │  ← UNCLAIMED buttons              │
+│  │ └───────┘  └───────┘        │                                    │
+│  └─────────────────────────────┘                                    │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓ Staff clicks "Claim"
+┌─────────────────────────────────────────────────────────────────────┐
+│  STATE: 1+ SITS CLAIMED                                             │
+│  ┌─────────────────────────────┐                                    │
+│  │ [PlayerName]'s Report    ✕  │                                    │
+│  │ Report Type: RDM            │                                    │
+│  │ Reported Player: [Name]     │                                    │
+│  │ Reason: [description...]    │                                    │
+│  │ ┌───────┐ ┌───────┐ ┌─────┐ │                                    │
+│  │ │ Go To │ │ Bring │ │Close│ │  ← CLAIMED buttons                │
+│  │ └───────┘ └───────┘ └─────┘ │                                    │
+│  └─────────────────────────────┘                                    │
+│                                                                     │
+│  CHAT: "[Elite Reports] ofcWilliam claimed Melky's report"           │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓ Staff clicks "Close" (after handling)
+┌─────────────────────────────────────────────────────────────────────┐
+│  STATE: SIT CLOSED                                                  │
+│                                                                     │
+│  • Report popup disappears                                          │
+│  • Chat may show: "[Elite Reports] ofcWilliam closed [X]'s report"   │
+│  • Returns to 0 sits or remaining unclaimed sits                    │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Detection Patterns
+#### Multiple Sits (Stacked Popups)
+
+```
+┌─────────────────────────────┐
+│ нє6є soendergaard's Report  │ ← Report 1 (unclaimed: Claim/Close)
+│ Report Type: RDM            │
+│ [Claim] [Close]             │
+├─────────────────────────────┤
+│ AC1D EMINEM's Report        │ ← Report 2 (claimed: GoTo/Bring/Close)
+│ Report Type: Other          │
+│ [Go To] [Bring] [Close]     │
+├─────────────────────────────┤
+│ jozo59739's Report          │ ← Report 3 (unclaimed: Claim/Close)
+│ Report Type: Other          │
+│ [Claim] [Close]             │
+└─────────────────────────────┘
+```
+
+### OCR Screen Regions (Actual Layout)
+
+Based on the screenshots, here are the exact regions to monitor:
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│ ┌─────────────────────────┐                                              │
+│ │ OCR REGION 1            │                          [Player names bar]  │
+│ │ REPORT POPUPS           │                                              │
+│ │ x: 0%, y: 0%            │                                              │
+│ │ w: 20%, h: 50%          │                                              │
+│ │                         │                                              │
+│ │ Detect:                 │                                              │
+│ │ - "'s Report" title     │                                              │
+│ │ - Button text changes   │                                              │
+│ │ - "Claim" vs "Go To"    │                                              │
+│ └─────────────────────────┘                                              │
+│                                                                          │
+│                              [GAME WORLD]                                │
+│                                                                          │
+│ ┌─────────────────────────────────┐                       ┌────────────┐ │
+│ │ OCR REGION 2                    │                       │ FPS/ping   │ │
+│ │ CHAT AREA                       │                       │ stats      │ │
+│ │ x: 0%, y: 60%                   │                       │ (ignore)   │ │
+│ │ w: 25%, h: 25%                  │                       └────────────┘ │
+│ │                                 │                                      │
+│ │ Detect:                         │                                      │
+│ │ - "claimed [X]'s report"        │                                      │
+│ │ - "closed [X]'s report"         │                                      │
+│ │ - "[Elite Admin Stats]" prefix       │                                      │
+│ └─────────────────────────────────┘                                      │
+│ ┌───────────────────────────────────┐                                    │
+│ │ HUD REGION (Reference only)       │                                    │
+│ │ Staff on Duty badge               │                                    │
+│ └───────────────────────────────────┘                                    │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+### Detection Strategy
+
+#### Primary Detection: Chat Messages (Most Reliable)
+
+```typescript
+// Monitor CHAT AREA for claim/close messages
+const CHAT_SIT_CLAIMED = [
+    /claimed\s+(.+?)(?:'s)?\s+report/i,      // "[Elite Reports] ofcWilliam claimed Melky's report"
+    /(\w+)\s+claimed\s+(.+?)(?:'s)?\s+report/i,
+];
+
+const CHAT_SIT_CLOSED = [
+    /closed\s+(.+?)(?:'s)?\s+report/i,       // "[Elite Reports] ofcWilliam closed Melky's report"
+    /(\w+)\s+closed\s+(.+?)(?:'s)?\s+report/i,
+    /returned\s+(.+?)\s+to/i,                // "returned PlayerName to their position"
+];
+```
+
+#### Secondary Detection: Button State Changes (Backup)
+
+```typescript
+// Monitor REPORT POPUP AREA for button text
+const POPUP_UNCLAIMED_INDICATORS = [
+    /Claim/i,           // "Claim" button visible = unclaimed sit exists
+];
+
+const POPUP_CLAIMED_INDICATORS = [
+    /Go\s*To/i,         // "Go To" button = sit is claimed (by you or other staff)
+    /Bring/i,           // "Bring" button = sit is claimed
+];
+
+// Detect report presence
+const REPORT_TITLE_PATTERN = /(.+?)(?:'s)?\s+Report/i;  // "Melky's Report"
+```
+
+#### Detection Logic
+
+```typescript
+interface SitDetectionState {
+    hasActiveReport: boolean;       // Is there a popup visible?
+    isReportClaimed: boolean;       // Does popup show Go To/Bring (vs Claim)?
+    reporterName: string | null;    // Extracted from "[X]'s Report"
+    reportedPlayer: string | null;  // From "Reported Player:" line
+    reportType: string | null;      // RDM, NLR, Other, etc.
+    staffRating: number | null;     // 1-5 stars (derived from credits)
+}
+
+function analyzeFrame(ocrResults: { region: string; text: string }[]): SitDetectionState {
+    const popupText = ocrResults.find(r => r.region === 'REPORT_POPUP')?.text || '';
+    const chatText = ocrResults.find(r => r.region === 'CHAT_AREA')?.text || '';
+    
+    // Check if report popup exists
+    const reportMatch = popupText.match(/(.+?)(?:'s)?\s+Report/i);
+    const hasActiveReport = !!reportMatch;
+    
+    // Check button state to determine if claimed
+    const hasClaimButton = /\bClaim\b/i.test(popupText);
+    const hasGoToButton = /Go\s*To/i.test(popupText) || /\bBring\b/i.test(popupText);
+    
+    // Check chat for claim/close events (EXACT Elitelupus format)
+    const claimMatch = chatText.match(/\[Elite\s*Reports\]\s*(\w+)\s+claimed\s+(.+?)(?:'s)?\s+report/i);
+    const closeMatch = chatText.match(/\[Elite\s*Reports\]\s*You\s+have\s+closed\s+(.+?)(?:'s)?\s+report/i);
+    
+    // Check for rating/credits message (optional - only appears if user rated)
+    const creditsMatch = chatText.match(/\[Elite\s*Admin\s*Stats\]\s*Your\s+performance\s+has\s+earned\s+you\s+(\d+)\s+credits/i);
+    const staffRating = creditsMatch ? creditsToStars(parseInt(creditsMatch[1])) : null;
+    
+    return {
+        hasActiveReport,
+        isReportClaimed: hasGoToButton && !hasClaimButton,
+        reporterName: reportMatch?.[1] || claimMatch?.[2] || null,
+        reportedPlayer: popupText.match(/Reported Player:\s*(.+)/i)?.[1] || null,
+        reportType: popupText.match(/Report Type:\s*(.+)/i)?.[1] || null,
+        staffRating,
+    };
+}
+
+// Convert credits to star rating
+function creditsToStars(credits: number): number {
+    const creditMap: Record<number, number> = {
+        0: 1,  // 1 star = 0 credits
+        2: 2,  // 2 stars = 2 credits
+        4: 3,  // 3 stars = 4 credits
+        6: 4,  // 4 stars = 6 credits
+        8: 5,  // 5 stars = 8 credits
+    };
+    return creditMap[credits] ?? Math.ceil(credits / 2) + 1;
+}
+```
+
+### Chat Message Formats (Elitelupus Exact)
+
+These are the exact chat message formats used by the Elite Reports system:
+
+#### Sit Claimed
+```
+[Elite Reports] ofcWilliam claimed Melky's report.
+```
+
+#### Sit Closed
+```
+[Elite Reports] You have closed Melky's report.
+```
+
+#### Staff Rating (Optional - only appears if player rated the sit)
+```
+[Elite Admin Stats] Your performance has earned you 8 credits.
+```
+
+**Credits to Star Rating Conversion:**
+| Stars | Credits | Interpretation |
+|-------|---------|----------------|
+| ⭐ | 0 | Poor |
+| ⭐⭐ | 2 | Below Average |
+| ⭐⭐⭐ | 4 | Average |
+| ⭐⭐⭐⭐ | 6 | Good |
+| ⭐⭐⭐⭐⭐ | 8 | Excellent |
+
+**Note**: If no rating message appears within ~5 seconds of closing, the user did not rate the sit.
+
+### Detection Patterns (Elitelupus Exact)
 
 #### Sit Claimed Patterns
 ```typescript
 const SIT_CLAIMED_PATTERNS = [
-    /brought\s+(.+?)\s+to/i,           // ULX: "brought PlayerName to them"
-    /teleported\s+(.+?)\s+to\s+you/i,  // ULX variant
-    /claimed\s+(.+?)(?:'s)?\s+sit/i,   // SAM style
-    /handling\s+(.+?)(?:'s)?\s+request/i,
-    /sit\s+accepted/i,
-    /now\s+handling/i,
+    // PRIMARY: Exact Elitelupus format
+    /\[Elite\s*Reports\]\s*(\w+)\s+claimed\s+(.+?)(?:'s)?\s+report\.?/i,
+    // Example: "[Elite Reports] ofcWilliam claimed Melky's report."
+    // Captures: [1] = "ofcWilliam" (staff), [2] = "Melky" (reporter)
+    
+    // SECONDARY: Popup button state change
+    /Go\s*To.*Bring.*Close/i,  // Button sequence indicates claimed
 ];
 ```
 
 #### Sit Closed Patterns
 ```typescript
 const SIT_CLOSED_PATTERNS = [
-    /returned\s+(.+?)\s+to/i,   // ULX: "returned PlayerName to..."
-    /sent\s+(.+?)\s+back/i,
-    /sit\s+closed/i,
-    /sit\s+finished/i,
-    /sit\s+completed/i,
+    // PRIMARY: Exact Elitelupus format (first-person)
+    /\[Elite\s*Reports\]\s*You\s+have\s+closed\s+(.+?)(?:'s)?\s+report\.?/i,
+    // Example: "[Elite Reports] You have closed Melky's report."
+    // Captures: [1] = "Melky" (reporter)
+    
+    // SECONDARY: Popup disappearance
+    // Detected by: previously had report popup → now no popup text
 ];
+```
+
+#### Staff Rating Detection
+```typescript
+const STAFF_RATING_PATTERN = 
+    /\[Elite\s*Admin\s*Stats\]\s*Your\s+performance\s+has\s+earned\s+you\s+(\d+)\s+credits\.?/i;
+// Example: "[Elite Admin Stats] Your performance has earned you 8 credits."
+// Captures: [1] = "8" (credits → 5 stars)
+
+// Use within ~5 seconds after sit close to associate rating with the sit
+```
+
+#### Report Info Extraction Patterns
+```typescript
+const REPORT_INFO_PATTERNS = {
+    reporterName: /^(.+?)(?:'s)?\s+Report$/im,           // "Melky's Report"
+    reportType: /Report\s*Type:\s*(.+?)$/im,             // "Report Type: RDM"
+    reportedPlayer: /Reported\s*Player:\s*(.+?)$/im,     // "Reported Player: Courtney Davies"
+    reason: /Reason:\s*(.+?)(?=\n|$)/im,                 // "Reason: just randomly killed me..."
+};
 ```
 
 ### Implementation: useScreenOCR Hook
@@ -611,64 +835,438 @@ interface OCRRegion {
     enabled: boolean;
 }
 
-const DEFAULT_OCR_REGIONS: OCRRegion[] = [
-    { id: '1', name: 'Top Notifications', x: 0.0, y: 0.0, width: 0.5, height: 0.15, enabled: true },
-    { id: '2', name: 'Chat Area', x: 0.0, y: 0.7, width: 0.4, height: 0.3, enabled: true },
+interface ReportInfo {
+    reporterName: string | null;
+    reportedPlayer: string | null;
+    reportType: string | null;
+    reason: string | null;
+}
+
+interface DetectionState {
+    hasActiveReport: boolean;
+    isReportClaimed: boolean;
+    reportInfo: ReportInfo;
+    lastClaimEvent: string | null;
+    lastCloseEvent: string | null;
+}
+
+// ELITELUPUS-SPECIFIC OCR REGIONS (based on actual screenshots)
+const ELITELUPUS_OCR_REGIONS: OCRRegion[] = [
+    { 
+        id: 'report_popup', 
+        name: 'Report Popups (Top-Left)', 
+        x: 0.0,      // Left edge
+        y: 0.0,      // Top edge
+        width: 0.20, // ~20% of screen width
+        height: 0.50, // ~50% of screen height (stacked popups)
+        enabled: true 
+    },
+    { 
+        id: 'chat_area', 
+        name: 'Chat Area (Bottom-Left)', 
+        x: 0.0,      // Left edge
+        y: 0.60,     // 60% down from top
+        width: 0.25, // ~25% of screen width
+        height: 0.25, // ~25% of screen height
+        enabled: true 
+    },
 ];
 
+// ELITELUPUS-SPECIFIC DETECTION PATTERNS (Exact formats)
+const PATTERNS = {
+    // Chat messages (PRIMARY - most reliable)
+    // "[Elite Reports] ofcWilliam claimed Melky's report."
+    chatClaimed: /\[Elite\s*Reports\]\s*(\w+)\s+claimed\s+(.+?)(?:'s)?\s+report\.?/i,
+    // "[Elite Reports] You have closed Melky's report."
+    chatClosed: /\[Elite\s*Reports\]\s*You\s+have\s+closed\s+(.+?)(?:'s)?\s+report\.?/i,
+    // "[Elite Admin Stats] Your performance has earned you 8 credits."
+    staffRating: /\[Elite\s*Admin\s*Stats\]\s*Your\s+performance\s+has\s+earned\s+you\s+(\d+)\s+credits\.?/i,
+    
+    // Popup button detection (SECONDARY)
+    claimButton: /\bClaim\b/,
+    goToButton: /Go\s*To/i,
+    bringButton: /\bBring\b/i,
+    closeButton: /\bClose\b/i,
+    
+    // Report info extraction
+    reportTitle: /^(.+?)(?:'s)?\s+Report$/im,
+    reportType: /Report\s*Type:\s*(.+?)$/im,
+    reportedPlayer: /Reported\s*Player:\s*(.+?)$/im,
+    reason: /Reason:\s*(.+?)(?=\n|$)/ims,
+};
+
+// Convert credits to star rating (Elitelupus specific)
+const CREDITS_TO_STARS: Record<number, number> = {
+    0: 1,  // 1 star = 0 credits
+    2: 2,  // 2 stars = 2 credits
+    4: 3,  // 3 stars = 4 credits
+    6: 4,  // 4 stars = 6 credits
+    8: 5,  // 5 stars = 8 credits
+};
+
+function creditsToStars(credits: number): number {
+    return CREDITS_TO_STARS[credits] ?? Math.ceil(credits / 2) + 1;
+}
+
 export function useScreenOCR(videoStream: MediaStream | null, options: {
-    onSitClaimed: (playerName?: string) => void;
-    onSitClosed: (playerName?: string) => void;
+    onSitClaimed: (reportInfo: ReportInfo) => void;
+    onSitClosed: (reporterName?: string, staffRating?: number) => void;
+    onReportDetected: (reportInfo: ReportInfo) => void;
+    onStaffRating?: (stars: number, credits: number) => void;
     scanInterval?: number;
 }) {
     const [isMonitoring, setIsMonitoring] = useState(false);
-    const [ocrRegions, setOcrRegions] = useState(DEFAULT_OCR_REGIONS);
+    const [ocrRegions, setOcrRegions] = useState(ELITELUPUS_OCR_REGIONS);
+    const [lastState, setLastState] = useState<DetectionState | null>(null);
+    const [debugText, setDebugText] = useState<string>('');
+    const [pendingRating, setPendingRating] = useState<{ stars: number; credits: number } | null>(null);
+    
     const workerRef = useRef<Worker | null>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const videoRef = useRef<HTMLVideoElement | null>(null);
+    const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const lastClaimTimeRef = useRef<number>(0);
+    const lastCloseTimeRef = useRef<number>(0);
+    const ratingWindowRef = useRef<NodeJS.Timeout | null>(null);
+    
+    const DEBOUNCE_MS = 5000; // Prevent duplicate detections
+    const RATING_WINDOW_MS = 5000; // Time to wait for rating after close
     
     // Initialize Tesseract worker
     useEffect(() => {
-        const init = async () => {
+        const initWorker = async () => {
             const worker = await createWorker('eng');
+            // Optimize for screen text (monospace fonts, high contrast)
+            await worker.setParameters({
+                tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 :\'[]()!?,.-_',
+            });
             workerRef.current = worker;
         };
-        init();
-        return () => { workerRef.current?.terminate(); };
+        initWorker();
+        
+        // Create canvas for frame extraction
+        canvasRef.current = document.createElement('canvas');
+        
+        return () => { 
+            workerRef.current?.terminate();
+            if (intervalRef.current) clearInterval(intervalRef.current);
+        };
     }, []);
     
-    // Capture frame and run OCR on each region
+    // Setup video element when stream changes
+    useEffect(() => {
+        if (!videoStream) return;
+        
+        const video = document.createElement('video');
+        video.srcObject = videoStream;
+        video.play();
+        videoRef.current = video;
+        
+        return () => {
+            video.pause();
+            video.srcObject = null;
+        };
+    }, [videoStream]);
+    
+    // Extract region from video frame
+    const extractRegion = useCallback((region: OCRRegion): ImageData | null => {
+        if (!videoRef.current || !canvasRef.current) return null;
+        
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+        
+        // Calculate pixel coordinates
+        const x = Math.floor(video.videoWidth * region.x);
+        const y = Math.floor(video.videoHeight * region.y);
+        const w = Math.floor(video.videoWidth * region.width);
+        const h = Math.floor(video.videoHeight * region.height);
+        
+        canvas.width = w;
+        canvas.height = h;
+        
+        // Draw region to canvas
+        ctx.drawImage(video, x, y, w, h, 0, 0, w, h);
+        
+        // Preprocess for better OCR (increase contrast)
+        const imageData = ctx.getImageData(0, 0, w, h);
+        preprocessImage(imageData);
+        ctx.putImageData(imageData, 0, 0);
+        
+        return imageData;
+    }, []);
+    
+    // Preprocess image for better OCR accuracy
+    const preprocessImage = (imageData: ImageData) => {
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            // Convert to grayscale
+            const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+            // Increase contrast
+            const contrast = gray < 128 ? 0 : 255;
+            data[i] = data[i + 1] = data[i + 2] = contrast;
+        }
+    };
+    
+    // Analyze OCR results (Elitelupus-specific patterns)
+    const analyzeResults = useCallback((results: { regionId: string; text: string }[]) => {
+        const popupText = results.find(r => r.regionId === 'report_popup')?.text || '';
+        const chatText = results.find(r => r.regionId === 'chat_area')?.text || '';
+        
+        // Extract report info from popup
+        const reporterMatch = popupText.match(PATTERNS.reportTitle);
+        const reportTypeMatch = popupText.match(PATTERNS.reportType);
+        const reportedMatch = popupText.match(PATTERNS.reportedPlayer);
+        const reasonMatch = popupText.match(PATTERNS.reason);
+        
+        // Check button state
+        const hasClaimButton = PATTERNS.claimButton.test(popupText);
+        const hasGoToButton = PATTERNS.goToButton.test(popupText) || PATTERNS.bringButton.test(popupText);
+        
+        // Check chat for events (EXACT Elitelupus format)
+        // "[Elite Reports] ofcWilliam claimed Melky's report."
+        const claimMatch = chatText.match(PATTERNS.chatClaimed);
+        // "[Elite Reports] You have closed Melky's report."
+        const closeMatch = chatText.match(PATTERNS.chatClosed);
+        // "[Elite Admin Stats] Your performance has earned you 8 credits."
+        const ratingMatch = chatText.match(PATTERNS.staffRating);
+        
+        // Parse staff rating if present
+        let staffRating: { stars: number; credits: number } | null = null;
+        if (ratingMatch) {
+            const credits = parseInt(ratingMatch[1]);
+            staffRating = { credits, stars: creditsToStars(credits) };
+        }
+        
+        return {
+            hasActiveReport: !!reporterMatch || hasClaimButton || hasGoToButton,
+            isReportClaimed: hasGoToButton && !hasClaimButton,
+            reportInfo: {
+                reporterName: reporterMatch?.[1]?.trim() || claimMatch?.[2]?.trim() || null,
+                reportedPlayer: reportedMatch?.[1]?.trim() || null,
+                reportType: reportTypeMatch?.[1]?.trim() || null,
+                reason: reasonMatch?.[1]?.trim() || null,
+            },
+            claimEvent: claimMatch ? {
+                staffName: claimMatch[1],      // "ofcWilliam"
+                reporterName: claimMatch[2],   // "Melky"
+            } : null,
+            closeEvent: closeMatch ? {
+                reporterName: closeMatch[1],   // "Melky"
+            } : null,
+            staffRating,
+        };
+    }, []);
+    
+    // Main scan loop
     const captureAndAnalyze = useCallback(async () => {
-        if (!videoStream || !workerRef.current) return;
+        if (!videoStream || !workerRef.current || !videoRef.current?.videoWidth) return;
+        
+        const results: { regionId: string; text: string }[] = [];
         
         for (const region of ocrRegions.filter(r => r.enabled)) {
-            // Draw region to canvas, preprocess, run OCR
-            // Check against SIT_CLAIMED_PATTERNS and SIT_CLOSED_PATTERNS
-            // Call options.onSitClaimed() or options.onSitClosed() on match
+            const imageData = extractRegion(region);
+            if (!imageData) continue;
+            
+            const { data: { text } } = await workerRef.current.recognize(canvasRef.current!);
+            results.push({ regionId: region.id, text });
         }
-    }, [videoStream, ocrRegions, options]);
+        
+        const state = analyzeResults(results);
+        setDebugText(JSON.stringify(state, null, 2));
+        
+        const now = Date.now();
+        
+        // Detect claim event: "[Elite Reports] ofcWilliam claimed Melky's report."
+        if (state.claimEvent || (state.isReportClaimed && lastState && !lastState.isReportClaimed)) {
+            if (now - lastClaimTimeRef.current > DEBOUNCE_MS) {
+                lastClaimTimeRef.current = now;
+                options.onSitClaimed(state.reportInfo);
+            }
+        }
+        
+        // Detect close event: "[Elite Reports] You have closed Melky's report."
+        if (state.closeEvent || (lastState?.hasActiveReport && !state.hasActiveReport)) {
+            if (now - lastCloseTimeRef.current > DEBOUNCE_MS) {
+                lastCloseTimeRef.current = now;
+                
+                // Start watching for rating message (5 second window)
+                if (ratingWindowRef.current) clearTimeout(ratingWindowRef.current);
+                ratingWindowRef.current = setTimeout(() => {
+                    // No rating received within 5 seconds = user didn't rate
+                    if (pendingRating === null) {
+                        options.onSitClosed(state.closeEvent?.reporterName, undefined);
+                    }
+                    setPendingRating(null);
+                }, RATING_WINDOW_MS);
+                
+                // Store reporter name for rating association
+                setPendingRating(null); // Clear any previous pending
+            }
+        }
+        
+        // Detect rating: "[Elite Admin Stats] Your performance has earned you X credits."
+        if (state.staffRating && now - lastCloseTimeRef.current < RATING_WINDOW_MS) {
+            setPendingRating(state.staffRating);
+            options.onStaffRating?.(state.staffRating.stars, state.staffRating.credits);
+            
+            // Now call onSitClosed with the rating
+            options.onSitClosed(lastState?.closeEvent?.reporterName, state.staffRating.stars);
+            
+            // Clear the rating window timer
+            if (ratingWindowRef.current) {
+                clearTimeout(ratingWindowRef.current);
+                ratingWindowRef.current = null;
+            }
+        }
+        
+        // Notify about new unclaimed report (for pre-claim awareness)
+        if (state.hasActiveReport && !state.isReportClaimed && (!lastState || !lastState.hasActiveReport)) {
+            options.onReportDetected(state.reportInfo);
+        }
+        
+        setLastState(state);
+    }, [videoStream, ocrRegions, lastState, extractRegion, analyzeResults, options, pendingRating]);
     
-    const startMonitoring = () => {
+    const startMonitoring = useCallback(() => {
+        if (!videoStream || isMonitoring) return;
+        
         setIsMonitoring(true);
-        // Start interval for captureAndAnalyze
-    };
+        intervalRef.current = setInterval(captureAndAnalyze, options.scanInterval || 1500);
+    }, [videoStream, isMonitoring, captureAndAnalyze, options.scanInterval]);
     
-    const stopMonitoring = () => {
+    const stopMonitoring = useCallback(() => {
         setIsMonitoring(false);
-        // Clear interval
-    };
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+        }
+        if (ratingWindowRef.current) {
+            clearTimeout(ratingWindowRef.current);
+            ratingWindowRef.current = null;
+        }
+    }, []);
     
-    return { isMonitoring, startMonitoring, stopMonitoring, ocrRegions, setOcrRegions };
+    return { 
+        isMonitoring, 
+        startMonitoring, 
+        stopMonitoring, 
+        ocrRegions, 
+        setOcrRegions,
+        lastDetectionState: lastState,
+        debugText, // For development/testing
+    };
 }
 ```
 
-### User Flow with Auto-Detection
+### User Flow with Auto-Detection (Elitelupus)
 
-1. **Start Monitoring**: Staff clicks "Share Game Screen" → browser prompts window selection
-2. **Waiting State**: System scans OCR regions every 1.5 seconds for sit patterns
-3. **Sit Detected**: Shows confirmation popup "Sit detected! Start recording?" (auto-confirms in 3s)
-4. **Recording Active**: Staff handles sit, system watches for close patterns
-5. **Close Detected**: Stops recording, shows completion modal
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. STAFF OPENS TOOLBOX                                                  │
+│    └─→ Clicks "Share Game Screen" button                                │
+│    └─→ Browser prompts: "Share your screen" → Select Garry's Mod window │
+└───────────────────────────────────────┬─────────────────────────────────┘
+                                        ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 2. MONITORING MODE (Idle)                                               │
+│    ┌──────────────────────────────┐                                     │
+│    │  🔴 Monitoring Active        │                                     │
+│    │  Status: Waiting for sits... │  ← OCR scanning every 1.5s         │
+│    │  [Stop Monitoring]           │                                     │
+│    └──────────────────────────────┘                                     │
+└───────────────────────────────────────┬─────────────────────────────────┘
+                                        ↓ OCR detects "[X]'s Report" popup
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 3. REPORT DETECTED (Pre-Claim Awareness)                                │
+│    ┌──────────────────────────────────┐                                 │
+│    │  📋 New Report Detected          │                                 │
+│    │  Reporter: Melky                 │  ← Extracted from popup         │
+│    │  Type: RDM                       │                                 │
+│    │  Reported: Courtney Davies       │                                 │
+│    │  ─────────────────────────       │                                 │
+│    │  Waiting for you to claim...     │                                 │
+│    └──────────────────────────────────┘                                 │
+└───────────────────────────────────────┬─────────────────────────────────┘
+                                        ↓ OCR: "[Elite Reports] ofcWilliam claimed Melky's report."
+                                          OR button changes to "Go To | Bring | Close"
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 4. SIT CLAIMED → AUTO-START RECORDING                                   │
+│    ┌──────────────────────────────────────────┐                         │
+│    │  🔴 RECORDING                  00:00:15  │                         │
+│    │  ──────────────────────────────────────  │                         │
+│    │  Reporter: Melky                         │  ← Auto-populated       │
+│    │  Reported: Courtney Davies               │                         │
+│    │  Type: RDM                               │                         │
+│    │  ──────────────────────────────────────  │                         │
+│    │  Steam IDs: [Add...]                     │                         │
+│    │  Notes: [________________]               │                         │
+│    │                                          │                         │
+│    │  [End Sit Manually]                      │  ← Manual fallback      │
+│    └──────────────────────────────────────────┘                         │
+└───────────────────────────────────────┬─────────────────────────────────┘
+                                        ↓ OCR: "[Elite Reports] You have closed Melky's report."
+                                          OR popup disappears
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 5. SIT CLOSED → WAIT FOR RATING (5 second window)                       │
+│    ┌──────────────────────────────────────────┐                         │
+│    │  ⏳ Sit Closed - Waiting for rating...   │                         │
+│    │  Duration: 3:45                          │                         │
+│    │  Reporter: Melky                         │                         │
+│    └──────────────────────────────────────────┘                         │
+└───────────────────────────────────────┬─────────────────────────────────┘
+        ↓ (Optional) OCR: "[Elite Admin Stats] Your performance has earned you 8 credits."
+        ↓ OR 5 seconds pass with no rating message
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 6. OUTCOME MODAL (with or without rating)                               │
+│    ┌──────────────────────────────────────────┐                         │
+│    │  ✅ Sit Completed                         │                         │
+│    │  Duration: 3:45                          │                         │
+│    │  ──────────────────────────────────────  │                         │
+│    │  Player Rating: ⭐⭐⭐⭐⭐ (8 credits)      │  ← Auto-filled if      │
+│    │               OR "No rating received"    │    rating detected      │
+│    │  ──────────────────────────────────────  │                         │
+│    │  What was the outcome?                   │                         │
+│    │  ┌─────────┐ ┌─────────┐ ┌─────────┐    │                         │
+│    │  │ Warning │ │ Kicked  │ │ Banned  │    │                         │
+│    │  └─────────┘ └─────────┘ └─────────┘    │                         │
+│    │  ┌─────────┐ ┌─────────┐                │                         │
+│    │  │No Action│ │  Other  │                │                         │
+│    │  └─────────┘ └─────────┘                │                         │
+│    │                                          │                         │
+│    │  [Save & Close]                          │                         │
+│    └──────────────────────────────────────────┘                         │
+└───────────────────────────────────────┬─────────────────────────────────┘
+                                        ↓
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 7. RETURN TO MONITORING (Loop)                                          │
+│    └─→ Continue scanning for next report                                │
+│    └─→ Counter incremented (+1 sit)                                     │
+│    └─→ Recording saved to history                                       │
+│    └─→ Rating saved (if received)                                       │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Detection Events Summary
+
+| Event | Chat Message Format | Action |
+|-------|---------------------|--------|
+| **New Report** | N/A (popup detection) | Show "Report Detected" notification |
+| **Sit Claimed** | `[Elite Reports] ofcWilliam claimed Melky's report.` | Start recording, show sit panel |
+| **Sit Closed** | `[Elite Reports] You have closed Melky's report.` | Stop recording, wait for rating |
+| **Staff Rating** | `[Elite Admin Stats] Your performance has earned you 8 credits.` | Auto-fill rating in modal (⭐⭐⭐⭐⭐) |
+
+### Staff Rating (Credits to Stars)
+
+| Chat Message | Credits | Stars | Display |
+|--------------|---------|-------|---------|
+| `...earned you 0 credits.` | 0 | 1 | ⭐ |
+| `...earned you 2 credits.` | 2 | 2 | ⭐⭐ |
+| `...earned you 4 credits.` | 4 | 3 | ⭐⭐⭐ |
+| `...earned you 6 credits.` | 6 | 4 | ⭐⭐⭐⭐ |
+| `...earned you 8 credits.` | 8 | 5 | ⭐⭐⭐⭐⭐ |
+| *(no message within 5s)* | - | - | "No rating" |
 
 ### Configuration Options
 
@@ -679,10 +1277,6 @@ export function useScreenOCR(videoStream: MediaStream | null, options: {
 | Debounce Time | Cooldown between detections | 5000ms |
 | Auto-confirm Delay | Seconds before auto-starting | 3s |
 | Contrast Boost | Image preprocessing strength | 1.5x |
-
-### Custom Patterns
-
-Staff can add custom detection patterns for their specific admin addon via settings.
 
 ### Performance Optimizations
 
