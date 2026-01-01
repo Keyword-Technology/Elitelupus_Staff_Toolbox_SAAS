@@ -308,6 +308,44 @@ class BackfillLastSeenView(APIView):
     """Backfill last_seen timestamps for staff members based on server sessions."""
     permission_classes = [permissions.IsAuthenticated, IsManager]
     
+    def get(self, request):
+        """
+        Get information about the backfill status.
+        Shows how many staff members need backfilling.
+        """
+        from django.utils import timezone
+        
+        # Count staff members that need backfilling
+        all_staff = Staff.objects.all()
+        needs_update = 0
+        already_updated = 0
+        no_sessions = 0
+        
+        for staff in all_staff:
+            most_recent_session = ServerSession.objects.filter(
+                staff=staff,
+                leave_time__isnull=False
+            ).order_by('-leave_time').first()
+            
+            if most_recent_session:
+                if staff.last_seen is None or staff.last_seen < most_recent_session.leave_time:
+                    needs_update += 1
+                else:
+                    already_updated += 1
+            else:
+                no_sessions += 1
+        
+        return Response({
+            'total_staff': all_staff.count(),
+            'needs_update': needs_update,
+            'already_updated': already_updated,
+            'no_sessions': no_sessions,
+            'message': f'{needs_update} staff members need backfilling',
+            'endpoint': '/api/staff/backfill-last-seen/',
+            'method': 'POST',
+            'description': 'POST to this endpoint to backfill last_seen timestamps for all staff members'
+        })
+    
     def post(self, request):
         """
         Backfill last_seen timestamps for all staff members.
