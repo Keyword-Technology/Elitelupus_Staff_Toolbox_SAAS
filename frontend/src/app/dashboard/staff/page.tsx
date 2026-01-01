@@ -241,7 +241,19 @@ export default function StaffPage() {
 
   const fetchData = async () => {
     try {
-      const orderingParam = sortOrder === 'desc' ? `-${sortBy}` : sortBy;
+      // Build ordering parameter - when sorting by rank_priority, also sort alphabetically within each rank
+      let orderingParam: string;
+      if (sortBy === 'rank_priority') {
+        // Primary: role priority, Secondary: alphabetical by name
+        orderingParam = sortOrder === 'desc' ? '-rank_priority,-name' : 'rank_priority,name';
+      } else if (sortBy === 'name') {
+        // When sorting by name, just sort by name
+        orderingParam = sortOrder === 'desc' ? '-name' : 'name';
+      } else {
+        // For other fields, sort by that field then by rank_priority and name
+        const prefix = sortOrder === 'desc' ? '-' : '';
+        orderingParam = `${prefix}${sortBy},rank_priority,name`;
+      }
       
       // Build query params
       const params = new URLSearchParams({
