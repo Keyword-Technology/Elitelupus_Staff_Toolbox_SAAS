@@ -42,6 +42,7 @@ export default function SettingsPage() {
     display_name: '',
     email: '',
     timezone: '',
+    use_24_hour_time: true,
   });
   const [savingProfile, setSavingProfile] = useState(false);
 
@@ -63,6 +64,7 @@ export default function SettingsPage() {
         display_name: user.display_name || '',
         email: user.email || '',
         timezone: user.timezone || 'UTC',
+        use_24_hour_time: user.use_24_hour_time ?? true,
       });
     }
   }, [user]);
@@ -248,6 +250,24 @@ export default function SettingsPage() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={profileForm.use_24_hour_time}
+                  onChange={(e) =>
+                    setProfileForm({ ...profileForm, use_24_hour_time: e.target.checked })
+                  }
+                  className="w-4 h-4 text-primary-600 bg-dark-bg border-gray-600 rounded focus:ring-primary-500 focus:ring-2"
+                />
+                <span className="text-sm font-medium text-gray-300">
+                  Use 24-hour time format
+                </span>
+              </label>
+              <p className="text-sm text-gray-500 mt-1 ml-7">
+                Display times as {profileForm.use_24_hour_time ? '14:30' : '2:30 PM'}
+              </p>
             </div>
             <div className="pt-4">
               <button

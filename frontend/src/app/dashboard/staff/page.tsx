@@ -61,7 +61,7 @@ interface SyncLog {
 export default function StaffPage() {
   const router = useRouter();
   const { setActions } = usePageActions();
-  const { hasMinRole } = useAuth();
+  const { hasMinRole, user: currentUser } = useAuth();
   const { onStaffOnlineChange, onStaffDiscordStatus, onRosterSync, connectionStatus } = useWebSocket();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
@@ -89,6 +89,8 @@ export default function StaffPage() {
   const getTimeInTimezone = (timezone: string | null): string => {
     if (!timezone) return '-';
     
+    const use24Hour = currentUser?.use_24_hour_time ?? true;
+    
     // Try to parse GMT offset format (e.g., "GMT", "GMT-5", "GMT+3")
     const gmtMatch = timezone.match(/^GMT([+-]?\d+)?$/i);
     if (gmtMatch) {
@@ -99,7 +101,7 @@ export default function StaffPage() {
       return targetTime.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
-        hour12: true,
+        hour12: !use24Hour,
       });
     }
     
@@ -109,7 +111,7 @@ export default function StaffPage() {
         timeZone: timezone,
         hour: '2-digit',
         minute: '2-digit',
-        hour12: true,
+        hour12: !use24Hour,
       });
     } catch (e) {
       // Invalid timezone

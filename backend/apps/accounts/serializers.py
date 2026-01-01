@@ -18,7 +18,7 @@ class UserSerializer(serializers.ModelSerializer):
             'role', 'role_priority', 'role_color',
             'steam_id', 'steam_id_64', 'steam_profile_url', 'steam_avatar',
             'discord_id', 'discord_username', 'discord_avatar',
-            'timezone', 'is_active_staff', 'is_legacy_staff', 'staff_since', 
+            'timezone', 'use_24_hour_time', 'is_active_staff', 'is_legacy_staff', 'staff_since', 
             'staff_left_at', 'last_activity', 'date_joined',
         ]
         read_only_fields = [
@@ -35,7 +35,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['display_name', 'email', 'timezone']
+        fields = ['display_name', 'email', 'timezone', 'use_24_hour_time']
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):

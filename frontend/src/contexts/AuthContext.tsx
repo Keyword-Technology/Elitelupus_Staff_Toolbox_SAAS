@@ -17,6 +17,7 @@ interface User {
   steam_id: string | null;
   discord_id: string | null;
   timezone: string;
+  use_24_hour_time: boolean;
   is_active_staff: boolean;
 }
 

@@ -84,6 +84,13 @@ class User(AbstractUser):
         default='UTC'
     )
     
+    # Display Preferences
+    use_24_hour_time = models.BooleanField(
+        default=True,
+        verbose_name='Use 24-hour time format',
+        help_text='Display times in 24-hour format instead of 12-hour AM/PM'
+    )
+    
     # Staff Metadata
     is_active_staff = models.BooleanField(default=False)
     is_legacy_staff = models.BooleanField(default=False)  # Former staff not in roster
