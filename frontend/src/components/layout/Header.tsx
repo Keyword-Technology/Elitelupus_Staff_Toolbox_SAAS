@@ -32,6 +32,7 @@ export function Header() {
     if (pathname === '/dashboard/rules') return { title: 'Server Rules', subtitle: 'Browse and search server rules' };
     if (pathname === '/dashboard/staff') return { title: 'Staff Roster', subtitle: 'Manage staff members and roles' };
     if (pathname === '/dashboard/staff/legacy') return { title: 'Legacy Staff', subtitle: 'View inactive staff members' };
+    if (pathname === '/dashboard/leaderboard/server-time') return { title: 'Server Time Leaderboard', subtitle: 'Top staff by time on server' };
     if (pathname === '/dashboard/leaderboard') return { title: 'Leaderboard', subtitle: 'Top performing staff members' };
     if (pathname === '/dashboard/settings') return { title: 'Profile Settings', subtitle: 'Manage your account settings' };
     if (pathname === '/dashboard/system-settings') return { title: 'System Settings', subtitle: 'Configure application settings' };

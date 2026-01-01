@@ -13,6 +13,7 @@ import {
   ArrowRightOnRectangleIcon,
   TrophyIcon,
   MagnifyingGlassIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Rules', href: '/dashboard/rules', icon: BookOpenIcon },
   { name: 'Staff Roster', href: '/dashboard/staff', icon: UserGroupIcon },
   { name: 'Leaderboard', href: '/dashboard/leaderboard', icon: TrophyIcon },
+  { name: 'Server Time', href: '/dashboard/leaderboard/server-time', icon: ClockIcon },
 ];
 
 export function Sidebar() {
