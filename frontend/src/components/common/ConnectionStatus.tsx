@@ -18,6 +18,7 @@ export function ConnectionStatus({ showLabel = true, className = '' }: Connectio
       bgColor: 'bg-green-400/20',
       label: 'Live',
       dotColor: 'bg-green-400',
+      animate: false,
     },
     connecting: {
       icon: ArrowPathIcon,
@@ -41,6 +42,7 @@ export function ConnectionStatus({ showLabel = true, className = '' }: Connectio
       bgColor: 'bg-red-400/20',
       label: 'Offline',
       dotColor: 'bg-red-400',
+      animate: false,
     },
   };
 
