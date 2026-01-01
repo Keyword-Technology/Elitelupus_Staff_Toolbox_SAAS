@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .discord_service import get_bot_instance, sync_discord_statuses
-from .models import (ServerSession, ServerSessionAggregate, StaffRoster,
+from .models import (ServerSession, ServerSessionAggregate, Staff, StaffRoster,
                      StaffSyncLog)
 from .serializers import (RolePrioritySerializer,
                           ServerSessionAggregateSerializer,
@@ -302,3 +302,52 @@ class StaffStatsView(APIView):
             'period_type': period_type,
             'aggregates': ServerSessionAggregateSerializer(aggregates, many=True).data
         })
+
+
+class BackfillLastSeenView(APIView):
+    """Backfill last_seen timestamps for staff members based on server sessions."""
+    permission_classes = [permissions.IsAuthenticated, IsManager]
+    
+    def post(self, request):
+        """
+        Backfill last_seen timestamps for all staff members.
+        This updates Staff.last_seen based on their most recent ServerSession.leave_time.
+        """
+        from django.utils import timezone
+
+        # Get all staff members
+        all_staff = Staff.objects.all()
+        updated_count = 0
+        skipped_count = 0
+        errors = []
+        
+        for staff in all_staff:
+            try:
+                # Find their most recent session with a leave time
+                most_recent_session = ServerSession.objects.filter(
+                    staff=staff,
+                    leave_time__isnull=False
+                ).order_by('-leave_time').first()
+                
+                if most_recent_session:
+                    # Update last_seen if it's None or older than the session leave_time
+                    if staff.last_seen is None or staff.last_seen < most_recent_session.leave_time:
+                        staff.last_seen = most_recent_session.leave_time
+                        staff.save(update_fields=['last_seen'])
+                        updated_count += 1
+                    else:
+                        skipped_count += 1
+                else:
+                    skipped_count += 1
+            except Exception as e:
+                errors.append(f"Error updating {staff.name}: {str(e)}")
+                skipped_count += 1
+        
+        return Response({
+            'success': True,
+            'updated': updated_count,
+            'skipped': skipped_count,
+            'total': all_staff.count(),
+            'errors': errors,
+            'message': f'Successfully updated {updated_count} staff members'
+        }, status=status.HTTP_200_OK)
