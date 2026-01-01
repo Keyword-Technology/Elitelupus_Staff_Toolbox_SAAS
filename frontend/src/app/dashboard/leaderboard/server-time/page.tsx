@@ -15,7 +15,8 @@ import toast from 'react-hot-toast';
 
 interface LeaderboardEntry {
   rank: number;
-  staff_id: string;
+  staff_id: number;
+  steam_id: string;
   name: string;
   role: string;
   role_color: string;

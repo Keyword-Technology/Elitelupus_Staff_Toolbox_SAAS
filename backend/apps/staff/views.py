@@ -646,7 +646,8 @@ class ServerTimeLeaderboardView(APIView):
             minutes = (total_seconds % 3600) // 60
             
             leaderboard.append({
-                'staff_id': staff_id,
+                'staff_id': roster.id,  # Use roster ID for navigation, not steam_id
+                'steam_id': staff_id,
                 'name': data['staff'].name,
                 'role': roster.rank,
                 'role_color': settings.STAFF_ROLE_COLORS.get(roster.rank, '#808080'),
