@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { rulesAPI } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import Link from 'next/link';
 import {
   BookOpenIcon,
   MagnifyingGlassIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   BriefcaseIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -48,6 +51,7 @@ interface JobRule {
 }
 
 export default function RulesPage() {
+  const { hasMinRole } = useAuth();
   const [categories, setCategories] = useState<RuleCategory[]>([]);
   const [jobRules, setJobRules] = useState<JobRule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +60,9 @@ export default function RulesPage() {
   const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
   const [activeTab, setActiveTab] = useState<'general' | 'jobs'>('general');
   const [searching, setSearching] = useState(false);
+
+  // Check if user can manage rules (Manager+ = priority <= 10)
+  const canManageRules = hasMinRole(10);
 
   useEffect(() => {
     fetchData();
@@ -120,6 +127,19 @@ export default function RulesPage() {
 
   return (
     <div className="space-y-6">
+
+      {/* Manager Actions */}
+      {canManageRules && (
+        <div className="flex justify-end">
+          <Link
+            href="/dashboard/rules/manage"
+            className="btn-primary flex items-center gap-2"
+          >
+            <Cog6ToothIcon className="w-5 h-5" />
+            Manage Rules
+          </Link>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-4 border-b border-dark-border">

@@ -42,6 +42,11 @@ app.conf.beat_schedule = {
         'task': 'apps.counters.tasks.check_daily_reset',
         'schedule': crontab(hour=0, minute=0),  # Every day at midnight
     },
+    # Expire Steam profile notes every 5 minutes
+    'expire-steam-profile-notes': {
+        'task': 'apps.templates_manager.tasks.expire_steam_profile_notes',
+        'schedule': 300.0,  # Every 5 minutes (300 seconds)
+    },
 }
 
 
