@@ -240,9 +240,6 @@ class StaffSyncService:
                     staff.current_role = data['rank']
                     staff.current_role_priority = settings.STAFF_ROLE_PRIORITIES.get(data['rank'], 999)
                     staff.staff_status = 'active'
-                    staff.last_seen = timezone.now()
-                    staff.save()
-                    staff.last_seen = timezone.now()
                     staff.save()
                 
                 # Now find or create StaffRoster entry
