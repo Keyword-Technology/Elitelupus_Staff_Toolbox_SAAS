@@ -86,6 +86,10 @@ export const staffAPI = {
   details: (id: number) => api.get(`/staff/roster/${id}/details/`),
   sessions: (id: number, params?: string) => api.get(`/staff/roster/${id}/sessions/${params || ''}`),
   stats: (id: number, params?: string) => api.get(`/staff/roster/${id}/stats/${params || ''}`),
+  dailyBreakdown: (id: string | number, weekOffset?: number) => 
+    api.get(`/staff/roster/${id}/daily-breakdown/`, { params: { week_offset: weekOffset || 0 } }),
+  serverTimeLeaderboard: (period?: string, offset?: number) =>
+    api.get('/staff/server-time-leaderboard/', { params: { period: period || 'weekly', offset: offset || 0 } }),
 };
 
 export const counterAPI = {

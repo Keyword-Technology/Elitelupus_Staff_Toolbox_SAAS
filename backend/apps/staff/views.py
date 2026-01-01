@@ -563,3 +563,239 @@ class FixLastSeenView(APIView):
             'errors': errors,
             'message': f'Fixed {fixed_with_session + fixed_without_session} staff members ({fixed_with_session} with sessions, {fixed_without_session} without sessions set to Never)'
         }, status=status.HTTP_200_OK)
+
+
+class ServerTimeLeaderboardView(APIView):
+    """Get leaderboard for server time (weekly/monthly)."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        from datetime import timedelta
+
+        from django.db.models import Sum
+        from django.utils import timezone
+
+        period = request.query_params.get('period', 'weekly')  # 'weekly' or 'monthly'
+        offset = int(request.query_params.get('offset', 0))  # 0 = current, 1 = previous, etc.
+        
+        now = timezone.now()
+        
+        if period == 'weekly':
+            # Calculate week start (Monday)
+            week_start = now - timedelta(days=now.weekday())
+            week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            # Apply offset
+            week_start = week_start - timedelta(weeks=offset)
+            week_end = week_start + timedelta(days=6, hours=23, minutes=59, seconds=59)
+            
+            period_start = week_start
+            period_end = week_end
+            period_label = f"Week of {week_start.strftime('%b %d, %Y')}"
+            
+        else:  # monthly
+            # Calculate month start
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            # Apply offset
+            for _ in range(offset):
+                month_start = (month_start - timedelta(days=1)).replace(day=1)
+            
+            # Calculate month end
+            next_month = month_start.replace(day=28) + timedelta(days=4)
+            month_end = next_month.replace(day=1) - timedelta(seconds=1)
+            
+            period_start = month_start
+            period_end = month_end
+            period_label = month_start.strftime('%B %Y')
+        
+        # Query sessions within the period
+        sessions = ServerSession.objects.filter(
+            join_time__gte=period_start,
+            join_time__lte=period_end,
+            leave_time__isnull=False  # Only completed sessions
+        ).select_related('staff')
+        
+        # Aggregate by staff
+        staff_times = {}
+        for session in sessions:
+            staff_id = session.staff_id
+            if staff_id not in staff_times:
+                staff_times[staff_id] = {
+                    'staff': session.staff,
+                    'total_seconds': 0,
+                    'session_count': 0,
+                }
+            staff_times[staff_id]['total_seconds'] += session.duration
+            staff_times[staff_id]['session_count'] += 1
+        
+        # Get roster info for active staff
+        roster_map = {}
+        for roster in StaffRoster.objects.filter(is_active=True).select_related('staff'):
+            roster_map[roster.staff_id] = roster
+        
+        # Build leaderboard
+        leaderboard = []
+        for staff_id, data in staff_times.items():
+            roster = roster_map.get(staff_id)
+            if not roster:
+                continue  # Skip non-active staff
+                
+            total_seconds = data['total_seconds']
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            
+            leaderboard.append({
+                'staff_id': staff_id,
+                'name': data['staff'].name,
+                'role': roster.rank,
+                'role_color': settings.STAFF_ROLE_COLORS.get(roster.rank, '#808080'),
+                'role_priority': roster.rank_priority,
+                'total_seconds': total_seconds,
+                'total_time_formatted': f"{hours}h {minutes}m" if hours > 0 else f"{minutes}m",
+                'session_count': data['session_count'],
+                'avg_session_seconds': total_seconds // data['session_count'] if data['session_count'] > 0 else 0,
+            })
+        
+        # Sort by total time (descending)
+        leaderboard.sort(key=lambda x: x['total_seconds'], reverse=True)
+        
+        # Add ranks
+        for i, entry in enumerate(leaderboard):
+            entry['rank'] = i + 1
+        
+        return Response({
+            'period': period,
+            'period_label': period_label,
+            'period_start': period_start.isoformat(),
+            'period_end': period_end.isoformat(),
+            'offset': offset,
+            'leaderboard': leaderboard,
+        })
+
+
+class StaffDailyBreakdownView(APIView):
+    """Get daily server time breakdown for a staff member (Mon-Sun)."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, pk):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        week_offset = int(request.query_params.get('week_offset', 0))  # 0 = current, 1 = last week
+        
+        now = timezone.now()
+        
+        # Calculate week start (Monday) for current week
+        current_week_start = now - timedelta(days=now.weekday())
+        current_week_start = current_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Calculate the requested week
+        requested_week_start = current_week_start - timedelta(weeks=week_offset)
+        requested_week_end = requested_week_start + timedelta(days=6, hours=23, minutes=59, seconds=59)
+        
+        # Calculate previous week for comparison
+        previous_week_start = requested_week_start - timedelta(weeks=1)
+        previous_week_end = previous_week_start + timedelta(days=6, hours=23, minutes=59, seconds=59)
+        
+        # Get staff member
+        try:
+            staff = Staff.objects.get(steam_id=pk)
+        except Staff.DoesNotExist:
+            # Try by roster ID
+            try:
+                roster = StaffRoster.objects.get(pk=pk)
+                staff = roster.staff
+            except StaffRoster.DoesNotExist:
+                return Response({'error': 'Staff not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get sessions for current and previous week
+        current_sessions = ServerSession.objects.filter(
+            staff=staff,
+            join_time__gte=requested_week_start,
+            join_time__lte=requested_week_end,
+            leave_time__isnull=False
+        )
+        
+        previous_sessions = ServerSession.objects.filter(
+            staff=staff,
+            join_time__gte=previous_week_start,
+            join_time__lte=previous_week_end,
+            leave_time__isnull=False
+        )
+        
+        # Initialize daily breakdown
+        days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        current_breakdown = {i: 0 for i in range(7)}  # 0=Mon, 6=Sun
+        previous_breakdown = {i: 0 for i in range(7)}
+        
+        # Aggregate current week sessions by day
+        for session in current_sessions:
+            day_of_week = session.join_time.weekday()
+            current_breakdown[day_of_week] += session.duration
+        
+        # Aggregate previous week sessions by day
+        for session in previous_sessions:
+            day_of_week = session.join_time.weekday()
+            previous_breakdown[day_of_week] += session.duration
+        
+        # Find max day
+        max_seconds = max(current_breakdown.values()) if current_breakdown else 0
+        max_day = None
+        if max_seconds > 0:
+            for day_num, seconds in current_breakdown.items():
+                if seconds == max_seconds:
+                    max_day = day_num
+                    break
+        
+        # Format results
+        daily_data = []
+        total_current = 0
+        total_previous = 0
+        
+        for day_num in range(7):
+            current_secs = current_breakdown[day_num]
+            previous_secs = previous_breakdown[day_num]
+            
+            total_current += current_secs
+            total_previous += previous_secs
+            
+            # Format time
+            current_hours = current_secs // 3600
+            current_mins = (current_secs % 3600) // 60
+            previous_hours = previous_secs // 3600
+            previous_mins = (previous_secs % 3600) // 60
+            
+            daily_data.append({
+                'day': days[day_num],
+                'day_short': days[day_num][:3],
+                'day_number': day_num,
+                'current_seconds': current_secs,
+                'current_formatted': f"{current_hours}h {current_mins}m" if current_hours > 0 else f"{current_mins}m",
+                'previous_seconds': previous_secs,
+                'previous_formatted': f"{previous_hours}h {previous_mins}m" if previous_hours > 0 else f"{previous_mins}m",
+                'is_max': day_num == max_day,
+            })
+        
+        # Format totals
+        total_current_hours = total_current // 3600
+        total_current_mins = (total_current % 3600) // 60
+        total_previous_hours = total_previous // 3600
+        total_previous_mins = (total_previous % 3600) // 60
+        
+        return Response({
+            'staff_id': staff.steam_id,
+            'staff_name': staff.name,
+            'week_offset': week_offset,
+            'week_start': requested_week_start.isoformat(),
+            'week_end': requested_week_end.isoformat(),
+            'week_label': f"Week of {requested_week_start.strftime('%b %d')}",
+            'previous_week_label': f"Week of {previous_week_start.strftime('%b %d')}",
+            'daily_breakdown': daily_data,
+            'total_current_seconds': total_current,
+            'total_current_formatted': f"{total_current_hours}h {total_current_mins}m" if total_current_hours > 0 else f"{total_current_mins}m",
+            'total_previous_seconds': total_previous,
+            'total_previous_formatted': f"{total_previous_hours}h {total_previous_mins}m" if total_previous_hours > 0 else f"{total_previous_mins}m",
+            'max_day': days[max_day] if max_day is not None else None,
+        })

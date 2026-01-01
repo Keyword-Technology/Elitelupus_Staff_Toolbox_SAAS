@@ -14,6 +14,8 @@ import {
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   ArrowRightIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -74,6 +76,33 @@ interface ServerSession {
   is_active: boolean;
 }
 
+interface DailyBreakdownDay {
+  day: string;
+  day_short: string;
+  day_number: number;
+  current_seconds: number;
+  current_formatted: string;
+  previous_seconds: number;
+  previous_formatted: string;
+  is_max: boolean;
+}
+
+interface DailyBreakdownData {
+  staff_id: string;
+  staff_name: string;
+  week_offset: number;
+  week_start: string;
+  week_end: string;
+  week_label: string;
+  previous_week_label: string;
+  daily_breakdown: DailyBreakdownDay[];
+  total_current_seconds: number;
+  total_current_formatted: string;
+  total_previous_seconds: number;
+  total_previous_formatted: string;
+  max_day: string | null;
+}
+
 export default function StaffDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -83,12 +112,23 @@ export default function StaffDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [details, setDetails] = useState<StaffDetails | null>(null);
   const [sessionsFilter, setSessionsFilter] = useState<'all' | 'active'>('all');
-
+  
+  // Daily breakdown state
+  const [dailyBreakdown, setDailyBreakdown] = useState<DailyBreakdownData | null>(null);
+  const [breakdownLoading, setBreakdownLoading] = useState(true);
+  const [weekOffset, setWeekOffset] = useState(0);
   useEffect(() => {
     if (staffId) {
       fetchDetails();
     }
   }, [staffId]);
+
+  // Fetch daily breakdown when staffId or weekOffset changes
+  useEffect(() => {
+    if (staffId) {
+      fetchDailyBreakdown();
+    }
+  }, [staffId, weekOffset]);
 
   const fetchDetails = async () => {
     try {
@@ -103,6 +143,18 @@ export default function StaffDetailsPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDailyBreakdown = async () => {
+    setBreakdownLoading(true);
+    try {
+      const response = await staffAPI.dailyBreakdown(Number(staffId), weekOffset);
+      setDailyBreakdown(response.data);
+    } catch (error) {
+      console.error('Failed to fetch daily breakdown:', error);
+    } finally {
+      setBreakdownLoading(false);
     }
   };
 
@@ -326,6 +378,118 @@ export default function StaffDetailsPage() {
           </div>
         </div>
       )}
+
+      {/* Weekly Activity Breakdown */}
+      <div className="bg-dark-card rounded-lg border border-dark-border p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">Weekly Activity</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setWeekOffset(weekOffset + 1)}
+              className="p-1 text-gray-400 hover:text-white transition-colors"
+              title="Previous week"
+            >
+              <ChevronLeftIcon className="h-5 w-5" />
+            </button>
+            <span className="text-sm text-gray-400 min-w-[150px] text-center">
+              {dailyBreakdown?.week_label || 'Loading...'}
+            </span>
+            <button
+              onClick={() => setWeekOffset(Math.max(0, weekOffset - 1))}
+              disabled={weekOffset === 0}
+              className={`p-1 transition-colors ${
+                weekOffset === 0
+                  ? 'text-gray-600 cursor-not-allowed'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+              title="Next week"
+            >
+              <ChevronRightIcon className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {breakdownLoading ? (
+          <div className="flex items-center justify-center h-48">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-500"></div>
+          </div>
+        ) : dailyBreakdown ? (
+          <div className="space-y-4">
+            {/* Daily bars */}
+            <div className="grid grid-cols-7 gap-2">
+              {dailyBreakdown.daily_breakdown.map((day) => {
+                const maxSeconds = Math.max(
+                  ...dailyBreakdown.daily_breakdown.map(d => Math.max(d.current_seconds, d.previous_seconds))
+                );
+                const currentHeight = maxSeconds > 0 ? (day.current_seconds / maxSeconds) * 100 : 0;
+                const previousHeight = maxSeconds > 0 ? (day.previous_seconds / maxSeconds) * 100 : 0;
+                
+                return (
+                  <div key={day.day_number} className="flex flex-col items-center">
+                    {/* Bar container */}
+                    <div className="relative w-full h-32 flex items-end justify-center gap-1">
+                      {/* Previous week bar (grey) */}
+                      <div
+                        className="w-3 bg-gray-700 rounded-t transition-all duration-300"
+                        style={{ height: `${previousHeight}%`, minHeight: day.previous_seconds > 0 ? '4px' : '0' }}
+                        title={`Previous: ${day.previous_formatted}`}
+                      />
+                      {/* Current week bar */}
+                      <div
+                        className={`w-3 rounded-t transition-all duration-300 ${
+                          day.is_max ? 'bg-yellow-500' : 'bg-primary-500'
+                        }`}
+                        style={{ height: `${currentHeight}%`, minHeight: day.current_seconds > 0 ? '4px' : '0' }}
+                        title={`Current: ${day.current_formatted}`}
+                      />
+                    </div>
+                    {/* Day label */}
+                    <div className={`mt-2 text-xs font-medium ${day.is_max ? 'text-yellow-500' : 'text-gray-400'}`}>
+                      {day.day_short}
+                    </div>
+                    {/* Current hours */}
+                    <div className={`text-xs ${day.is_max ? 'text-yellow-500 font-semibold' : 'text-white'}`}>
+                      {day.current_formatted || '0h'}
+                    </div>
+                    {/* Previous week hours (grey/small) */}
+                    <div className="text-[10px] text-gray-500">
+                      {day.previous_formatted || '0h'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Legend and totals */}
+            <div className="flex items-center justify-between pt-4 border-t border-dark-border">
+              <div className="flex items-center gap-4 text-xs">
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-primary-500 rounded" />
+                  <span className="text-gray-400">Current Week</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-gray-700 rounded" />
+                  <span className="text-gray-400">Previous Week</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 bg-yellow-500 rounded" />
+                  <span className="text-gray-400">Best Day</span>
+                </div>
+              </div>
+              <div className="text-sm">
+                <span className="text-white font-medium">{dailyBreakdown.total_current_formatted}</span>
+                <span className="text-gray-500 ml-2">
+                  (prev: {dailyBreakdown.total_previous_formatted})
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-400">
+            No activity data available
+          </div>
+        )}
+      </div>
 
       {/* Recent Sessions */}
       <div className="bg-dark-card rounded-lg border border-dark-border">
