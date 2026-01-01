@@ -9,8 +9,10 @@ import {
   LinkIcon,
   GlobeAltIcon,
   BellIcon,
+  VideoCameraIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { sitAPI } from '@/lib/api';
 
 const API_URL = typeof window !== 'undefined' 
   ? (process.env.NEXT_PUBLIC_API_URL || '')
@@ -30,12 +32,26 @@ interface Timezone {
   label: string;
 }
 
+interface UserSitPreferences {
+  recording_enabled: boolean;
+  ocr_enabled: boolean;
+  auto_start_recording: boolean;
+  auto_stop_recording: boolean;
+  ocr_scan_interval_ms: number;
+  ocr_popup_region_enabled: boolean;
+  ocr_chat_region_enabled: boolean;
+  video_quality: 'low' | 'medium' | 'high';
+  max_recording_minutes: number;
+  show_recording_preview: boolean;
+  confirm_before_start: boolean;
+}
+
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [socialStatus, setSocialStatus] = useState<SocialStatus | null>(null);
   const [timezones, setTimezones] = useState<Timezone[]>([]);
-  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'social'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'social' | 'sit-recording'>('profile');
   
   // Profile form
   const [profileForm, setProfileForm] = useState({
@@ -54,6 +70,11 @@ export default function SettingsPage() {
   });
   const [savingPassword, setSavingPassword] = useState(false);
 
+  // Sit recording preferences
+  const [sitPreferences, setSitPreferences] = useState<UserSitPreferences | null>(null);
+  const [savingSitPrefs, setSavingSitPrefs] = useState(false);
+  const [sitRecordingSystemEnabled, setSitRecordingSystemEnabled] = useState(false);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -71,14 +92,18 @@ export default function SettingsPage() {
 
   const fetchData = async () => {
     try {
-      const [socialRes, tzRes] = await Promise.all([
+      const [socialRes, tzRes, sitEnabledRes, sitPrefsRes] = await Promise.all([
         authAPI.socialStatus(),
         authAPI.timezones(),
+        sitAPI.isEnabled().catch(() => ({ data: { system_enabled: false } })),
+        sitAPI.getPreferences().catch(() => ({ data: null })),
       ]);
       setSocialStatus(socialRes.data);
       // Ensure we have an array, fallback to a safe default
       const tzData = Array.isArray(tzRes.data) ? tzRes.data : [];
       setTimezones(tzData);
+      setSitRecordingSystemEnabled(sitEnabledRes.data?.system_enabled || false);
+      setSitPreferences(sitPrefsRes.data);
     } catch (error) {
       toast.error('Failed to load settings');
       console.error('Settings fetch error:', error);
@@ -120,6 +145,20 @@ export default function SettingsPage() {
       toast.error(error.response?.data?.message || 'Failed to change password');
     } finally {
       setSavingPassword(false);
+    }
+  };
+
+  const handleSaveSitPreferences = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sitPreferences) return;
+    setSavingSitPrefs(true);
+    try {
+      await sitAPI.updatePreferences(sitPreferences);
+      toast.success('Sit recording preferences updated');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update preferences');
+    } finally {
+      setSavingSitPrefs(false);
     }
   };
 
@@ -180,6 +219,17 @@ export default function SettingsPage() {
         >
           <LinkIcon className="w-5 h-5" />
           Connected Accounts
+        </button>
+        <button
+          onClick={() => setActiveTab('sit-recording')}
+          className={`pb-3 px-1 font-medium transition-colors flex items-center gap-2 ${
+            activeTab === 'sit-recording'
+              ? 'text-primary-400 border-b-2 border-primary-400'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          <VideoCameraIcon className="w-5 h-5" />
+          Sit Recording
         </button>
       </div>
 
@@ -442,6 +492,289 @@ export default function SettingsPage() {
               notifications and role sync.
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Sit Recording Tab */}
+      {activeTab === 'sit-recording' && (
+        <div className="bg-dark-card rounded-lg border border-dark-border p-6">
+          <h2 className="text-lg font-semibold text-white mb-6">
+            Sit Recording Preferences
+          </h2>
+
+          {!sitRecordingSystemEnabled ? (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+              <p className="text-yellow-400 text-sm">
+                ⚠️ Sit recording is currently disabled system-wide. Contact an administrator to enable this feature.
+              </p>
+            </div>
+          ) : !sitPreferences ? (
+            <div className="animate-pulse space-y-4">
+              <div className="h-12 bg-dark-bg rounded"></div>
+              <div className="h-12 bg-dark-bg rounded"></div>
+              <div className="h-12 bg-dark-bg rounded"></div>
+            </div>
+          ) : (
+            <form onSubmit={handleSaveSitPreferences} className="space-y-6 max-w-2xl">
+              {/* Master Toggle */}
+              <div className="pb-4 border-b border-dark-border">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <span className="text-base font-medium text-white">
+                      Enable Sit Recording Feature
+                    </span>
+                    <p className="text-sm text-gray-400 mt-1">
+                      Master toggle for the entire sit recording system
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={sitPreferences.recording_enabled}
+                    onChange={(e) =>
+                      setSitPreferences({ ...sitPreferences, recording_enabled: e.target.checked })
+                    }
+                    className="w-5 h-5 text-primary-600 bg-dark-bg border-gray-600 rounded focus:ring-primary-500 focus:ring-2"
+                  />
+                </label>
+              </div>
+
+              {/* OCR Detection Section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+                  Auto-Detection (OCR)
+                </h3>
+                
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <span className="text-sm font-medium text-gray-300">
+                      Enable OCR Auto-Detection
+                    </span>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Automatically detect sit events by scanning your screen
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={sitPreferences.ocr_enabled}
+                    onChange={(e) =>
+                      setSitPreferences({ ...sitPreferences, ocr_enabled: e.target.checked })
+                    }
+                    disabled={!sitPreferences.recording_enabled}
+                    className="w-4 h-4 text-primary-600 bg-dark-bg border-gray-600 rounded focus:ring-primary-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </label>
+
+                {sitPreferences.ocr_enabled && (
+                  <div className="ml-6 space-y-3 pl-4 border-l-2 border-gray-700">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={sitPreferences.ocr_popup_region_enabled}
+                        onChange={(e) =>
+                          setSitPreferences({ ...sitPreferences, ocr_popup_region_enabled: e.target.checked })
+                        }
+                        disabled={!sitPreferences.recording_enabled}
+                        className="w-4 h-4 text-primary-600 bg-dark-bg border-gray-600 rounded focus:ring-primary-500 focus:ring-2 disabled:opacity-50"
+                      />
+                      <span className="text-sm text-gray-300">Scan report popup area</span>
+                    </label>
+
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={sitPreferences.ocr_chat_region_enabled}
+                        onChange={(e) =>
+                          setSitPreferences({ ...sitPreferences, ocr_chat_region_enabled: e.target.checked })
+                        }
+                        disabled={!sitPreferences.recording_enabled}
+                        className="w-4 h-4 text-primary-600 bg-dark-bg border-gray-600 rounded focus:ring-primary-500 focus:ring-2 disabled:opacity-50"
+                      />
+                      <span className="text-sm text-gray-300">Scan chat area</span>
+                    </label>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        OCR Scan Interval: {sitPreferences.ocr_scan_interval_ms}ms
+                      </label>
+                      <input
+                        type="range"
+                        min="500"
+                        max="5000"
+                        step="500"
+                        value={sitPreferences.ocr_scan_interval_ms}
+                        onChange={(e) =>
+                          setSitPreferences({ ...sitPreferences, ocr_scan_interval_ms: parseInt(e.target.value) })
+                        }
+                        disabled={!sitPreferences.recording_enabled}
+                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Lower = more frequent scans (higher CPU usage)
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Recording Section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+                  Screen Recording
+                </h3>
+
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <span className="text-sm font-medium text-gray-300">
+                      Auto-Start Recording
+                    </span>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Automatically start recording when a sit is detected
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={sitPreferences.auto_start_recording}
+                    onChange={(e) =>
+                      setSitPreferences({ ...sitPreferences, auto_start_recording: e.target.checked })
+                    }
+                    disabled={!sitPreferences.recording_enabled || !sitPreferences.ocr_enabled}
+                    className="w-4 h-4 text-primary-600 bg-dark-bg border-gray-600 rounded focus:ring-primary-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <span className="text-sm font-medium text-gray-300">
+                      Auto-Stop Recording
+                    </span>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Automatically stop recording when sit is closed
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={sitPreferences.auto_stop_recording}
+                    onChange={(e) =>
+                      setSitPreferences({ ...sitPreferences, auto_stop_recording: e.target.checked })
+                    }
+                    disabled={!sitPreferences.recording_enabled || !sitPreferences.ocr_enabled}
+                    className="w-4 h-4 text-primary-600 bg-dark-bg border-gray-600 rounded focus:ring-primary-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </label>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Video Quality
+                  </label>
+                  <select
+                    value={sitPreferences.video_quality}
+                    onChange={(e) =>
+                      setSitPreferences({ ...sitPreferences, video_quality: e.target.value as 'low' | 'medium' | 'high' })
+                    }
+                    disabled={!sitPreferences.recording_enabled}
+                    className="input w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="low">Low (1 Mbps) - Smaller files</option>
+                    <option value="medium">Medium (2.5 Mbps) - Balanced</option>
+                    <option value="high">High (5 Mbps) - Best quality</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Higher quality = larger file sizes
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Max Recording Duration: {sitPreferences.max_recording_minutes} minutes
+                  </label>
+                  <input
+                    type="range"
+                    min="5"
+                    max="120"
+                    step="5"
+                    value={sitPreferences.max_recording_minutes}
+                    onChange={(e) =>
+                      setSitPreferences({ ...sitPreferences, max_recording_minutes: parseInt(e.target.value) })
+                    }
+                    disabled={!sitPreferences.recording_enabled}
+                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Recording will automatically stop after this duration
+                  </p>
+                </div>
+              </div>
+
+              {/* UI Settings */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
+                  Interface Options
+                </h3>
+
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <span className="text-sm font-medium text-gray-300">
+                      Show Recording Preview
+                    </span>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Display small preview of recording in the UI
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={sitPreferences.show_recording_preview}
+                    onChange={(e) =>
+                      setSitPreferences({ ...sitPreferences, show_recording_preview: e.target.checked })
+                    }
+                    disabled={!sitPreferences.recording_enabled}
+                    className="w-4 h-4 text-primary-600 bg-dark-bg border-gray-600 rounded focus:ring-primary-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <span className="text-sm font-medium text-gray-300">
+                      Confirm Before Auto-Start
+                    </span>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Show confirmation popup before automatically starting recording
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={sitPreferences.confirm_before_start}
+                    onChange={(e) =>
+                      setSitPreferences({ ...sitPreferences, confirm_before_start: e.target.checked })
+                    }
+                    disabled={!sitPreferences.recording_enabled}
+                    className="w-4 h-4 text-primary-600 bg-dark-bg border-gray-600 rounded focus:ring-primary-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </label>
+              </div>
+
+              {/* Info Box */}
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                <p className="text-blue-400 text-sm mb-2">
+                  💡 <strong>Use Case:</strong> Want auto-detection without recording?
+                </p>
+                <p className="text-blue-300 text-sm">
+                  Enable <strong>OCR Auto-Detection</strong> but disable <strong>Auto-Start Recording</strong>. 
+                  You'll get notifications when sits are detected, but won't start recording automatically. 
+                  You can then manually start recording if needed.
+                </p>
+              </div>
+
+              <div className="pt-4">
+                <button
+                  type="submit"
+                  disabled={savingSitPrefs || !sitPreferences.recording_enabled}
+                  className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingSitPrefs ? 'Saving...' : 'Save Preferences'}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       )}
     </div>

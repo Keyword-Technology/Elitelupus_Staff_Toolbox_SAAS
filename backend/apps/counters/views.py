@@ -269,12 +269,8 @@ class SitRecordingEnabledView(APIView):
     def get(self, request):
         from apps.system_settings.models import SystemSetting
 
-        # Check system-wide setting
-        try:
-            system_enabled = SystemSetting.objects.get(key='sit_recording_enabled')
-            system_enabled = system_enabled.typed_value if system_enabled.is_active else False
-        except SystemSetting.DoesNotExist:
-            system_enabled = True  # Default to enabled
+        # Check system-wide setting using the static method
+        system_enabled = SystemSetting.get_setting_value('sit_recording_enabled', default=True)
         
         # Check user preference
         user_prefs, _ = UserSitPreferences.objects.get_or_create(user=request.user)
