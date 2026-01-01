@@ -17,13 +17,14 @@ django_asgi_app = get_asgi_application()
 from apps.accounts.middleware import JWTAuthMiddlewareStack
 from apps.counters.routing import websocket_urlpatterns as counter_ws
 from apps.servers.routing import websocket_urlpatterns as server_ws
+from apps.staff.routing import websocket_urlpatterns as staff_ws
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
     "websocket": AllowedHostsOriginValidator(
         JWTAuthMiddlewareStack(
             URLRouter(
-                counter_ws + server_ws
+                counter_ws + server_ws + staff_ws
             )
         )
     ),

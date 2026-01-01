@@ -170,11 +170,13 @@ class ServerQueryService:
             if is_staff and steam_id:
                 new_staff[steam_id] = staff_entry
         
-        # Track session changes
+        # Track session changes and broadcast staff online status
         self._track_session_changes(server, current_staff, new_staff)
     
     def _track_session_changes(self, server, old_staff, new_staff):
         """Track staff join/leave events and update sessions."""
+        from apps.staff.consumers import broadcast_staff_online_change
+        
         now = timezone.now()
         
         # Find staff who left (were in old but not in new)
@@ -192,6 +194,32 @@ class ServerQueryService:
                 active_session.calculate_duration()
                 active_session.save()
                 logger.info(f"Closed session for {active_session.staff.name} on {server.name}")
+                
+                # Update staff roster online status
+                staff_entry = active_session.staff
+                
+                # Check if staff is still on another server
+                still_online = ServerSession.objects.filter(
+                    staff=staff_entry,
+                    leave_time__isnull=True
+                ).exists()
+                
+                if not still_online:
+                    staff_entry.is_online = False
+                    staff_entry.server_name = None
+                    staff_entry.server_id = None
+                    staff_entry.save(update_fields=['is_online', 'server_name', 'server_id'])
+                    
+                    # Broadcast staff went offline
+                    try:
+                        broadcast_staff_online_change(
+                            staff_id=staff_entry.id,
+                            is_online=False,
+                            server_name=None,
+                            server_id=None
+                        )
+                    except Exception as e:
+                        logger.warning(f"Could not broadcast staff offline: {e}")
         
         # Find staff who joined (in new but not in old)
         joined_staff = set(new_staff.keys()) - set(old_staff.keys())
@@ -215,6 +243,23 @@ class ServerQueryService:
                     player_name=staff_entry.name
                 )
                 logger.info(f"Started session for {staff_entry.name} on {server.name}")
+                
+                # Update staff roster online status
+                staff_entry.is_online = True
+                staff_entry.server_name = server.name
+                staff_entry.server_id = server.id
+                staff_entry.save(update_fields=['is_online', 'server_name', 'server_id'])
+                
+                # Broadcast staff came online
+                try:
+                    broadcast_staff_online_change(
+                        staff_id=staff_entry.id,
+                        is_online=True,
+                        server_name=server.name,
+                        server_id=server.id
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not broadcast staff online: {e}")
     
     def query_all_servers(self):
         """Query all active servers and return a list payload safe for WebSocket serialization."""

@@ -5,13 +5,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { counterAPI, serverAPI } from '@/lib/api';
 import { CounterCard } from '@/components/counters/CounterCard';
 import { ServerStatusCard } from '@/components/servers/ServerStatusCard';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useWebSocket } from '@/contexts/WebSocketContext';
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { onCounterUpdate } = useWebSocket();
+  const { onCounterUpdate, onServerUpdate, connectionStatus } = useWebSocket();
+  const [servers, setServers] = useState<any[]>([]);
 
   const { data: counters } = useQuery({
     queryKey: ['counters'],
@@ -29,14 +30,32 @@ export default function DashboardPage() {
     },
   });
 
-  const { data: serverStatus } = useQuery({
-    queryKey: ['server-status'],
-    queryFn: async () => {
-      const response = await serverAPI.status();
-      return response.data;
-    },
-    refetchInterval: 60000, // Refresh every minute
-  });
+  // Initial server fetch
+  useEffect(() => {
+    serverAPI.status().then((res) => {
+      setServers(res.data);
+    }).catch(() => {
+      // Fallback silently
+    });
+  }, []);
+
+  // Handle real-time server updates
+  useEffect(() => {
+    const unsubscribe = onServerUpdate((data) => {
+      if (data.type === 'status_update' && data.data) {
+        setServers(data.data);
+      } else if (data.type === 'initial_data' && data.data) {
+        setServers(data.data);
+      } else if (data.type === 'server_update') {
+        setServers((prev) =>
+          prev.map((s) =>
+            s.id === data.server_id ? { ...s, ...data.status } : s
+          )
+        );
+      }
+    });
+    return unsubscribe;
+  }, [onServerUpdate]);
 
   useEffect(() => {
     const unsubscribe = onCounterUpdate(() => {
@@ -97,9 +116,27 @@ export default function DashboardPage() {
 
       {/* Server Status */}
       <div>
-        <h2 className="text-lg font-semibold text-white mb-4">Server Status</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">Server Status</h2>
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-dark-bg text-xs">
+            <span className={`w-2 h-2 rounded-full ${
+              connectionStatus === 'connected' ? 'bg-green-400' :
+              connectionStatus === 'reconnecting' ? 'bg-yellow-400 animate-pulse' :
+              'bg-red-400'
+            }`} />
+            <span className={
+              connectionStatus === 'connected' ? 'text-green-400' :
+              connectionStatus === 'reconnecting' ? 'text-yellow-400' :
+              'text-red-400'
+            }>
+              {connectionStatus === 'connected' ? 'Live Updates' :
+               connectionStatus === 'reconnecting' ? 'Reconnecting...' :
+               'Offline'}
+            </span>
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {serverStatus?.map((server: any) => (
+          {servers.map((server: any) => (
             <ServerStatusCard key={server.id} server={server} />
           ))}
         </div>

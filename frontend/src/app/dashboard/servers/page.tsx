@@ -10,6 +10,7 @@ import {
   ServerIcon,
   UsersIcon,
   ChartBarIcon,
+  WifiIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -50,15 +51,23 @@ export default function ServersPage() {
   const [distribution, setDistribution] = useState<StaffDistribution[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { onServerUpdate, isConnected } = useWebSocket();
+  const { onServerUpdate, isConnected, connectionStatus } = useWebSocket();
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  // Handle real-time server updates
   useEffect(() => {
     const unsubscribe = onServerUpdate((data) => {
-      if (data.type === 'server_update') {
+      if (data.type === 'status_update' && data.data) {
+        // Full status update from backend
+        setServers(data.data);
+      } else if (data.type === 'initial_data' && data.data) {
+        // Initial data on connection
+        setServers(data.data);
+      } else if (data.type === 'server_update') {
+        // Single server update
         setServers((prev) =>
           prev.map((s) =>
             s.id === data.server_id ? { ...s, ...data.status } : s
@@ -70,19 +79,51 @@ export default function ServersPage() {
     return unsubscribe;
   }, [onServerUpdate]);
 
+  // Refetch distribution data periodically since it requires API call
+  useEffect(() => {
+    const interval = setInterval(() => {
+      serverAPI.distribution().then((res) => {
+        setDistribution(res.data);
+      }).catch(() => {
+        // Silently fail, non-critical
+      });
+    }, 30000); // Every 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     setActions(
-      <button
-        onClick={handleRefresh}
-        disabled={refreshing}
-        className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 text-white rounded-lg transition-colors text-sm"
-      >
-        <ArrowPathIcon className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-        {refreshing ? 'Refreshing...' : 'Refresh'}
-      </button>
+      <div className="flex items-center gap-2">
+        {/* Connection Status Indicator */}
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-dark-bg">
+          <WifiIcon className={`w-4 h-4 ${
+            connectionStatus === 'connected' ? 'text-green-400' :
+            connectionStatus === 'reconnecting' ? 'text-yellow-400 animate-pulse' :
+            'text-red-400'
+          }`} />
+          <span className={`text-xs ${
+            connectionStatus === 'connected' ? 'text-green-400' :
+            connectionStatus === 'reconnecting' ? 'text-yellow-400' :
+            'text-red-400'
+          }`}>
+            {connectionStatus === 'connected' ? 'Live' :
+             connectionStatus === 'reconnecting' ? 'Reconnecting...' :
+             'Offline'}
+          </span>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 text-white rounded-lg transition-colors text-sm"
+        >
+          <ArrowPathIcon className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
     );
     return () => setActions(null);
-  }, [setActions, refreshing]);
+  }, [setActions, refreshing, connectionStatus]);
 
   const fetchData = async () => {
     try {

@@ -100,8 +100,8 @@ export default function LegacyStaffPage() {
 
   const filteredStaff = staff.filter((member) => {
     const matchesSearch =
-      member.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
       member.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      member.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
       member.role.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesRole = roleFilter === 'all' || member.role === roleFilter;

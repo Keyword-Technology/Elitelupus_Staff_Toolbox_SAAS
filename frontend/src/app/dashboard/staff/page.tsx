@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { staffAPI } from '@/lib/api';
 import { usePageActions } from '@/contexts/PageActionsContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWebSocket } from '@/contexts/WebSocketContext';
 import {
   UsersIcon,
   ArrowPathIcon,
@@ -14,6 +15,8 @@ import {
   ChevronUpIcon,
   ChevronDownIcon,
   EyeIcon,
+  WifiIcon,
+  SignalIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import DiscordStatusBadge from '@/components/staff/DiscordStatusBadge';
@@ -59,6 +62,7 @@ export default function StaffPage() {
   const router = useRouter();
   const { setActions } = usePageActions();
   const { hasMinRole } = useAuth();
+  const { onStaffOnlineChange, onStaffDiscordStatus, onRosterSync, connectionStatus } = useWebSocket();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,6 +78,57 @@ export default function StaffPage() {
 
   // Check if user has manager permissions (priority <= 10)
   const isManager = hasMinRole(10);
+
+  // Handle real-time staff online status changes
+  useEffect(() => {
+    const unsubscribe = onStaffOnlineChange((data) => {
+      setStaff((prev) =>
+        prev.map((s) =>
+          s.id === data.staff_id
+            ? {
+                ...s,
+                is_online: data.is_online,
+                server_name: data.server_name || null,
+                server_id: data.server_id || null,
+              }
+            : s
+        )
+      );
+    });
+    return unsubscribe;
+  }, [onStaffOnlineChange]);
+
+  // Handle real-time Discord status changes
+  useEffect(() => {
+    const unsubscribe = onStaffDiscordStatus((data) => {
+      setStaff((prev) =>
+        prev.map((s) =>
+          s.id === data.staff_id
+            ? {
+                ...s,
+                discord_status: data.discord_status as any,
+                discord_custom_status: data.discord_custom_status || null,
+                discord_activity: data.discord_activity || null,
+              }
+            : s
+        )
+      );
+    });
+    return unsubscribe;
+  }, [onStaffDiscordStatus]);
+
+  // Handle roster sync events - refresh data when sync completes
+  useEffect(() => {
+    const unsubscribe = onRosterSync((data) => {
+      if (data.status === 'success') {
+        toast.success(`Staff roster synced: ${data.records_updated} records updated`);
+        fetchData();
+      } else {
+        toast.error('Staff roster sync failed');
+      }
+    });
+    return unsubscribe;
+  }, [onRosterSync]);
 
   // Debounce search input
   useEffect(() => {
@@ -388,9 +443,11 @@ export default function StaffPage() {
                         <p className="text-white font-medium">
                           {member.display_name || member.username}
                         </p>
-                        <p className="text-gray-500 text-sm">
-                          @{member.username}
-                        </p>
+                        {member.role && (
+                          <p className="text-gray-500 text-sm">
+                            {member.role}
+                          </p>
+                        )}
                       </div>
                     </td>
                     <td className="p-4">

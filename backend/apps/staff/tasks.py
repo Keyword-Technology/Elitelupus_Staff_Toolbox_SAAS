@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 @shared_task
 def sync_staff_roster():
     """Sync staff roster from Google Sheets."""
+    from .consumers import broadcast_roster_sync
     from .services import StaffSyncService
     
     try:
@@ -30,10 +31,25 @@ def sync_staff_roster():
         }
         
         logger.info(f"Staff roster sync completed: {result}")
+        
+        # Broadcast the sync result to all connected clients
+        try:
+            broadcast_roster_sync(
+                records_updated=log.records_synced,
+                status='success' if log.success else 'error'
+            )
+        except Exception as e:
+            logger.warning(f"Could not broadcast roster sync: {e}")
+        
         return result
         
     except Exception as e:
         logger.error(f"Error syncing staff roster: {e}")
+        try:
+            from .consumers import broadcast_roster_sync
+            broadcast_roster_sync(records_updated=0, status='error')
+        except:
+            pass
         return {'success': False, 'error': str(e)}
 
 
@@ -137,9 +153,11 @@ def update_user_from_roster(user_id: int):
 def aggregate_server_sessions():
     """Aggregate server sessions for statistics."""
     from datetime import date, timedelta
-    from django.db.models import Sum, Count, Avg
-    from .models import StaffRoster, ServerSession, ServerSessionAggregate
+
     from apps.servers.models import GameServer
+    from django.db.models import Avg, Count, Sum
+
+    from .models import ServerSession, ServerSessionAggregate, StaffRoster
     
     try:
         today = date.today()
