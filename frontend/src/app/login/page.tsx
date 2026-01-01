@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
@@ -158,13 +157,6 @@ export default function LoginPage() {
               Sign in with Discord
             </button>
           </div>
-
-          <p className="text-center text-gray-400 text-sm mt-6">
-            Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-primary-500 hover:text-primary-400">
-              Sign up
-            </Link>
-          </p>
         </div>
       </div>
     </div>

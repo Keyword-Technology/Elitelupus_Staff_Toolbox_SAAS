@@ -25,7 +25,6 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string, passwordConfirm: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
@@ -79,28 +78,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/dashboard');
   };
 
-  const register = async (
-    username: string,
-    email: string,
-    password: string,
-    passwordConfirm: string
-  ) => {
-    const response = await api.post('/auth/register/', {
-      username,
-      email,
-      password,
-      password_confirm: passwordConfirm,
-    });
-    
-    const { access, refresh } = response.data;
-    
-    Cookies.set('access_token', access, { expires: 1 });
-    Cookies.set('refresh_token', refresh, { expires: 7 });
-    
-    await refreshUser();
-    router.push('/dashboard');
-  };
-
   const logout = () => {
     const refreshToken = Cookies.get('refresh_token');
     if (refreshToken) {
@@ -124,7 +101,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         loading,
         login,
-        register,
         logout,
         refreshUser,
         isAuthenticated: !!user,

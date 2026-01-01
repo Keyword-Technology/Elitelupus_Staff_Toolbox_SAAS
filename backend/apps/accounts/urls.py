@@ -11,7 +11,7 @@ urlpatterns = [
     # JWT Authentication (with optional trailing slash)
     re_path(r'^token/?$', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     re_path(r'^token/refresh/?$', TokenRefreshView.as_view(), name='token_refresh'),
-    re_path(r'^register/?$', RegisterView.as_view(), name='register'),
+    # re_path(r'^register/?$', RegisterView.as_view(), name='register'),  # DISABLED: User registration
     re_path(r'^logout/?$', LogoutView.as_view(), name='logout'),
     
     # OAuth Callback (generates JWT tokens after social auth)
