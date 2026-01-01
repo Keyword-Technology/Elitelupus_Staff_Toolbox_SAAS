@@ -314,6 +314,9 @@ class StaffDetailsSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='name', read_only=True)
     display_name = serializers.CharField(source='name', read_only=True)
     
+    # Steam name from linked Staff model
+    steam_name = serializers.SerializerMethodField()
+    
     # Time tracking statistics
     total_server_time = serializers.SerializerMethodField()
     total_sessions = serializers.SerializerMethodField()
@@ -337,11 +340,17 @@ class StaffDetailsSerializer(serializers.ModelSerializer):
         model = StaffRoster
         fields = [
             'id', 'username', 'display_name', 'role', 'role_color', 'role_priority',
-            'steam_id', 'discord_id', 'discord_tag', 'timezone', 'is_active',
+            'steam_id', 'steam_name', 'discord_id', 'discord_tag', 'timezone', 'is_active',
             'total_server_time', 'total_sessions', 'avg_session_duration',
             'last_server_join', 'server_time_breakdown',
             'sit_count', 'ticket_count', 'recent_sessions', 'history_events'
         ]
+    
+    def get_steam_name(self, obj):
+        """Get Steam persona name from linked Staff model."""
+        if obj.staff:
+            return obj.staff.steam_name
+        return None
     
     def get_total_server_time(self, obj):
         """Get total time spent on all servers (all time)."""

@@ -42,6 +42,7 @@ interface StaffDetails {
   role_color: string;
   role_priority: number;
   steam_id: string;
+  steam_name: string | null;
   discord_id: string;
   discord_tag: string;
   timezone: string;
@@ -339,6 +340,14 @@ export default function StaffDetailsPage() {
                 {details.steam_id || 'Not linked'}
               </span>
             </div>
+            {details.steam_name && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Steam Name</span>
+                <span className="text-white text-sm">
+                  {details.steam_name}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-gray-400">Discord</span>
               <span className="text-white text-sm">
