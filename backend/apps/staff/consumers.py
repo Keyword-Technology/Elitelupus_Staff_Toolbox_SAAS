@@ -161,7 +161,7 @@ class StaffStatusConsumer(AsyncWebsocketConsumer):
         # Get roster entries for online staff
         roster_entries = StaffRoster.objects.filter(
             is_active=True,
-            staff__steam_id__in=online_steam_ids.keys()
+            staff_id__in=online_steam_ids.keys()
         ).select_related('staff')
         
         return [
@@ -170,8 +170,8 @@ class StaffStatusConsumer(AsyncWebsocketConsumer):
                 'name': s.name,
                 'role': s.rank,
                 'role_color': s.rank_color,
-                'server_name': online_steam_ids[s.steam_id].server.name if s.steam_id in online_steam_ids else None,
-                'server_id': online_steam_ids[s.steam_id].server.id if s.steam_id in online_steam_ids else None,
+                'server_name': online_steam_ids[s.staff_id].server.name if s.staff_id in online_steam_ids else None,
+                'server_id': online_steam_ids[s.staff_id].server.id if s.staff_id in online_steam_ids else None,
             }
             for s in roster_entries
         ]
