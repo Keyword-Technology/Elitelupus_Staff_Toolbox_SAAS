@@ -60,6 +60,7 @@ class StaffRosterSerializer(serializers.ModelSerializer):
     # In-app activity (fallback when Discord bot not configured)
     last_seen_display = serializers.SerializerMethodField()
     is_active_display = serializers.SerializerMethodField()
+    last_seen_ago = serializers.SerializerMethodField()
     
     # LOA fields (set to default values for now since not in model)
     is_on_loa = serializers.SerializerMethodField()
@@ -72,7 +73,7 @@ class StaffRosterSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'display_name', 'role', 'role_color', 'role_priority',
             'steam_id', 'discord_id', 'discord_tag', 'timezone', 'active_time',
-            'last_seen', 'is_active_in_app', 'last_seen_display', 'is_active_display',
+            'last_seen', 'is_active_in_app', 'last_seen_display', 'is_active_display', 'last_seen_ago',
             'is_active', 'is_on_loa', 'loa_end_date',
             'user_id', 'user_avatar', 'last_synced',
             'joined_date', 'last_activity',
@@ -143,6 +144,54 @@ class StaffRosterSerializer(serializers.ModelSerializer):
         if obj.last_seen:
             return obj.last_seen.isoformat()
         return obj.last_synced.isoformat() if obj.last_synced else None
+    
+    def get_last_seen_ago(self, obj):
+        """Get human-readable time since last seen."""
+        from datetime import timedelta
+
+        from apps.servers.models import ServerPlayer
+        from django.utils import timezone
+
+        # Check if currently online (same logic as get_is_online)
+        if obj.steam_id:
+            is_online = ServerPlayer.objects.filter(steam_id=obj.steam_id, is_staff=True).exists()
+        else:
+            is_online = ServerPlayer.objects.filter(name__iexact=obj.name, is_staff=True).exists()
+        
+        # If currently online, return None (will show "Online" in UI)
+        if is_online:
+            return None
+            
+        # Check if staff has a last_seen timestamp
+        last_seen = obj.staff.last_seen if hasattr(obj, 'staff') else obj.last_seen
+        
+        if not last_seen:
+            return 'Never'
+        
+        now = timezone.now()
+        diff = now - last_seen
+        
+        # Calculate time ago in human-readable format
+        if diff < timedelta(minutes=1):
+            return 'Just now'
+        elif diff < timedelta(hours=1):
+            minutes = int(diff.total_seconds() / 60)
+            return f'{minutes} minute{"s" if minutes != 1 else ""} ago'
+        elif diff < timedelta(days=1):
+            hours = int(diff.total_seconds() / 3600)
+            return f'{hours} hour{"s" if hours != 1 else ""} ago'
+        elif diff < timedelta(days=7):
+            days = int(diff.days)
+            return f'{days} day{"s" if days != 1 else ""} ago'
+        elif diff < timedelta(days=30):
+            weeks = int(diff.days / 7)
+            return f'{weeks} week{"s" if weeks != 1 else ""} ago'
+        elif diff < timedelta(days=365):
+            months = int(diff.days / 30)
+            return f'{months} month{"s" if months != 1 else ""} ago'
+        else:
+            years = int(diff.days / 365)
+            return f'{years} year{"s" if years != 1 else ""} ago'
     
     def get_last_seen_display(self, obj):
         """Get human-readable last seen time. Only for staff with linked accounts."""

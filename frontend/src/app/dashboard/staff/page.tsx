@@ -39,6 +39,7 @@ interface StaffMember {
   is_active_in_app?: boolean;
   last_seen_display?: string | null;
   is_active_display?: boolean;
+  last_seen_ago?: string | null;
   joined_date: string;
   timezone: string;
   is_active: boolean;
@@ -461,7 +462,10 @@ export default function StaffPage() {
                   </div>
                 </th>
                 <th className="text-left p-4 text-gray-400 font-medium">
-                  Online
+                  <div className="flex items-center gap-2">
+                    <WifiIcon className="w-4 h-4" />
+                    Last Seen
+                  </div>
                 </th>
                 <th className="text-left p-4 text-gray-400 font-medium">
                   Discord Status
@@ -529,15 +533,29 @@ export default function StaffPage() {
                     <td className="p-4">
                       {member.is_online ? (
                         <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-green-500" />
-                          <span className="text-green-400 text-sm font-medium">
-                            {member.server_name}
+                          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                          <div className="flex flex-col">
+                            <span className="text-green-400 text-sm font-medium">
+                              Online
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {member.server_name}
+                            </span>
+                          </div>
+                        </div>
+                      ) : member.last_seen_ago ? (
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-gray-600" />
+                          <span className="text-gray-400 text-sm">
+                            {member.last_seen_ago}
                           </span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-gray-600" />
-                          <span className="text-gray-500 text-sm">Offline</span>
+                          <span className="w-2 h-2 rounded-full bg-gray-700" />
+                          <span className="text-gray-500 text-sm">
+                            Never
+                          </span>
                         </div>
                       )}
                     </td>

@@ -195,8 +195,11 @@ class ServerQueryService:
                 active_session.save()
                 logger.info(f"Closed session for {active_session.staff.name} on {server.name}")
                 
-                # Update staff roster online status
+                # Update staff roster online status and last_seen
                 staff_entry = active_session.staff
+                
+                # Always update last_seen when staff leaves
+                staff_entry.last_seen = now
                 
                 # Check if staff is still on another server
                 still_online = ServerSession.objects.filter(
@@ -208,7 +211,9 @@ class ServerQueryService:
                     staff_entry.is_online = False
                     staff_entry.server_name = None
                     staff_entry.server_id = None
-                    staff_entry.save(update_fields=['is_online', 'server_name', 'server_id'])
+                    staff_entry.save(update_fields=['is_online', 'server_name', 'server_id', 'last_seen'])
+                else:
+                    staff_entry.save(update_fields=['last_seen'])
                     
                     # Broadcast staff went offline
                     try:
