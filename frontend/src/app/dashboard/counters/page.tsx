@@ -33,7 +33,7 @@ interface HistoryEntry {
   action: string;
   value: number;
   note: string;
-  created_at: string;
+  timestamp: string;
 }
 
 export default function CountersPage() {
@@ -236,7 +236,7 @@ export default function CountersPage() {
                   </span>
                 </div>
                 <span className="text-sm text-gray-500">
-                  {new Date(entry.created_at).toLocaleString()}
+                  {new Date(entry.timestamp).toLocaleString()}
                 </span>
               </div>
             ))

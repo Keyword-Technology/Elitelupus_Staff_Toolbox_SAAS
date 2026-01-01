@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from .models import Counter, CounterHistory, CounterSnapshot
 
 
@@ -30,10 +31,15 @@ class CounterHistorySerializer(serializers.ModelSerializer):
     """Serializer for counter history."""
     
     username = serializers.CharField(source='user.username', read_only=True)
+    value = serializers.SerializerMethodField()
     
     class Meta:
         model = CounterHistory
         fields = '__all__'
+    
+    def get_value(self, obj):
+        """Calculate the change value from old_value to new_value."""
+        return abs(obj.new_value - obj.old_value)
 
 
 class CounterSnapshotSerializer(serializers.ModelSerializer):

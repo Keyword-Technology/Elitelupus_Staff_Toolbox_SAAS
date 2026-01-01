@@ -145,8 +145,9 @@ class StaffRosterSerializer(serializers.ModelSerializer):
         return obj.last_synced.isoformat() if obj.last_synced else None
     
     def get_last_seen_display(self, obj):
-        """Get human-readable last seen time."""
-        if not obj.last_seen:
+        """Get human-readable last seen time. Only for staff with linked accounts."""
+        # Only show activity for staff with linked user accounts
+        if not obj.user or not obj.last_seen:
             return None
         
         from datetime import timedelta
@@ -169,8 +170,9 @@ class StaffRosterSerializer(serializers.ModelSerializer):
             return f"{days}d ago"
     
     def get_is_active_display(self, obj):
-        """Check if user is currently active (seen in last 5 minutes)."""
-        if not obj.last_seen:
+        """Check if user is currently active (seen in last 5 minutes). Only for linked accounts."""
+        # Only show activity for staff with linked user accounts
+        if not obj.user or not obj.last_seen:
             return False
         
         from datetime import timedelta
