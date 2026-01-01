@@ -389,3 +389,118 @@ class BackfillLastSeenView(APIView):
             'errors': errors,
             'message': f'Successfully updated {updated_count} staff members'
         }, status=status.HTTP_200_OK)
+
+
+class FixLastSeenView(APIView):
+    """Fix last_seen timestamps - reset to correct values or None for staff without sessions."""
+    permission_classes = [permissions.IsAuthenticated, IsManager]
+    
+    def get(self, request):
+        """
+        Get detailed information about last_seen values for all staff.
+        Shows which staff have incorrect last_seen values.
+        """
+        from django.utils import timezone
+        
+        results = []
+        needs_fix = 0
+        correct = 0
+        
+        all_staff = Staff.objects.all().order_by('name')
+        
+        for staff in all_staff:
+            # Get most recent completed session
+            most_recent_session = ServerSession.objects.filter(
+                staff=staff,
+                leave_time__isnull=False
+            ).order_by('-leave_time').first()
+            
+            session_count = ServerSession.objects.filter(staff=staff).count()
+            
+            if most_recent_session:
+                # Staff has sessions - last_seen should match most recent session leave_time
+                correct_last_seen = most_recent_session.leave_time
+                is_correct = staff.last_seen == correct_last_seen
+            else:
+                # Staff has no sessions - last_seen should be None
+                correct_last_seen = None
+                is_correct = staff.last_seen is None
+            
+            if not is_correct:
+                needs_fix += 1
+            else:
+                correct += 1
+            
+            results.append({
+                'name': staff.name,
+                'steam_id': staff.steam_id,
+                'session_count': session_count,
+                'current_last_seen': staff.last_seen.isoformat() if staff.last_seen else None,
+                'correct_last_seen': correct_last_seen.isoformat() if correct_last_seen else None,
+                'is_correct': is_correct,
+                'needs_fix': not is_correct
+            })
+        
+        # Sort by needs_fix first
+        results.sort(key=lambda x: (not x['needs_fix'], x['name']))
+        
+        return Response({
+            'total_staff': all_staff.count(),
+            'needs_fix': needs_fix,
+            'correct': correct,
+            'staff': results,
+            'endpoint': '/api/staff/fix-last-seen/',
+            'method': 'POST to fix all incorrect last_seen values'
+        })
+    
+    def post(self, request):
+        """
+        Fix all last_seen timestamps:
+        - Staff WITH sessions: Set last_seen to most recent session leave_time
+        - Staff WITHOUT sessions: Set last_seen to None (will show "Never")
+        """
+        from django.utils import timezone
+        
+        all_staff = Staff.objects.all()
+        fixed_with_session = 0
+        fixed_without_session = 0
+        already_correct = 0
+        errors = []
+        
+        for staff in all_staff:
+            try:
+                # Get most recent completed session
+                most_recent_session = ServerSession.objects.filter(
+                    staff=staff,
+                    leave_time__isnull=False
+                ).order_by('-leave_time').first()
+                
+                if most_recent_session:
+                    # Staff has sessions - set last_seen to most recent session
+                    if staff.last_seen != most_recent_session.leave_time:
+                        staff.last_seen = most_recent_session.leave_time
+                        staff.save(update_fields=['last_seen'])
+                        fixed_with_session += 1
+                    else:
+                        already_correct += 1
+                else:
+                    # Staff has NO sessions - reset last_seen to None
+                    if staff.last_seen is not None:
+                        staff.last_seen = None
+                        staff.save(update_fields=['last_seen'])
+                        fixed_without_session += 1
+                    else:
+                        already_correct += 1
+                        
+            except Exception as e:
+                errors.append(f"Error fixing {staff.name}: {str(e)}")
+        
+        return Response({
+            'success': True,
+            'fixed_with_session': fixed_with_session,
+            'fixed_without_session': fixed_without_session,
+            'already_correct': already_correct,
+            'total': all_staff.count(),
+            'errors': errors,
+            'message': f'Fixed {fixed_with_session + fixed_without_session} staff members ({fixed_with_session} with sessions, {fixed_without_session} without sessions set to Never)'
+        }, status=status.HTTP_200_OK)

@@ -1,7 +1,7 @@
 from django.urls import re_path
 
 from .views import (BackfillLastSeenView, DiscordBotStatusView,
-                    DiscordStatusSyncView, MyStaffProfileView,
+                    DiscordStatusSyncView, FixLastSeenView, MyStaffProfileView,
                     RolePrioritiesView, StaffDetailsView,
                     StaffRosterDetailView, StaffRosterListView,
                     StaffSessionsView, StaffStatsView, StaffSyncLogListView,
@@ -20,4 +20,5 @@ urlpatterns = [
     re_path(r'^discord/sync/?$', DiscordStatusSyncView.as_view(), name='discord_status_sync'),
     re_path(r'^discord/status/?$', DiscordBotStatusView.as_view(), name='discord_bot_status'),
     re_path(r'^backfill-last-seen/?$', BackfillLastSeenView.as_view(), name='backfill_last_seen'),
+    re_path(r'^fix-last-seen/?$', FixLastSeenView.as_view(), name='fix_last_seen'),
 ]
