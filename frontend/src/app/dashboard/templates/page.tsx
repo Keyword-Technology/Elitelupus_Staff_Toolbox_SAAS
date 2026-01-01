@@ -512,7 +512,7 @@ export default function TemplatesPage() {
                       </div>
                     </div>
                     <p className="text-gray-500 text-sm mt-1 line-clamp-2">
-                      {template.content.substring(0, 100)}...
+                      {(template.content || '').substring(0, 100)}...
                     </p>
                   </div>
                 ))
