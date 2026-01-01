@@ -47,14 +47,13 @@ class StaffRosterListView(generics.ListAPIView):
         if rank:
             queryset = queryset.filter(rank=rank)
         
-        # Search by name or Steam ID
+        # Search by name or Steam ID (name is on related Staff model)
         search = self.request.query_params.get('search')
         if search:
             from django.db.models import Q
             queryset = queryset.filter(
-                Q(name__icontains=search) |
-                Q(username__icontains=search) |
-                Q(steam_id__icontains=search)
+                Q(staff__name__icontains=search) |
+                Q(staff__steam_id__icontains=search)
             )
         
         # Filter by role
@@ -63,20 +62,28 @@ class StaffRosterListView(generics.ListAPIView):
             queryset = queryset.filter(rank=role)
         
         # Handle ordering parameter
-        ordering = self.request.query_params.get('ordering', 'rank_priority,name')
+        ordering = self.request.query_params.get('ordering', 'rank_priority,staff__name')
         # Allow multiple ordering fields separated by comma
         order_fields = [field.strip() for field in ordering.split(',')]
         # Validate ordering fields to prevent SQL injection
-        allowed_fields = ['name', '-name', 'rank_priority', '-rank_priority', 
-                         'steam_id', '-steam_id', 'timezone', '-timezone', 
-                         'is_active', '-is_active', 'rank', '-rank']
-        valid_order_fields = [field for field in order_fields if field in allowed_fields]
+        # Map 'name' to 'staff__name' for backwards compatibility
+        field_mapping = {'name': 'staff__name', '-name': '-staff__name',
+                        'steam_id': 'staff__steam_id', '-steam_id': '-staff__steam_id'}
+        allowed_fields = ['staff__name', '-staff__name', 'rank_priority', '-rank_priority', 
+                         'staff__steam_id', '-staff__steam_id', 'timezone', '-timezone', 
+                         'is_active', '-is_active', 'rank', '-rank',
+                         'name', '-name', 'steam_id', '-steam_id']  # Include original names for mapping
+        valid_order_fields = []
+        for field in order_fields:
+            if field in allowed_fields:
+                # Map to correct field name if needed
+                valid_order_fields.append(field_mapping.get(field, field))
         
         if valid_order_fields:
             return queryset.order_by(*valid_order_fields)
         
         # Default ordering
-        return queryset.order_by('rank_priority', 'name')
+        return queryset.order_by('rank_priority', 'staff__name')
 
 
 class StaffRosterDetailView(generics.RetrieveAPIView):
