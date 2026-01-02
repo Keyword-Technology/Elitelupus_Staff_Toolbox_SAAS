@@ -43,10 +43,18 @@ export interface OCRState {
   detectionEvents: OCRDetectionEvent[];
 }
 
+export interface OCRRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface OCROptions {
   scanIntervalMs?: number;
   enableChatRegion?: boolean;
   enablePopupRegion?: boolean;
+  customRegions?: { chat: OCRRegion; popup: OCRRegion };
   onDetection?: (event: OCRDetectionEvent) => void;
   onError?: (error: string) => void;
 }
@@ -70,6 +78,17 @@ export const DEFAULT_REGIONS = {
   },
 };
 
+// Load custom regions from localStorage if available
+function loadSavedRegions(): { chat: OCRRegion; popup: OCRRegion } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const saved = localStorage.getItem('ocrRegions');
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+}
+
 // Convert credits to stars (Elitelupus rating system)
 function creditsToStars(credits: number): number {
   if (credits >= 25) return 5;
@@ -85,9 +104,13 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
     scanIntervalMs = 2000,  // Increased from 1500ms to reduce CPU usage
     enableChatRegion = true,
     enablePopupRegion = false,  // Disabled by default for better performance
+    customRegions,
     onDetection,
     onError,
   } = options;
+
+  // Use custom regions or saved regions or defaults
+  const regions = customRegions || loadSavedRegions() || DEFAULT_REGIONS;
 
   const [state, setState] = useState<OCRState>({
     isScanning: false,
@@ -375,7 +398,7 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
       console.error('OCR scan error:', err);
       return null;
     }
-  }, [captureRegion]);
+  }, [captureRegion, regions]); // Added regions dependency
 
   // Main scan loop
   const performScan = useCallback(async () => {
@@ -387,13 +410,13 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
 
     // Scan chat region (primary - always enabled)
     if (enableChatRegion) {
-      const chatEvent = await scanRegion(DEFAULT_REGIONS.chat, 'chat');
+      const chatEvent = await scanRegion(regions.chat, 'chat');
       if (chatEvent) events.push(chatEvent);
     }
 
     // Scan popup region (optional - for sit cards/counters)
     if (enablePopupRegion) {
-      const popupEvent = await scanRegion(DEFAULT_REGIONS.popup, 'popup');
+      const popupEvent = await scanRegion(regions.popup, 'popup');
       if (popupEvent) events.push(popupEvent);
     }
 

@@ -11,8 +11,10 @@ import {
   EyeIcon,
   CogIcon,
   MagnifyingGlassIcon,
+  AdjustmentsHorizontalIcon,
 } from '@heroicons/react/24/solid';
 import { useActiveSit, SitData } from '@/hooks/useActiveSit';
+import { OCRRegionAdjuster } from './OCRRegionAdjuster';
 
 interface ActiveSitPanelProps {
   className?: string;
@@ -54,6 +56,7 @@ export function ActiveSitPanel({ className = '', compact = false }: ActiveSitPan
   const [showSettings, setShowSettings] = useState(false);
   const [showDetails, setShowDetails] = useState(!compact);
   const [editingSit, setEditingSit] = useState<Partial<SitData>>({});
+  const [showRegionAdjuster, setShowRegionAdjuster] = useState(false);
 
   // Don't render if feature is disabled
   if (!isFeatureEnabled) {
@@ -102,19 +105,20 @@ export function ActiveSitPanel({ className = '', compact = false }: ActiveSitPan
                   <span>Start Sit Manually</span>
                 </button>
                 {preferences?.ocr_enabled && (
-                  <button
-                    onClick={async () => {
-                      console.log('[UI] Start OCR Monitoring clicked');
-                      try {
-                        // First, request screen capture permission and start stream
-                        console.log('[UI] Requesting screen capture...');
-                        await recording.startRecording();
-                        console.log('[UI] Screen capture started');
-                        
-                        // Wait for stream to be fully ready and check it's available
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                        
-                        const currentStream = recording.getStream();
+                  <>
+                    <button
+                      onClick={async () => {
+                        console.log('[UI] Start OCR Monitoring clicked');
+                        try {
+                          // First, request screen capture permission and start stream
+                          console.log('[UI] Requesting screen capture...');
+                          await recording.startRecording();
+                          console.log('[UI] Screen capture started');
+                          
+                          // Wait for stream to be fully ready and check it's available
+                          await new Promise(resolve => setTimeout(resolve, 1000));
+                          
+                          const currentStream = recording.getStream();
                         console.log('[UI] Stream status:', { 
                           hasStream: !!currentStream,
                           active: currentStream?.active,
@@ -137,23 +141,49 @@ export function ActiveSitPanel({ className = '', compact = false }: ActiveSitPan
                     className="flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 
                       text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <MagnifyingGlassIcon className="w-5 h-5" />
-                    <span>{recording.isRecording ? 'Initializing...' : 'Start OCR Monitoring'}</span>
-                  </button>
+                      <MagnifyingGlassIcon className="w-5 h-5" />
+                      <span>{recording.isRecording ? 'Initializing...' : 'Start OCR Monitoring'}</span>
+                    </button>
+                    <button
+                      onClick={async () => {
+                        // Start recording just to get the stream for preview
+                        if (!recording.isRecording) {
+                          await recording.startRecording();
+                          await new Promise(resolve => setTimeout(resolve, 500));
+                        }
+                        setShowRegionAdjuster(true);
+                      }}
+                      className="flex items-center gap-2 px-4 py-3 bg-gray-600 hover:bg-gray-700 
+                        text-white rounded-lg transition-colors"
+                      title="Adjust OCR scan regions"
+                    >
+                      <AdjustmentsHorizontalIcon className="w-5 h-5" />
+                    </button>
+                  </>
                 )}
               </>
             ) : (
-              <button
-                onClick={() => {
-                  ocr.stopScanning();
-                  recording.stopRecording();
-                }}
-                className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 
-                  text-white rounded-lg transition-colors"
-              >
-                <StopIcon className="w-5 h-5" />
-                <span>Stop Monitoring</span>
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    ocr.stopScanning();
+                    recording.stopRecording();
+                  }}
+                  className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 
+                    text-white rounded-lg transition-colors"
+                >
+                  <StopIcon className="w-5 h-5" />
+                  <span>Stop Monitoring</span>
+                </button>
+                <button
+                  onClick={() => setShowRegionAdjuster(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-gray-600 hover:bg-gray-700 
+                    text-white rounded-lg transition-colors"
+                >
+                  <AdjustmentsHorizontalIcon className="w-5 h-5" />
+                  <span>Adjust Regions</span>
+                </button>
+              </>
             )}
           </div>
           {ocr.isScanning && (
@@ -191,6 +221,19 @@ export function ActiveSitPanel({ className = '', compact = false }: ActiveSitPan
             </div>
           )}
         </div>
+        
+        {/* Region Adjuster Modal */}
+        {showRegionAdjuster && (
+          <OCRRegionAdjuster
+            stream={recording.getStream()}
+            onRegionsChange={(newRegions) => {
+              console.log('[UI] Regions updated:', newRegions);
+              // The regions are automatically saved to localStorage by the adjuster
+              // and will be picked up by the OCR hook on next scan
+            }}
+            onClose={() => setShowRegionAdjuster(false)}
+          />
+        )}
       </div>
     );
   }
