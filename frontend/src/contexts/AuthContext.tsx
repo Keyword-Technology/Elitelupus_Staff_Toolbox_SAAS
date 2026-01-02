@@ -19,6 +19,8 @@ interface User {
   timezone: string;
   use_24_hour_time: boolean;
   is_active_staff: boolean;
+  setup_completed: boolean;
+  setup_completed_at: string | null;
 }
 
 interface AuthContextType {
@@ -75,7 +77,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     Cookies.set('refresh_token', refresh, { expires: 7 });
     
     await refreshUser();
-    router.push('/dashboard');
+    
+    // Check if setup is needed
+    const userResponse = await api.get('/auth/profile/');
+    if (!userResponse.data.setup_completed) {
+      router.push('/setup');
+    } else {
+      router.push('/dashboard');
+    }
   };
 
   const logout = () => {

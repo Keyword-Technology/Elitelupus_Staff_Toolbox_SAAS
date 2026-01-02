@@ -16,7 +16,8 @@ from .permissions import IsOwnerOrHigherRole
 from .serializers import (CustomTokenObtainPairSerializer,
                           PasswordChangeSerializer, SocialLinkSerializer,
                           UserProfileUpdateSerializer,
-                          UserRegistrationSerializer, UserSerializer)
+                          UserRegistrationSerializer, UserSerializer,
+                          SetupWizardSerializer)
 
 User = get_user_model()
 
@@ -196,6 +197,46 @@ class UserDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrHigherRole]
     queryset = User.objects.all()
+
+
+class SetupWizardView(APIView):
+    """Complete the first-time setup wizard."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        # Check if setup already completed
+        if request.user.setup_completed:
+            return Response(
+                {'error': 'Setup already completed.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = SetupWizardSerializer(data=request.data, instance=request.user)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'message': 'Setup completed successfully.',
+                'user': UserSerializer(request.user).data
+            }, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def get(self, request):
+        """Get setup wizard status and system settings."""
+        from apps.system_settings.models import SystemSetting
+        
+        # Get system settings
+        sit_recording_enabled = SystemSetting.objects.filter(
+            key='sit_recording_enabled',
+            is_active=True
+        ).first()
+        
+        return Response({
+            'setup_completed': request.user.setup_completed,
+            'system_settings': {
+                'sit_recording_available': sit_recording_enabled.value.lower() == 'true' if sit_recording_enabled else False,
+            }
+        })
 
 
 class LogoutView(APIView):

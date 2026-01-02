@@ -91,6 +91,17 @@ class User(AbstractUser):
         help_text='Display times in 24-hour format instead of 12-hour AM/PM'
     )
     
+    # Setup Wizard
+    setup_completed = models.BooleanField(
+        default=False,
+        help_text='Whether the user has completed the initial setup wizard'
+    )
+    setup_completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Timestamp when setup wizard was completed'
+    )
+    
     # Staff Metadata
     is_active_staff = models.BooleanField(default=False)
     is_legacy_staff = models.BooleanField(default=False)  # Former staff not in roster

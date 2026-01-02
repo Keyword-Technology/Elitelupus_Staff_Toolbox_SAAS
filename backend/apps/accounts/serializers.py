@@ -19,14 +19,14 @@ class UserSerializer(serializers.ModelSerializer):
             'steam_id', 'steam_id_64', 'steam_profile_url', 'steam_avatar',
             'discord_id', 'discord_username', 'discord_avatar',
             'timezone', 'use_24_hour_time', 'is_active_staff', 'is_legacy_staff', 'staff_since', 
-            'staff_left_at', 'last_activity', 'date_joined',
+            'staff_left_at', 'last_activity', 'date_joined', 'setup_completed', 'setup_completed_at',
         ]
         read_only_fields = [
             'id', 'role', 'role_priority', 'is_active_staff', 'is_legacy_staff',
             'staff_since', 'staff_left_at',
             'steam_id', 'steam_id_64', 'steam_profile_url', 'steam_avatar',
             'discord_id', 'discord_username', 'discord_avatar',
-            'date_joined', 'last_activity',
+            'date_joined', 'last_activity', 'setup_completed_at',
         ]
 
 
@@ -102,6 +102,55 @@ class TimezoneSerializer(serializers.Serializer):
         return {
             'timezones': pytz.common_timezones
         }
+
+
+class SetupWizardSerializer(serializers.Serializer):
+    """Serializer for completing the first-time setup wizard."""
+    
+    timezone = serializers.CharField(required=True)
+    email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+    password = serializers.CharField(required=False, write_only=True, min_length=8, allow_blank=True)
+    auto_sit_detection_enabled = serializers.BooleanField(required=False, default=True)
+    auto_recording_enabled = serializers.BooleanField(required=False, default=True)
+    
+    def validate_timezone(self, value):
+        if value not in pytz.common_timezones:
+            raise serializers.ValidationError('Invalid timezone.')
+        return value
+    
+    def update(self, instance, validated_data):
+        """Update user with setup wizard data."""
+        from django.utils import timezone as django_timezone
+        
+        # Update timezone
+        instance.timezone = validated_data.get('timezone', instance.timezone)
+        
+        # Update email if provided
+        if validated_data.get('email'):
+            instance.email = validated_data['email']
+        
+        # Update password if provided
+        if validated_data.get('password'):
+            instance.set_password(validated_data['password'])
+        
+        # Mark setup as completed
+        instance.setup_completed = True
+        instance.setup_completed_at = django_timezone.now()
+        
+        instance.save()
+        
+        # Create or update sit preferences
+        from apps.counters.models import UserSitPreferences
+        preferences, created = UserSitPreferences.objects.get_or_create(user=instance)
+        
+        # Update auto detection and recording based on wizard choices
+        preferences.ocr_enabled = validated_data.get('auto_sit_detection_enabled', True)
+        preferences.recording_enabled = validated_data.get('auto_recording_enabled', True)
+        preferences.auto_start_recording = validated_data.get('auto_recording_enabled', True)
+        preferences.auto_stop_recording = validated_data.get('auto_recording_enabled', True)
+        preferences.save()
+        
+        return instance
 
 
 class SocialLinkSerializer(serializers.Serializer):

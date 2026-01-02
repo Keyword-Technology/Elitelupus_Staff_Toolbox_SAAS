@@ -3,7 +3,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (CustomTokenObtainPairView, LegacyStaffListView, LogoutView,
                     OAuthCallbackView, OAuthErrorView, PasswordChangeView,
-                    ProfileView, RegisterView, SocialLinkStatusView,
+                    ProfileView, RegisterView, SetupWizardView, SocialLinkStatusView,
                     StaffListView, SteamAuthCallbackView, TimezonesView,
                     UnlinkSocialAccountView, UserDetailView)
 
@@ -22,6 +22,7 @@ urlpatterns = [
     re_path(r'^profile/?$', ProfileView.as_view(), name='profile'),
     re_path(r'^password/change/?$', PasswordChangeView.as_view(), name='password_change'),
     re_path(r'^timezones/?$', TimezonesView.as_view(), name='timezones'),
+    re_path(r'^setup-wizard/?$', SetupWizardView.as_view(), name='setup_wizard'),
     
     # Social Account Linking
     re_path(r'^social/status/?$', SocialLinkStatusView.as_view(), name='social_status'),

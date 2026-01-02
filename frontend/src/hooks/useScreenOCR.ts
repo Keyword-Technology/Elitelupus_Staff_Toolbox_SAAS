@@ -190,17 +190,20 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
   const captureRegion = useCallback((
     region: { x: number; y: number; width: number; height: number }
   ): ImageData | null => {
-    if (!canvasRef.current || !videoRef.current || !stream) {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const activeStream = video?.srcObject as MediaStream | null;
+    
+    if (!canvas || !video || !activeStream) {
       console.warn('[OCR] ⚠️ Cannot capture - missing elements:', {
-        hasCanvas: !!canvasRef.current,
-        hasVideo: !!videoRef.current,
-        hasStream: !!stream
+        hasCanvas: !!canvas,
+        hasVideo: !!video,
+        hasStream: !!activeStream,
+        videoSrcObject: !!video?.srcObject
       });
       return null;
     }
 
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) {
       console.warn('[OCR] ⚠️ Cannot get canvas context');
@@ -254,7 +257,7 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
     ctx.putImageData(imageData, 0, 0);
 
     return imageData;
-  }, [stream]);
+  }, []); // Removed stream dependency - now uses video.srcObject directly
 
   // Perform OCR on a region and parse results
   const scanRegion = useCallback(async (
