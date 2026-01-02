@@ -166,7 +166,7 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return null;
 
     // Get video dimensions
@@ -231,6 +231,13 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
         lastScanTime: new Date(),
         scanCount: prev.scanCount + 1,
       }));
+
+      // Debug logging
+      console.log(`[OCR ${regionType}] Scan #${state.scanCount + 1}:`, {
+        textLength: text.length,
+        preview: text.substring(0, 100),
+        fullText: text
+      });
 
       // Parse the text for detection events
       let event: OCRDetectionEvent | null = null;
@@ -326,8 +333,12 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
 
   // Main scan loop
   const performScan = useCallback(async () => {
-    if (!isActiveRef.current || !workerRef.current) return;
+    if (!isActiveRef.current || !workerRef.current) {
+      console.log('[OCR] Scan skipped - not active or no worker');
+      return;
+    }
 
+    console.log('[OCR] 🔍 Starting scan cycle...');
     const events: OCRDetectionEvent[] = [];
 
     // Scan chat region
@@ -343,6 +354,10 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
     }
 
     // Process detected events
+    if (events.length > 0) {
+      console.log(`[OCR] ✅ Found ${events.length} detection event(s)`);
+    }
+    
     for (const event of events) {
       setState(prev => ({
         ...prev,
@@ -353,12 +368,17 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
         onDetection(event);
       }
     }
+    
+    console.log('[OCR] 🏁 Scan cycle complete');
   }, [enableChatRegion, enablePopupRegion, scanRegion, onDetection]);
 
   // Start scanning
   const startScanning = useCallback(async () => {
+    console.log('[OCR] 🚀 Starting OCR scanning...', { hasStream: !!stream, streamActive: stream?.active });
+    
     if (!stream) {
       const error = 'No screen stream available for OCR';
+      console.error('[OCR] ❌', error);
       setState(prev => ({ ...prev, error }));
       if (onError) onError(error);
       return;
@@ -366,12 +386,19 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
 
     // Initialize worker if needed
     if (!workerRef.current) {
+      console.log('[OCR] Initializing Tesseract worker...');
       const success = await initializeWorker();
-      if (!success) return;
+      if (!success) {
+        console.error('[OCR] ❌ Worker initialization failed');
+        return;
+      }
+      console.log('[OCR] ✅ Worker initialized');
     }
 
     isActiveRef.current = true;
     setState(prev => ({ ...prev, isScanning: true, error: null }));
+
+    console.log(`[OCR] ✅ Scanning started - interval: ${scanIntervalMs}ms`);
 
     // Start scan interval
     scanIntervalRef.current = setInterval(performScan, scanIntervalMs);

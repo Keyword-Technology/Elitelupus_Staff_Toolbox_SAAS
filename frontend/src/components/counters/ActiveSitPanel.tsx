@@ -104,23 +104,30 @@ export function ActiveSitPanel({ className = '', compact = false }: ActiveSitPan
                 {preferences?.ocr_enabled && (
                   <button
                     onClick={async () => {
+                      console.log('[UI] Start OCR Monitoring clicked');
                       try {
                         // First, request screen capture permission and start stream
+                        console.log('[UI] Requesting screen capture...');
                         await recording.startRecording();
-                        // Give the stream a moment to initialize
-                        setTimeout(() => {
-                          ocr.startScanning();
-                        }, 500);
+                        console.log('[UI] Screen capture started, stream active:', recording.stream?.active);
+                        
+                        // Wait for stream to be fully ready
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        
+                        console.log('[UI] Starting OCR scanning...');
+                        await ocr.startScanning();
+                        console.log('[UI] OCR scanning started');
                       } catch (err) {
-                        console.error('Failed to start monitoring:', err);
+                        console.error('[UI] Failed to start monitoring:', err);
+                        alert('Failed to start monitoring: ' + (err instanceof Error ? err.message : 'Unknown error'));
                       }
                     }}
-                    disabled={isLoading}
+                    disabled={isLoading || recording.isRecording}
                     className="flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 
                       text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <MagnifyingGlassIcon className="w-5 h-5" />
-                    <span>Start OCR Monitoring</span>
+                    <span>{recording.isRecording ? 'Initializing...' : 'Start OCR Monitoring'}</span>
                   </button>
                 )}
               </>
@@ -139,17 +146,35 @@ export function ActiveSitPanel({ className = '', compact = false }: ActiveSitPan
             )}
           </div>
           {ocr.isScanning && (
-            <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 justify-center">
-                  <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                  <span className="text-blue-400 text-sm font-medium">
-                    Monitoring: {ocr.scanCount} scans performed
+            <div className="mt-4 space-y-3">
+              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 justify-center">
+                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                    <span className="text-blue-400 text-sm font-medium">
+                      Monitoring: {ocr.scanCount} scans performed
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-400 text-center space-y-1">
+                    <div>Chat: "Elite Reports", "claimed", "closed", "report", "rating"</div>
+                    <div>Popup Buttons: "CLAIM REPORT", "CLOSE REPORT"</div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Debug panel - shows last detected text */}
+              <div className="p-3 bg-gray-800 border border-gray-700 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-gray-300">DEBUG: Last Scan Text</span>
+                  <span className="text-xs text-gray-500">
+                    {ocr.lastScanTime ? new Date(ocr.lastScanTime).toLocaleTimeString() : 'Never'}
                   </span>
                 </div>
-                <div className="text-xs text-gray-400 text-center space-y-1">
-                  <div>Chat: "Elite Reports", "claimed", "closed", "report", "rating"</div>
-                  <div>Popup Buttons: "CLAIM REPORT", "CLOSE REPORT"</div>
+                <div className="text-xs font-mono text-gray-300 bg-gray-900 p-2 rounded max-h-32 overflow-y-auto whitespace-pre-wrap break-all">
+                  {ocr.lastDetectedText || 'No text detected yet...'}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {ocr.lastDetectedText ? `${ocr.lastDetectedText.length} characters` : 'Waiting for scan...'}
                 </div>
               </div>
             </div>
