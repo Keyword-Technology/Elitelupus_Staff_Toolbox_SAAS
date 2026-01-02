@@ -31,7 +31,20 @@ export default function AuthCallbackPage() {
         Cookies.set('access_token', access, { expires: 1 });
         Cookies.set('refresh_token', refresh, { expires: 7 });
         await refreshUser();
-        router.push('/dashboard');
+        
+        // Check if user needs to complete setup
+        const { api } = await import('@/lib/api');
+        try {
+          const response = await api.get('/auth/profile/');
+          if (!response.data.setup_completed) {
+            router.push('/setup');
+          } else {
+            router.push('/dashboard');
+          }
+        } catch (error) {
+          console.error('Error checking setup status:', error);
+          router.push('/dashboard');
+        }
       } else {
         router.push('/login?error=auth_failed');
       }
