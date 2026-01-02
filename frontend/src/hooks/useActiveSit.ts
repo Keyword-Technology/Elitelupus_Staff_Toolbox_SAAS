@@ -233,7 +233,7 @@ export function useActiveSit() {
         report_type: event.parsedData.reportType || '',  // Use detected report type
         report_reason: event.parsedData.reason || '',  // Use detected reason
         detection_method: event.detectionMethod,
-        has_recording: false,
+        // Note: has_recording is NOT sent to the backend - it's a read-only field set by the server
       };
 
       if (state.preferences.confirm_before_start) {
