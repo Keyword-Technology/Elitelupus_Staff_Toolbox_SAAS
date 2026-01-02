@@ -1374,8 +1374,661 @@ Link to existing rules reference system for rule selection in outcome modal.
 
 ---
 
+## Server-Side OCR Option (Performance Enhancement)
+
+### Overview
+
+The browser-based OCR (Tesseract.js) approach works but can cause significant CPU load on the end user's machine, especially during gameplay. This section outlines an alternative **server-side OCR** approach that offloads processing to the backend.
+
+### Comparison: Client-Side vs Server-Side OCR
+
+| Aspect | Client-Side (Tesseract.js) | Server-Side (pytesseract) |
+|--------|---------------------------|---------------------------|
+| **CPU Impact on User** | High (30-50% CPU during scans) | Minimal (only capture + encode) |
+| **Network Usage** | None | ~50-200 KB per frame (JPEG) |
+| **Latency** | Instant (local processing) | 100-500ms (network + processing) |
+| **Privacy** | Screen never leaves device | Screen frames sent to server |
+| **Server Cost** | None | CPU/memory on backend |
+| **Scalability** | Each client independent | Server load increases with users |
+| **Offline Support** | Works offline | Requires connection |
+
+### Recommendation
+
+Implement **both modes** with user preference:
+- **Client-Side (Default)**: For users with capable machines who prioritize privacy
+- **Server-Side**: For users experiencing performance issues, or on lower-end hardware
+
+### Server-Side Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ FRONTEND (Browser)                                                      │
+│                                                                         │
+│  ┌─────────────────────┐    ┌──────────────────────────────────────┐   │
+│  │ Screen Capture      │ -> │ Extract Regions + JPEG Encode        │   │
+│  │ (getDisplayMedia)   │    │ (Canvas -> toBlob, quality: 0.7)     │   │
+│  └─────────────────────┘    └──────────────────────────────────────┘   │
+│                                           │                             │
+│                                           ▼                             │
+│                              ┌────────────────────────┐                │
+│                              │ WebSocket: Binary Frame │                │
+│                              │ + JSON metadata         │                │
+│                              └────────────────────────┘                │
+│                                           │                             │
+└───────────────────────────────────────────│─────────────────────────────┘
+                                            │
+                                            ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│ BACKEND (Django Channels)                                                 │
+│                                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐ │
+│  │ OCRConsumer (WebSocket)                                              │ │
+│  │                                                                       │ │
+│  │  1. Receive binary frame data                                        │ │
+│  │  2. Decode JPEG -> numpy array                                       │ │
+│  │  3. Preprocess (grayscale, contrast, threshold)                      │ │
+│  │  4. OCR with pytesseract (optimized config)                          │ │
+│  │  5. Pattern match for sit events                                     │ │
+│  │  6. Send detection results back via WebSocket                        │ │
+│  │                                                                       │ │
+│  └─────────────────────────────────────────────────────────────────────┘ │
+│                                                                           │
+│  Alternative: Celery Task Queue (for high-load scenarios)                │
+│  ┌─────────────────────────────────────────────────────────────────────┐ │
+│  │ OCRTask - Process frames async, return via WebSocket or callback    │ │
+│  └─────────────────────────────────────────────────────────────────────┘ │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+### Backend Implementation
+
+#### 1. Add Dependencies
+
+```bash
+# backend/requirements.txt
+pytesseract>=0.3.10
+Pillow>=10.0.0
+opencv-python-headless>=4.8.0  # For image preprocessing
+numpy>=1.24.0
+```
+
+**Note**: Tesseract OCR engine must be installed on the server:
+```bash
+# Ubuntu/Debian
+apt-get install tesseract-ocr tesseract-ocr-eng
+
+# Alpine (Docker)
+apk add tesseract-ocr tesseract-ocr-data-eng
+
+# Windows
+choco install tesseract
+```
+
+#### 2. OCR Service
+
+```python
+# backend/apps/counters/services/ocr_service.py
+import pytesseract
+import cv2
+import numpy as np
+from PIL import Image
+import io
+import re
+from dataclasses import dataclass
+from typing import Optional, List
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Optimized tesseract config for game text
+TESSERACT_CONFIG = (
+    '--oem 3 '  # LSTM + legacy engine
+    '--psm 6 '  # Assume uniform block of text
+    '-c tessedit_char_whitelist="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789[]:\\'\\' .-_"'
+)
+
+# Elitelupus-specific patterns
+OCR_PATTERNS = {
+    'claim': re.compile(r'\[Elite Reports\]\s*(\w+)\s+claimed\s+(.+?)[\'']s\s+report', re.IGNORECASE),
+    'close': re.compile(r'\[Elite Reports\]\s*You have closed\s+(.+?)[\'']s\s+report', re.IGNORECASE),
+    'claim_button': re.compile(r'CLAIM\s*REPORT', re.IGNORECASE),
+    'close_button': re.compile(r'CLOSE\s*REPORT', re.IGNORECASE),
+}
+
+@dataclass
+class OCRResult:
+    text: str
+    region: str
+    processing_time_ms: float
+
+@dataclass
+class DetectionEvent:
+    event_type: str  # 'claim', 'close', 'claim_button', 'close_button'
+    region: str
+    raw_text: str
+    parsed_data: dict
+
+class OCRService:
+    """Server-side OCR processing for sit detection."""
+    
+    def __init__(self):
+        # Verify tesseract is available
+        try:
+            pytesseract.get_tesseract_version()
+        except Exception as e:
+            logger.error(f"Tesseract not available: {e}")
+            raise RuntimeError("Tesseract OCR engine not installed")
+    
+    def preprocess_image(self, image: np.ndarray) -> np.ndarray:
+        """Preprocess image for better OCR accuracy."""
+        # Convert to grayscale if needed
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image
+        
+        # Increase contrast using CLAHE
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        enhanced = clahe.apply(gray)
+        
+        # Apply slight blur to reduce noise
+        blurred = cv2.GaussianBlur(enhanced, (1, 1), 0)
+        
+        # Adaptive thresholding for text extraction
+        binary = cv2.adaptiveThreshold(
+            blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY, 11, 2
+        )
+        
+        return binary
+    
+    def process_frame(self, jpeg_data: bytes, regions: List[dict]) -> List[OCRResult]:
+        """Process a single frame from the client.
+        
+        Args:
+            jpeg_data: Raw JPEG bytes from client
+            regions: List of region definitions [{name, x, y, width, height}]
+                    Coordinates are percentages (0-1)
+        
+        Returns:
+            List of OCR results for each region
+        """
+        import time
+        
+        # Decode JPEG
+        image = Image.open(io.BytesIO(jpeg_data))
+        img_array = np.array(image)
+        
+        results = []
+        img_height, img_width = img_array.shape[:2]
+        
+        for region in regions:
+            start_time = time.time()
+            
+            # Calculate pixel coordinates from percentages
+            x = int(region['x'] * img_width)
+            y = int(region['y'] * img_height)
+            w = int(region['width'] * img_width)
+            h = int(region['height'] * img_height)
+            
+            # Extract region
+            region_img = img_array[y:y+h, x:x+w]
+            
+            # Preprocess
+            processed = self.preprocess_image(region_img)
+            
+            # OCR
+            text = pytesseract.image_to_string(processed, config=TESSERACT_CONFIG)
+            
+            processing_time = (time.time() - start_time) * 1000
+            
+            results.append(OCRResult(
+                text=text.strip(),
+                region=region['name'],
+                processing_time_ms=processing_time
+            ))
+            
+            logger.debug(f"OCR [{region['name']}]: {len(text)} chars in {processing_time:.1f}ms")
+        
+        return results
+    
+    def detect_events(self, ocr_results: List[OCRResult]) -> List[DetectionEvent]:
+        """Parse OCR results for sit detection events."""
+        events = []
+        
+        for result in ocr_results:
+            text = result.text
+            
+            # Check each pattern
+            for event_type, pattern in OCR_PATTERNS.items():
+                match = pattern.search(text)
+                if match:
+                    parsed_data = {}
+                    if event_type == 'claim':
+                        parsed_data = {
+                            'staff_name': match.group(1),
+                            'reporter_name': match.group(2)
+                        }
+                    elif event_type == 'close':
+                        parsed_data = {
+                            'reporter_name': match.group(1)
+                        }
+                    
+                    events.append(DetectionEvent(
+                        event_type=event_type,
+                        region=result.region,
+                        raw_text=text,
+                        parsed_data=parsed_data
+                    ))
+                    
+                    logger.info(f"Detected {event_type} event: {parsed_data}")
+        
+        return events
+
+# Singleton instance
+_ocr_service: Optional[OCRService] = None
+
+def get_ocr_service() -> OCRService:
+    global _ocr_service
+    if _ocr_service is None:
+        _ocr_service = OCRService()
+    return _ocr_service
+```
+
+#### 3. WebSocket Consumer
+
+```python
+# backend/apps/counters/consumers/ocr_consumer.py
+import json
+import logging
+from channels.generic.websocket import AsyncWebsocketConsumer
+from asgiref.sync import sync_to_async
+from ..services.ocr_service import get_ocr_service
+
+logger = logging.getLogger(__name__)
+
+# Default regions matching frontend
+DEFAULT_REGIONS = [
+    {'name': 'chat', 'x': 0, 'y': 0.7, 'width': 0.35, 'height': 0.25},
+    {'name': 'popup', 'x': 0, 'y': 0.1, 'width': 0.3, 'height': 0.4},
+]
+
+class OCRConsumer(AsyncWebsocketConsumer):
+    """WebSocket consumer for server-side OCR processing."""
+    
+    async def connect(self):
+        self.user = self.scope.get('user')
+        if not self.user or not self.user.is_authenticated:
+            await self.close()
+            return
+        
+        self.ocr_service = get_ocr_service()
+        self.regions = DEFAULT_REGIONS.copy()
+        
+        await self.accept()
+        logger.info(f"OCR WebSocket connected for user {self.user.id}")
+    
+    async def disconnect(self, close_code):
+        logger.info(f"OCR WebSocket disconnected: {close_code}")
+    
+    async def receive(self, text_data=None, bytes_data=None):
+        """Handle incoming frames.
+        
+        Text messages: JSON configuration updates
+        Binary messages: JPEG frame data
+        """
+        if text_data:
+            # Configuration message
+            data = json.loads(text_data)
+            if data.get('type') == 'config':
+                if 'regions' in data:
+                    self.regions = data['regions']
+                await self.send(text_data=json.dumps({
+                    'type': 'config_ack',
+                    'regions': self.regions
+                }))
+        
+        elif bytes_data:
+            # Frame data - process OCR
+            try:
+                results = await sync_to_async(self.ocr_service.process_frame)(
+                    bytes_data, self.regions
+                )
+                
+                events = await sync_to_async(self.ocr_service.detect_events)(results)
+                
+                # Send results back
+                await self.send(text_data=json.dumps({
+                    'type': 'ocr_result',
+                    'results': [
+                        {
+                            'region': r.region,
+                            'text': r.text,
+                            'processing_time_ms': r.processing_time_ms
+                        }
+                        for r in results
+                    ],
+                    'events': [
+                        {
+                            'event_type': e.event_type,
+                            'region': e.region,
+                            'parsed_data': e.parsed_data
+                        }
+                        for e in events
+                    ]
+                }))
+                
+            except Exception as e:
+                logger.exception(f"OCR processing error: {e}")
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': str(e)
+                }))
+```
+
+#### 4. URL Routing
+
+```python
+# backend/apps/counters/routing.py (add to existing)
+from django.urls import path
+from .consumers.ocr_consumer import OCRConsumer
+
+websocket_urlpatterns = [
+    # ... existing patterns
+    path('ws/ocr/', OCRConsumer.as_asgi()),
+]
+```
+
+### Frontend Implementation (Server-Side Mode)
+
+#### 1. OCR Mode Hook
+
+```typescript
+// frontend/src/hooks/useServerSideOCR.ts
+'use client';
+
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+
+interface OCREvent {
+  event_type: 'claim' | 'close' | 'claim_button' | 'close_button';
+  region: string;
+  parsed_data: Record<string, string>;
+}
+
+interface ServerOCROptions {
+  scanIntervalMs?: number;
+  imageQuality?: number;  // 0-1 for JPEG quality
+  regions?: Array<{ name: string; x: number; y: number; width: number; height: number }>;
+  onDetection?: (event: OCREvent) => void;
+  onError?: (error: string) => void;
+}
+
+const DEFAULT_REGIONS = [
+  { name: 'chat', x: 0, y: 0.7, width: 0.35, height: 0.25 },
+  { name: 'popup', x: 0, y: 0.1, width: 0.3, height: 0.4 },
+];
+
+export function useServerSideOCR(
+  stream: MediaStream | null,
+  options: ServerOCROptions = {}
+) {
+  const {
+    scanIntervalMs = 1500,
+    imageQuality = 0.7,
+    regions = DEFAULT_REGIONS,
+    onDetection,
+    onError,
+  } = options;
+  
+  const { token } = useAuth();
+  const wsRef = useRef<WebSocket | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const [isConnected, setIsConnected] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [lastResult, setLastResult] = useState<string>('');
+  const [processingTimeMs, setProcessingTimeMs] = useState(0);
+  const [scanCount, setScanCount] = useState(0);
+  
+  // Initialize canvas and video elements
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      canvasRef.current = document.createElement('canvas');
+      videoRef.current = document.createElement('video');
+      videoRef.current.autoplay = true;
+      videoRef.current.muted = true;
+    }
+  }, []);
+  
+  // Connect stream to video
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play();
+    }
+  }, [stream]);
+  
+  // Connect WebSocket
+  const connect = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    
+    const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL}/ws/ocr/?token=${token}`;
+    const ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+      setIsConnected(true);
+      // Send region config
+      ws.send(JSON.stringify({ type: 'config', regions }));
+    };
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      if (data.type === 'ocr_result') {
+        // Update state with results
+        const totalTime = data.results.reduce(
+          (sum: number, r: any) => sum + r.processing_time_ms, 0
+        );
+        setProcessingTimeMs(totalTime);
+        
+        const combinedText = data.results.map((r: any) => r.text).join(' ');
+        setLastResult(combinedText);
+        setScanCount(prev => prev + 1);
+        
+        // Emit detection events
+        for (const event of data.events) {
+          onDetection?.(event);
+        }
+      } else if (data.type === 'error') {
+        onError?.(data.message);
+      }
+    };
+    
+    ws.onclose = () => setIsConnected(false);
+    ws.onerror = () => onError?.('WebSocket connection error');
+    
+    wsRef.current = ws;
+  }, [token, regions, onDetection, onError]);
+  
+  // Capture and send frame
+  const captureAndSendFrame = useCallback(() => {
+    if (!canvasRef.current || !videoRef.current || !wsRef.current) return;
+    if (wsRef.current.readyState !== WebSocket.OPEN) return;
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    
+    if (video.videoWidth === 0 || video.videoHeight === 0) return;
+    
+    // Set canvas to full video size
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Draw frame
+    ctx.drawImage(video, 0, 0);
+    
+    // Convert to JPEG blob and send
+    canvas.toBlob((blob) => {
+      if (blob && wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(blob);
+      }
+    }, 'image/jpeg', imageQuality);
+    
+  }, [imageQuality]);
+  
+  // Start scanning
+  const startScanning = useCallback(() => {
+    if (!stream) {
+      onError?.('No screen stream available');
+      return;
+    }
+    
+    connect();
+    setIsScanning(true);
+    
+    intervalRef.current = setInterval(captureAndSendFrame, scanIntervalMs);
+  }, [stream, connect, captureAndSendFrame, scanIntervalMs, onError]);
+  
+  // Stop scanning
+  const stopScanning = useCallback(() => {
+    setIsScanning(false);
+    
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+  }, []);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopScanning();
+    };
+  }, [stopScanning]);
+  
+  return {
+    isConnected,
+    isScanning,
+    lastResult,
+    processingTimeMs,
+    scanCount,
+    startScanning,
+    stopScanning,
+  };
+}
+```
+
+#### 2. User Preference for OCR Mode
+
+Add to user preferences model:
+
+```python
+# Add to UserSitPreferences model
+ocr_mode = models.CharField(
+    max_length=20,
+    choices=[('client', 'Client-Side'), ('server', 'Server-Side')],
+    default='client',
+    help_text='Where to process OCR: locally or on server'
+)
+```
+
+```typescript
+// Add to preferences UI
+<div className="flex items-center justify-between">
+  <div>
+    <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+      OCR Processing Mode
+    </h4>
+    <p className="text-xs text-gray-500 dark:text-gray-400">
+      Client-side: Better privacy, may impact game performance.<br/>
+      Server-side: Lower CPU usage, requires network.
+    </p>
+  </div>
+  <select
+    value={preferences.ocr_mode}
+    onChange={(e) => handleChange('ocr_mode', e.target.value)}
+    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+  >
+    <option value="client">Client-Side (Local)</option>
+    <option value="server">Server-Side (Remote)</option>
+  </select>
+</div>
+```
+
+### Performance Considerations
+
+#### Server-Side Resource Usage
+
+| Concurrent Users | RAM (est.) | CPU Cores | Processing Time |
+|------------------|------------|-----------|-----------------|
+| 1-5 | 512 MB | 1 | < 200ms/frame |
+| 5-20 | 1 GB | 2 | < 300ms/frame |
+| 20-50 | 2 GB | 4 | < 400ms/frame |
+| 50+ | Consider Celery queue | Scale horizontally |
+
+#### Bandwidth Estimation
+
+- Frame size (JPEG, quality 0.7): ~50-150 KB
+- Scan interval: 1.5 seconds
+- Per user: ~200-600 KB/min = ~12-36 MB/hour
+- Response data: ~1-2 KB/scan (negligible)
+
+#### Optimization Strategies
+
+1. **Only send changed regions**: Detect frame differences client-side
+2. **Reduce resolution**: Scale down before sending (50% sufficient for OCR)
+3. **Adaptive intervals**: Increase interval when no events detected
+4. **Connection pooling**: Reuse Tesseract worker instances
+5. **Celery for scale**: Offload to background workers during high load
+
+### Security Considerations
+
+1. **Authentication**: WebSocket must validate JWT token
+2. **Rate limiting**: Max 2 frames/second per user
+3. **Frame validation**: Verify JPEG format, max size 500KB
+4. **Privacy**: Frames processed in-memory, never stored
+5. **Encryption**: WSS (WebSocket Secure) in production
+
+### Docker Configuration
+
+```dockerfile
+# Add to backend Dockerfile
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    libgl1-mesa-glx \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+```yaml
+# docker-compose.yml - Add OCR worker (optional, for scale)
+ocr_worker:
+  build: ./backend
+  command: celery -A config worker -Q ocr -c 2
+  depends_on:
+    - redis
+    - db
+  environment:
+    - CELERY_QUEUES=ocr
+```
+
+---
+
 ## Document History
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-01-02 | - | Initial specification |
+| 1.1 | 2026-01-02 | - | Added server-side OCR option for performance |
