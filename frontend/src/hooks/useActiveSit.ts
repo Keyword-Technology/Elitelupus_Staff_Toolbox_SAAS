@@ -134,13 +134,28 @@ export function useActiveSit() {
       // Check for any active sit
       let activeSit = null;
       try {
+        console.log('[useActiveSit] 🔍 Checking for active sits from backend...');
         const activeResponse = await sitAPI.getActive();
+        console.log('[useActiveSit] Backend response:', activeResponse);
+        
         if (activeResponse.data) {
           activeSit = activeResponse.data;
-          sitIdRef.current = activeSit.id;
+          console.log('[useActiveSit] Active sit data received:', activeSit);
+          
+          // Validate sit data
+          if (!activeSit.started_at || !activeSit.id) {
+            console.warn('[useActiveSit] ⚠️ Active sit has invalid data, ignoring:', activeSit);
+            activeSit = null;
+          } else {
+            sitIdRef.current = activeSit.id;
+            console.log('[useActiveSit] ✅ Valid active sit found');
+          }
+        } else {
+          console.log('[useActiveSit] No active sit in response');
         }
-      } catch {
-        // No active sit
+      } catch (err) {
+        // No active sit or error fetching
+        console.log('[useActiveSit] No active sit found or error:', err);
       }
 
       setState(prev => ({
@@ -155,8 +170,15 @@ export function useActiveSit() {
 
       // Resume duration counter if there's an active sit
       if (activeSit) {
+        console.log('[useActiveSit] Resuming active sit:', {
+          id: activeSit.id,
+          reporter: activeSit.reporter_name,
+          startedAt: activeSit.started_at,
+        });
         const startTime = new Date(activeSit.started_at).getTime();
         startDurationTimer(startTime);
+      } else {
+        console.log('[useActiveSit] No active sit to resume');
       }
     } catch (err) {
       setState(prev => ({
