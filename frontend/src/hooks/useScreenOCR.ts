@@ -383,22 +383,35 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
         const reportTypeMatch = text.match(OCR_PATTERNS.POPUP_REPORT_TYPE);
         const reportedPlayerMatch = text.match(OCR_PATTERNS.POPUP_REPORTED_PLAYER);
         
+        // Normalize reporter name to handle OCR variations (remove leading punctuation, extra spaces)
+        const normalizeReporterName = (name: string | undefined): string => {
+          if (!name) return '';
+          return name.replace(/^[.\s,'"]+/, '').replace(/[.\s,'"]+$/, '').trim().toLowerCase();
+        };
+        
         const currentReporterName = reportHeaderMatch?.[1]?.trim();
         const currentReportType = reportTypeMatch?.[1]?.trim();
         const isCurrentlyClaimed = hasGoToButton || hasBringButton;
         
+        // Normalize names for comparison
+        const normalizedCurrentName = normalizeReporterName(currentReporterName);
+        const normalizedPreviousName = normalizeReporterName(lastPopupStateRef.current?.reporterName);
+        
         // Check if popup changed (different sit) or disappeared
-        if (lastPopupStateRef.current) {
+        // ONLY generate close events if the PREVIOUS popup was claimed
+        if (lastPopupStateRef.current && lastPopupStateRef.current.isClaimed) {
+          // Use normalized names for comparison to avoid OCR variation false positives
           const popupChanged = currentReporterName && (
-            currentReporterName !== lastPopupStateRef.current.reporterName ||
-            currentReportType !== lastPopupStateRef.current.reportType
+            normalizedCurrentName !== normalizedPreviousName
           );
           const popupDisappeared = !reportHeaderMatch; // No report detected anymore
           
           if (popupChanged) {
-            console.log('[OCR] 🔄 Popup changed - previous sit closed, new sit appeared:', {
+            console.log('[OCR] 🔄 Popup changed - previous CLAIMED sit closed, new sit appeared:', {
               previous: lastPopupStateRef.current,
               current: { reporterName: currentReporterName, reportType: currentReportType },
+              normalizedPrev: normalizedPreviousName,
+              normalizedCurr: normalizedCurrentName,
             });
             // Generate close event for previous sit
             event = {
@@ -429,27 +442,17 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
           }
         }
         
-        // Update last popup state if we have a valid report
-        if (reportHeaderMatch && !event) {
-          lastPopupStateRef.current = {
-            reporterName: currentReporterName || '',
-            reportType: currentReportType || '',
-            isClaimed: isCurrentlyClaimed,
-          };
-          
-          // Debug logging if we detect any report structure
-          console.log('[OCR] 📋 Report popup tracked:', {
-            reporterName: currentReporterName,
-            reportType: currentReportType,
-            hasGoToButton,
-            hasBringButton,
-            hasClaimButton,
-            hasCloseButton,
-          });
-        }
+        // Detect CLAIMED report for starting a sit
+        // Only fire claim event if:
+        // 1. This is a new claimed popup (no previous state OR different reporter)
+        // 2. The popup transitioned from unclaimed to claimed (same popup, but now claimed)
+        const isNewClaimedPopup = isCurrentlyClaimed && reportHeaderMatch && (
+          !lastPopupStateRef.current || // No previous popup tracked
+          normalizedCurrentName !== normalizedPreviousName || // Different reporter
+          !lastPopupStateRef.current.isClaimed // Same popup but wasn't claimed before
+        );
         
-        // Detect CLAIMED report for starting a sit (only if no close event was generated)
-        if (!event && isCurrentlyClaimed && reportHeaderMatch) {
+        if (!event && isNewClaimedPopup) {
           const reporterName = currentReporterName;
           console.log('[OCR] 🎯 CLAIMED REPORT DETECTED in popup (sit starting):', {
             reporterName,
@@ -457,6 +460,8 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
             reportedPlayer: reportedPlayerMatch?.[1]?.trim(),
             hasGoToButton,
             hasBringButton,
+            isNewPopup: !lastPopupStateRef.current,
+            wasUnclaimed: lastPopupStateRef.current && !lastPopupStateRef.current.isClaimed,
             textPreview: text.substring(0, 200)
           });
           
@@ -475,6 +480,26 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
               reason: reasonMatch?.[1]?.trim(),
             },
           };
+        }
+        
+        // Update last popup state if we have a valid report (do this AFTER generating events)
+        if (reportHeaderMatch) {
+          lastPopupStateRef.current = {
+            reporterName: currentReporterName || '',
+            reportType: currentReportType || '',
+            isClaimed: isCurrentlyClaimed,
+          };
+          
+          // Debug logging if we detect any report structure
+          console.log('[OCR] 📋 Report popup tracked:', {
+            reporterName: currentReporterName,
+            reportType: currentReportType,
+            hasGoToButton,
+            hasBringButton,
+            hasClaimButton,
+            hasCloseButton,
+            isClaimed: isCurrentlyClaimed,
+          });
         }
       }
 
