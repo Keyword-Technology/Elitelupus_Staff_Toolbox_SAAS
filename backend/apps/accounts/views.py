@@ -14,10 +14,9 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .permissions import IsOwnerOrHigherRole
 from .serializers import (CustomTokenObtainPairSerializer,
-                          PasswordChangeSerializer, SocialLinkSerializer,
-                          UserProfileUpdateSerializer,
-                          UserRegistrationSerializer, UserSerializer,
-                          SetupWizardSerializer)
+                          PasswordChangeSerializer, SetupWizardSerializer,
+                          SocialLinkSerializer, UserProfileUpdateSerializer,
+                          UserRegistrationSerializer, UserSerializer)
 
 User = get_user_model()
 
@@ -224,7 +223,7 @@ class SetupWizardView(APIView):
     def get(self, request):
         """Get setup wizard status and system settings."""
         from apps.system_settings.models import SystemSetting
-        
+
         # Get system settings
         sit_recording_enabled = SystemSetting.objects.filter(
             key='sit_recording_enabled',

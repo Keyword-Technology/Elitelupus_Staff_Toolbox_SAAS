@@ -121,7 +121,7 @@ class SetupWizardSerializer(serializers.Serializer):
     def update(self, instance, validated_data):
         """Update user with setup wizard data."""
         from django.utils import timezone as django_timezone
-        
+
         # Update timezone
         instance.timezone = validated_data.get('timezone', instance.timezone)
         

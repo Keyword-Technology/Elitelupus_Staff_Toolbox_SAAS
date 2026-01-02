@@ -3,9 +3,9 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (CustomTokenObtainPairView, LegacyStaffListView, LogoutView,
                     OAuthCallbackView, OAuthErrorView, PasswordChangeView,
-                    ProfileView, RegisterView, SetupWizardView, SocialLinkStatusView,
-                    StaffListView, SteamAuthCallbackView, TimezonesView,
-                    UnlinkSocialAccountView, UserDetailView)
+                    ProfileView, RegisterView, SetupWizardView,
+                    SocialLinkStatusView, StaffListView, SteamAuthCallbackView,
+                    TimezonesView, UnlinkSocialAccountView, UserDetailView)
 
 urlpatterns = [
     # JWT Authentication (with optional trailing slash)
