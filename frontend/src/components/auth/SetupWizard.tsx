@@ -203,7 +203,7 @@ export function SetupWizard() {
             
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-300">
-                Password {!(user?.steam_id || user?.discord_id) && '(Required)'}
+                Password (Optional)
               </label>
               <div className="relative">
                 <input
