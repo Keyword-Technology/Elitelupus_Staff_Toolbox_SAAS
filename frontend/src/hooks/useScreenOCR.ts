@@ -371,9 +371,24 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
       if (!event && regionType === 'popup') {
         const hasGoToButton = OCR_PATTERNS.POPUP_GO_TO_BUTTON.test(text);
         const hasBringButton = OCR_PATTERNS.POPUP_BRING_BUTTON.test(text);
+        const hasClaimButton = OCR_PATTERNS.POPUP_CLAIM_BUTTON.test(text);
+        const hasCloseButton = OCR_PATTERNS.POPUP_CLOSE_BUTTON.test(text);
         const reportHeaderMatch = text.match(OCR_PATTERNS.POPUP_REPORT_HEADER);
         const reportTypeMatch = text.match(OCR_PATTERNS.POPUP_REPORT_TYPE);
         const reportedPlayerMatch = text.match(OCR_PATTERNS.POPUP_REPORTED_PLAYER);
+        
+        // Debug logging if we detect any report structure
+        if (reportHeaderMatch) {
+          console.log('[OCR] 📋 Report popup detected - checking buttons:', {
+            reporterName: reportHeaderMatch?.[1]?.trim(),
+            hasGoToButton,
+            hasBringButton,
+            hasClaimButton,
+            hasCloseButton,
+            fullText: text,
+            textLength: text.length,
+          });
+        }
         
         // Detect CLAIMED report: has Go To or Bring buttons + report structure
         const isClaimedReport = (hasGoToButton || hasBringButton) && reportHeaderMatch;
