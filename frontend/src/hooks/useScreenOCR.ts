@@ -5,9 +5,9 @@ import { createWorker, Worker } from 'tesseract.js';
 
 // OCR Detection patterns for Elitelupus servers
 export const OCR_PATTERNS = {
-  // Chat message patterns
-  CLAIM_PATTERN: /\[Elite Reports\]\s*(\w+)\s+claimed\s+(.+?)['']s\s+report/i,
-  CLOSE_PATTERN: /\[Elite Reports\]\s*You have closed\s+(.+?)['']s\s+report/i,
+  // Chat message patterns - more flexible to handle OCR errors
+  CLAIM_PATTERN: /\[Elite Reports\]\s*(\w+)\s+claimed\s+(.+?)['']?s?\s+repo[rt]/i,
+  CLOSE_PATTERN: /You\s+have\s+closed\s+(.+?)['']?s?\s+repo[rt]/i,
   RATING_PATTERN: /\[Elite Admin Stats\]\s*Your performance has earned you\s*(\d+)\s*credits/i,
   
   // Popup detection patterns
@@ -101,7 +101,7 @@ function creditsToStars(credits: number): number {
 
 export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {}) {
   const {
-    scanIntervalMs = 2000,  // Increased from 1500ms to reduce CPU usage
+    scanIntervalMs = 1500,  // Faster interval to catch more events (was 2000ms)
     enableChatRegion = true,
     enablePopupRegion = false,  // Disabled by default for better performance
     customRegions,
@@ -306,6 +306,22 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
           textLength: text.length,
           preview: text.substring(0, 100)
         });
+        
+        // Debug: Check if keywords are present but pattern didn't match
+        const hasEliteReports = /Elite Reports/i.test(text);
+        const hasClaimed = /claimed/i.test(text);
+        const hasClosed = /closed/i.test(text);
+        const hasReport = /repo[rt]/i.test(text);
+        
+        if ((hasEliteReports && hasClaimed && hasReport) || (hasClosed && hasReport)) {
+          console.log('[OCR] ⚠️ Keywords detected but pattern may not match:', {
+            hasEliteReports,
+            hasClaimed,
+            hasClosed,
+            hasReport,
+            textSample: text.substring(0, 200)
+          });
+        }
       }
 
       // Parse the text for detection events
@@ -314,6 +330,11 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
       // Check for claim event (chat message)
       const claimMatch = text.match(OCR_PATTERNS.CLAIM_PATTERN);
       if (claimMatch) {
+        console.log('[OCR] 🎯 CLAIM DETECTED:', {
+          staffName: claimMatch[1],
+          reporterName: claimMatch[2],
+          fullMatch: claimMatch[0]
+        });
         event = {
           type: 'claim',
           timestamp: new Date(),
@@ -330,6 +351,7 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
       if (!event && regionType === 'popup') {
         const claimButtonMatch = text.match(OCR_PATTERNS.POPUP_CLAIM_BUTTON);
         if (claimButtonMatch) {
+          console.log('[OCR] 🎯 CLAIM BUTTON DETECTED in popup');
           // Also try to extract reporter/target info from popup
           const reporterMatch = text.match(OCR_PATTERNS.POPUP_REPORTER);
           const targetMatch = text.match(OCR_PATTERNS.POPUP_TARGET);
@@ -352,6 +374,10 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
       // Check for close event (chat message)
       const closeMatch = text.match(OCR_PATTERNS.CLOSE_PATTERN);
       if (closeMatch) {
+        console.log('[OCR] 🎯 CLOSE DETECTED:', {
+          reporterName: closeMatch[1],
+          fullMatch: closeMatch[0]
+        });
         event = {
           type: 'close',
           timestamp: new Date(),
@@ -367,6 +393,7 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
       if (!event && regionType === 'popup') {
         const closeButtonMatch = text.match(OCR_PATTERNS.POPUP_CLOSE_BUTTON);
         if (closeButtonMatch) {
+          console.log('[OCR] 🎯 CLOSE BUTTON DETECTED in popup');
           event = {
             type: 'close',
             timestamp: new Date(),
@@ -381,6 +408,10 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
       const ratingMatch = text.match(OCR_PATTERNS.RATING_PATTERN);
       if (ratingMatch) {
         const credits = parseInt(ratingMatch[1], 10);
+        console.log('[OCR] 🎯 RATING DETECTED:', {
+          credits,
+          stars: creditsToStars(credits)
+        });
         event = {
           type: 'rating',
           timestamp: new Date(),
