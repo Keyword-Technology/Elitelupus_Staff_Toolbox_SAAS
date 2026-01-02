@@ -52,20 +52,21 @@ export interface OCROptions {
 }
 
 // Default OCR region definitions (percentages of screen)
+// Optimized to scan only left side of screen for performance
 export const DEFAULT_REGIONS = {
   chat: {
     // Lower-left chat area (typical GMod chat position)
     x: 0,
     y: 0.7,
-    width: 0.4,
+    width: 0.35,  // Reduced from 0.4 to focus on left side only
     height: 0.25,
   },
   popup: {
-    // Center of screen where report popup appears
-    x: 0.3,
-    y: 0.3,
-    width: 0.4,
-    height: 0.4,
+    // Left side popup area (sit cards, counter widgets, report notifications)
+    x: 0,
+    y: 0.1,
+    width: 0.3,  // Reduced from 0.4, focused on left side
+    height: 0.4, // Covers upper-left to mid-left for sit cards
   },
 };
 
@@ -81,9 +82,9 @@ function creditsToStars(credits: number): number {
 
 export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {}) {
   const {
-    scanIntervalMs = 1500,
+    scanIntervalMs = 2000,  // Increased from 1500ms to reduce CPU usage
     enableChatRegion = true,
-    enablePopupRegion = true,
+    enablePopupRegion = false,  // Disabled by default for better performance
     onDetection,
     onError,
   } = options;
@@ -240,19 +241,14 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
       0, 0, pixelWidth, pixelHeight
     );
 
-    // Apply image preprocessing for better OCR
+    // Lightweight grayscale conversion for performance
+    // Skip contrast enhancement to reduce CPU usage
     const imageData = ctx.getImageData(0, 0, pixelWidth, pixelHeight);
-    
-    // Simple grayscale conversion and contrast boost
     const data = imageData.data;
     for (let i = 0; i < data.length; i += 4) {
-      // Convert to grayscale
-      const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-      // Boost contrast
-      const enhanced = Math.min(255, Math.max(0, (gray - 128) * 1.5 + 128));
-      data[i] = enhanced;
-      data[i + 1] = enhanced;
-      data[i + 2] = enhanced;
+      // Simple grayscale (slightly faster than weighted average)
+      const gray = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      data[i] = data[i + 1] = data[i + 2] = gray;
     }
     ctx.putImageData(imageData, 0, 0);
 
@@ -281,12 +277,13 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
         scanCount: prev.scanCount + 1,
       }));
 
-      // Debug logging
-      console.log(`[OCR ${regionType}] Scan #${state.scanCount + 1}:`, {
-        textLength: text.length,
-        preview: text.substring(0, 100),
-        fullText: text
-      });
+      // Reduced logging for performance - only log if text detected
+      if (text.trim().length > 0) {
+        console.log(`[OCR ${regionType}] Scan #${state.scanCount + 1}:`, {
+          textLength: text.length,
+          preview: text.substring(0, 100)
+        });
+      }
 
       // Parse the text for detection events
       let event: OCRDetectionEvent | null = null;
@@ -383,20 +380,18 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
   // Main scan loop
   const performScan = useCallback(async () => {
     if (!isActiveRef.current || !workerRef.current) {
-      console.log('[OCR] Scan skipped - not active or no worker');
       return;
     }
 
-    console.log('[OCR] 🔍 Starting scan cycle...');
     const events: OCRDetectionEvent[] = [];
 
-    // Scan chat region
+    // Scan chat region (primary - always enabled)
     if (enableChatRegion) {
       const chatEvent = await scanRegion(DEFAULT_REGIONS.chat, 'chat');
       if (chatEvent) events.push(chatEvent);
     }
 
-    // Scan popup region
+    // Scan popup region (optional - for sit cards/counters)
     if (enablePopupRegion) {
       const popupEvent = await scanRegion(DEFAULT_REGIONS.popup, 'popup');
       if (popupEvent) events.push(popupEvent);
@@ -417,8 +412,6 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
         onDetection(event);
       }
     }
-    
-    console.log('[OCR] 🏁 Scan cycle complete');
   }, [enableChatRegion, enablePopupRegion, scanRegion, onDetection]);
 
   // Start scanning
