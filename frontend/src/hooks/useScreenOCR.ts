@@ -422,35 +422,24 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
         }
       }
 
-      // Check for close event (chat message)
-      const closeMatch = text.match(OCR_PATTERNS.CLOSE_PATTERN);
-      if (closeMatch) {
-        console.log('[OCR] 🎯 CLOSE DETECTED:', {
-          reporterName: closeMatch[1],
-          fullMatch: closeMatch[0]
-        });
-        event = {
-          type: 'close',
-          timestamp: new Date(),
-          detectionMethod: regionType === 'chat' ? 'ocr_chat' : 'ocr_popup',
-          rawText: text,
-          parsedData: {
+      // Check for close event (ONLY from chat message, not popup)
+      // The "Close" button on a popup just closes the window, not the sit
+      // Only "You have closed X's report" in chat means the sit is done
+      if (regionType === 'chat') {
+        const closeMatch = text.match(OCR_PATTERNS.CLOSE_PATTERN);
+        if (closeMatch) {
+          console.log('[OCR] 🎯 CLOSE DETECTED in chat:', {
             reporterName: closeMatch[1],
-          },
-        };
-      }
-
-      // Check for close button in popup (alternative detection)
-      if (!event && regionType === 'popup') {
-        const closeButtonMatch = text.match(OCR_PATTERNS.POPUP_CLOSE_BUTTON);
-        if (closeButtonMatch) {
-          console.log('[OCR] 🎯 CLOSE BUTTON DETECTED in popup');
+            fullMatch: closeMatch[0]
+          });
           event = {
             type: 'close',
             timestamp: new Date(),
-            detectionMethod: 'ocr_popup',
+            detectionMethod: 'ocr_chat',
             rawText: text,
-            parsedData: {},
+            parsedData: {
+              reporterName: closeMatch[1],
+            },
           };
         }
       }
