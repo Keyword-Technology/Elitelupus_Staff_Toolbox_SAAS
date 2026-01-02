@@ -365,22 +365,31 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
         }
       }
 
-      // Check for report popup with Claim button (alternative detection)
+      // Check for CLAIMED report popup (has Go To/Bring buttons)
+      // When a report is claimed, the popup changes from "Claim" button to "Go To" + "Bring" buttons
+      // This is an alternative detection method to the chat message
       if (!event && regionType === 'popup') {
-        const hasClaimButton = OCR_PATTERNS.POPUP_CLAIM_BUTTON.test(text);
+        const hasGoToButton = OCR_PATTERNS.POPUP_GO_TO_BUTTON.test(text);
+        const hasBringButton = OCR_PATTERNS.POPUP_BRING_BUTTON.test(text);
         const reportHeaderMatch = text.match(OCR_PATTERNS.POPUP_REPORT_HEADER);
+        const reportTypeMatch = text.match(OCR_PATTERNS.POPUP_REPORT_TYPE);
+        const reportedPlayerMatch = text.match(OCR_PATTERNS.POPUP_REPORTED_PLAYER);
         
-        if (hasClaimButton && reportHeaderMatch) {
-          const reporterName = reportHeaderMatch[1]?.trim();
-          console.log('[OCR] 🎯 CLAIMABLE REPORT DETECTED in popup:', {
+        // Detect CLAIMED report: has Go To or Bring buttons + report structure
+        const isClaimedReport = (hasGoToButton || hasBringButton) && reportHeaderMatch;
+        
+        if (isClaimedReport) {
+          const reporterName = reportHeaderMatch?.[1]?.trim();
+          console.log('[OCR] 🎯 CLAIMED REPORT DETECTED in popup (sit starting):', {
             reporterName,
-            hasClaimButton,
+            reportType: reportTypeMatch?.[1]?.trim(),
+            reportedPlayer: reportedPlayerMatch?.[1]?.trim(),
+            hasGoToButton,
+            hasBringButton,
             textPreview: text.substring(0, 200)
           });
           
           // Extract additional info from popup
-          const reportTypeMatch = text.match(OCR_PATTERNS.POPUP_REPORT_TYPE);
-          const reportedPlayerMatch = text.match(OCR_PATTERNS.POPUP_REPORTED_PLAYER);
           const reasonMatch = text.match(OCR_PATTERNS.POPUP_REASON);
           
           event = {
@@ -395,14 +404,6 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
               reason: reasonMatch?.[1]?.trim(),
             },
           };
-        } else if (hasClaimButton || reportHeaderMatch) {
-          // Debug: Has partial match but not both
-          console.log('[OCR] ⚠️ Partial report popup detected:', {
-            hasClaimButton,
-            hasReportHeader: !!reportHeaderMatch,
-            reporterName: reportHeaderMatch?.[1],
-            textSample: text.substring(0, 300)
-          });
         }
       }
 
