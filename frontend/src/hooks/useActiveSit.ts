@@ -63,6 +63,46 @@ const DEFAULT_PREFERENCES: SitPreferences = {
   confirm_before_start: false,
 };
 
+/**
+ * Normalize OCR-extracted report type to match backend choices.
+ * Backend accepts: rdm, nlr, rda, failrp, propblock, harassment, other
+ */
+function normalizeReportType(ocrType: string | undefined): string {
+  if (!ocrType) return '';
+  
+  const normalized = ocrType.toLowerCase().trim();
+  
+  // Map common OCR variations to valid backend choices
+  const mappings: Record<string, string> = {
+    'rdm': 'rdm',
+    'rom': 'rdm',  // Common OCR misread
+    'rdn': 'rdm',  // Common OCR misread
+    'nlr': 'nlr',
+    'rda': 'rda',
+    'failrp': 'failrp',
+    'fail rp': 'failrp',
+    'propblock': 'propblock',
+    'prop block': 'propblock',
+    'prop abuse': 'propblock',
+    'harassment': 'harassment',
+  };
+  
+  // Check if normalized value matches a known type
+  if (mappings[normalized]) {
+    return mappings[normalized];
+  }
+  
+  // Check if it starts with a known type
+  for (const [key, value] of Object.entries(mappings)) {
+    if (normalized.startsWith(key) || key.startsWith(normalized)) {
+      return value;
+    }
+  }
+  
+  // Default to 'other' for unrecognized types
+  return 'other';
+}
+
 export function useActiveSit() {
   const [state, setState] = useState<ActiveSitState>({
     isActive: false,
@@ -230,7 +270,7 @@ export function useActiveSit() {
       const sitData: Partial<SitData> = {
         reporter_name: event.parsedData.reporterName || '',
         reported_player: event.parsedData.targetName || '',  // Use detected target name
-        report_type: event.parsedData.reportType || '',  // Use detected report type
+        report_type: normalizeReportType(event.parsedData.reportType),  // Normalize OCR report type to valid backend choice
         report_reason: event.parsedData.reason || '',  // Use detected reason
         detection_method: event.detectionMethod,
         // Note: has_recording is NOT sent to the backend - it's a read-only field set by the server
