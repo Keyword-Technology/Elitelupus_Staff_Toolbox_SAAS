@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { sitAPI } from '@/lib/api';
 import { useScreenRecording, RecordingOptions } from './useScreenRecording';
 import { useScreenOCR, OCRDetectionEvent, OCROptions } from './useScreenOCR';
+import { playSitOpenedSound, playSitClosedSound } from '@/lib/sounds';
 
 export interface SitData {
   id?: string;
@@ -199,6 +200,10 @@ export function useActiveSit() {
 
     if (event.type === 'claim' && !state.isActive) {
       console.log('[useActiveSit] 🎯 Claim detected - starting new sit');
+      
+      // Play sound notification
+      playSitOpenedSound();
+      
       // Auto-start sit when claim detected
       const sitData: Partial<SitData> = {
         reporter_name: event.parsedData.reporterName || '',
@@ -219,6 +224,10 @@ export function useActiveSit() {
       }
     } else if (event.type === 'close' && state.isActive) {
       console.log('[useActiveSit] 🎯 Close detected - ending sit');
+      
+      // Play sound notification
+      playSitClosedSound();
+      
       // Auto-close sit when close detected
       await endSit();
     } else if (event.type === 'rating' && state.sit) {
