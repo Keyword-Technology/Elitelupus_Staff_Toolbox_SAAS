@@ -286,7 +286,6 @@ export function useActiveSit() {
         report_reason: sitData?.report_reason || '',
         started_at: new Date().toISOString(),
         detection_method: sitData?.detection_method || 'manual',
-        has_recording: state.preferences?.recording_enabled ?? false,
       });
 
       const newSit = response.data;
