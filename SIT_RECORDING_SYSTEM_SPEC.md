@@ -1398,7 +1398,13 @@ Implement **both modes** with user preference:
 - **Client-Side (Default)**: For users with capable machines who prioritize privacy
 - **Server-Side**: For users experiencing performance issues, or on lower-end hardware
 
-### Server-Side Architecture
+### Server-Side Architecture (Microservice)
+
+The OCR processor is a **separate, scalable microservice** independent from the main Django backend. This allows:
+- Horizontal scaling (run multiple OCR workers)
+- Independent deployment and updates
+- Resource isolation (OCR doesn't impact main app)
+- Technology flexibility (can swap to different OCR engines)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -1419,56 +1425,106 @@ Implement **both modes** with user preference:
                                             │
                                             ▼
 ┌───────────────────────────────────────────────────────────────────────────┐
-│ BACKEND (Django Channels)                                                 │
+│ BACKEND (Django Channels - Router Service)                               │
 │                                                                           │
 │  ┌─────────────────────────────────────────────────────────────────────┐ │
 │  │ OCRConsumer (WebSocket)                                              │ │
 │  │                                                                       │ │
-│  │  1. Receive binary frame data                                        │ │
-│  │  2. Decode JPEG -> numpy array                                       │ │
-│  │  3. Preprocess (grayscale, contrast, threshold)                      │ │
-│  │  4. OCR with pytesseract (optimized config)                          │ │
-│  │  5. Pattern match for sit events                                     │ │
-│  │  6. Send detection results back via WebSocket                        │ │
+│  │  1. Receive binary frame data + metadata                             │ │
+│  │  2. Authenticate user (JWT validation)                               │ │
+│  │  3. Publish to Redis queue: "ocr:jobs:{user_id}"                     │ │
+│  │  4. Wait for result on: "ocr:results:{job_id}"                       │ │
+│  │  5. Send detection results back via WebSocket                        │ │
 │  │                                                                       │ │
 │  └─────────────────────────────────────────────────────────────────────┘ │
 │                                                                           │
-│  Alternative: Celery Task Queue (for high-load scenarios)                │
-│  ┌─────────────────────────────────────────────────────────────────────┐ │
-│  │ OCRTask - Process frames async, return via WebSocket or callback    │ │
-│  └─────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────┬─────────────────────────────────────────────┘
+                              │
+                              ▼ Redis Pub/Sub
+┌───────────────────────────────────────────────────────────────────────────┐
+│ REDIS (Message Broker)                                                    │
+│                                                                           │
+│  ┌───────────────────────┐    ┌─────────────────────────────────────┐   │
+│  │ Queue: ocr:jobs       │    │ Queue: ocr:results                  │   │
+│  │ - Frame data (binary) │    │ - Detection events                  │   │
+│  │ - Region definitions  │    │ - OCR text results                  │   │
+│  │ - User ID             │    │ - Processing metadata               │   │
+│  │ - Job ID              │    │ - Timestamps                        │   │
+│  └───────────────────────┘    └─────────────────────────────────────┘   │
+│                                                                           │
+└─────────────────────────────┬─────────────────────────────────────────────┘
+                              │
+                              ▼ Multiple workers pull jobs
+┌───────────────────────────────────────────────────────────────────────────┐
+│ OCR SERVICE (Scalable Python Microservice)                                │
+│                                                                           │
+│  ┌──────────────────────┐  ┌──────────────────────┐  ┌────────────────┐ │
+│  │ OCR Worker 1         │  │ OCR Worker 2         │  │ OCR Worker N   │ │
+│  │                      │  │                      │  │                │ │
+│  │ 1. Poll Redis queue  │  │ 1. Poll Redis queue  │  │ (Scale to N)   │ │
+│  │ 2. Decode JPEG       │  │ 2. Decode JPEG       │  │                │ │
+│  │ 3. Preprocess image  │  │ 3. Preprocess image  │  │                │ │
+│  │ 4. Run pytesseract   │  │ 4. Run pytesseract   │  │                │ │
+│  │ 5. Pattern matching  │  │ 5. Pattern matching  │  │                │ │
+│  │ 6. Publish results   │  │ 6. Publish results   │  │                │ │
+│  │                      │  │                      │  │                │ │
+│  │ Status: Processing   │  │ Status: Idle         │  │ Status: Ready  │ │
+│  └──────────────────────┘  └──────────────────────┘  └────────────────┘ │
+│                                                                           │
+│  Shared: Tesseract engine, OpenCV, pattern library                       │
+│  Load Balancing: Round-robin via Redis queue consumption                 │
+│  Health Checks: Heartbeat to Redis every 30s                             │
 │                                                                           │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
+**Key Components:**
+
+1. **Backend Router**: Django Channels WebSocket that handles client connections and routes jobs
+2. **Redis**: Message broker for job distribution and result delivery
+3. **OCR Workers**: Independent Python processes that consume jobs and process frames
+4. **Load Balancer**: Redis queue ensures fair distribution across workers
+
+**Scaling Strategy:**
+```bash
+# Run 1 worker (low load)
+docker-compose up -d ocr_service
+
+# Scale to 3 workers (medium load)
+docker-compose up -d --scale ocr_service=3
+
+# Scale to 10 workers (high load)
+docker-compose up -d --scale ocr_service=10
+```
+
 ### Backend Implementation
 
-#### 1. Add Dependencies
+#### 1. Backend Router (Django - WebSocket Handler)
 
-```bash
-# backend/requirements.txt
-pytesseract>=0.3.10
-Pillow>=10.0.0
-opencv-python-headless>=4.8.0  # For image preprocessing
-numpy>=1.24.0
-```
-
-**Note**: Tesseract OCR engine must be installed on the server:
-```bash
-# Ubuntu/Debian
-apt-get install tesseract-ocr tesseract-ocr-eng
-
-# Alpine (Docker)
-apk add tesseract-ocr tesseract-ocr-data-eng
-
-# Windows
-choco install tesseract
-```
-
-#### 2. OCR Service
+The main backend only handles WebSocket connections and job routing - no OCR processing.
 
 ```python
-# backend/apps/counters/services/ocr_service.py
+# backend/requirements.txt (add these)
+redis>=5.0.0
+hiredis>=2.2.0  # Faster Redis parsing
+```
+
+```python
+# backend/apps/counters/consumers/ocr_consumer.py
+import json
+import uuid
+import asyncio
+import logging
+from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.layers import get_channel_layer
+import redis.asyncio as aioredis
+
+logger = logging.getLogger(__name__)
+
+class OCRConsumer(AsyncWebsocketConsumer):
+    """WebSocket router for OCR jobs - no processing done here."""
+    
+  ocr_service/ocr_engine.py
 import pytesseract
 import cv2
 import numpy as np
@@ -1476,10 +1532,8 @@ from PIL import Image
 import io
 import re
 from dataclasses import dataclass
-from typing import Optional, List
-import logging
-
-logger = logging.getLogger(__name__)
+from typing import List
+import time
 
 # Optimized tesseract config for game text
 TESSERACT_CONFIG = (
@@ -1504,22 +1558,261 @@ class OCRResult:
 
 @dataclass
 class DetectionEvent:
-    event_type: str  # 'claim', 'close', 'claim_button', 'close_button'
+    event_type: str
     region: str
     raw_text: str
     parsed_data: dict
 
-class OCRService:
-    """Server-side OCR processing for sit detection."""
+class OCREngine:
+    """OCR processing engine for game text detection."""
     
     def __init__(self):
         # Verify tesseract is available
         try:
             pytesseract.get_tesseract_version()
+            print(f"✅ Tesseract {pytesseract.get_tesseract_version()} initialized")
         except Exception as e:
-            logger.error(f"Tesseract not available: {e}")
-            raise RuntimeError("Tesseract OCR engine not installed")
+            raise RuntimeError(f"Tesseract OCR engine not available: {e}")
     
+    def preprocess_image(self, image: np.ndarray) -> np.ndarray:
+        """Preprocess image for better OCR accuracy."""
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image
+        
+        # Increase contrast using CLAHE
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        enhanced = clahe.apply(gray)
+        
+        # Apply slight blur to reduce noise
+        blurred = cv2.GaussianBlur(enhanced, (1, 1), 0)
+        
+        # Adaptive thresholding
+        binary = cv2.adaptiveThreshold(
+            blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY, 11, 2
+        )
+        
+        return binary
+    
+    def process_frame(self, jpeg_data: bytes, regions: List[dict]) -> List[OCRResult]:
+        """Process frame and extract text from specified regions."""
+        # Decode JPEG
+        image = Image.open(io.BytesIO(jpeg_data))
+        img_array = np.array(image)
+        
+        results = []
+        img_height, img_width = img_array.shape[:2]
+        
+        for region in regions:
+            start_time = time.time()
+            
+            # Calculate pixel coordinates
+            x = int(region['x'] * img_width)
+            y = int(region['y'] * img_height)
+            w = int(region['width'] * img_width)
+            h = int(region['height'] * img_height)
+            
+            # Extract and process region
+            region_img = img_array[y:y+h, x:x+w]
+            processed = self.preprocess_image(region_img)
+            
+            # OCR
+            text = pytesseract.image_to_string(processed, config=TESSERACT_CONFIG)
+            processing_time = (time.time() - start_time) * 1000
+            
+            results.append(OCRResult(
+                text=text.strip(),
+                region=region['name'],
+                processing_time_ms=processing_time
+            ))
+        
+        return results
+    
+    def detect_events(self, ocr_results: List[OCRResult]) -> List[DetectionEvent]:
+        """Parse OCR results for sit detection events."""
+        events = []
+        
+        for result in ocr_results:
+            text = result.text
+            
+            for event_type, pattern in OCR_PATTERNS.items():
+                match = pattern.search(text)
+                if match:
+                    parsed_data = {}
+                    if event_type == 'claim':
+                        parsed_data = {
+                            'staff_name': match.group(1),
+                            'reporter_name': match.group(2)
+                        }
+                    elif event_type == 'close':
+                        parsed_data = {
+                            'reporter_name': match.group(1)
+                        }
+                    
+                    events.append(DetectionEvent(
+                        event_type=event_type,
+                        region=result.region,
+                        raw_text=text,
+                        parsed_data=parsed_data
+                    ))
+        
+        return events
+```
+
+**Worker Process:**
+```python
+# ocr_service/worker.py
+import redis
+import json
+import logging
+import time
+from ocr_engine import OCREngine
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class OCRWorker:
+    """Scalable OCR worker that processes jobs from Redis queue."""
+    
+    def __init__(self, redis_url='redis://redis:6379', worker_id=None):
+        self.redis_client = redis.from_url(redis_url, decode_responses=False)
+        self.worker_id = worker_id or f"worker-{int(time.time())}"
+        self.ocr_engine = OCREngine()
+        self.jobs_processed = 0
+        
+        logger.info(f"🚀 OCR Worker {self.worker_id} started")
+    
+    def run(self):
+        """Main worker loop - poll Redis for jobs."""
+        logger.info(f"👷 Worker {self.worker_id} ready - waiting for jobs...")
+        
+        while True:
+            try:
+                # Blocking pop from Redis queue (30s timeout)
+                job_data = self.redis_client.blpop('ocr:jobs', timeout=30)
+                
+                if job_data is None:
+                    # No job within timeout - send heartbeat
+                    self._heartbeat()
+                    continue
+                
+                # Parse job
+                _, job_json = job_data
+                job = json.loads(job_json)
+                
+                # Process job
+                self._process_job(job)
+                
+            except KeyboardInterrupt:
+                logger.info(f"Worker {self.worker_id} shutting down...")
+                break
+            except Exception as e:
+                logger.exception(f"Worker error: {e}")
+                time.sleep(1)
+    
+    def _process_job(self, job: dict):
+        """Process a single OCR job."""
+        job_id = job['job_id']
+        user_id = job['user_id']
+        
+        start_time = time.time()
+        logger.info(f"📋 Processing job {job_id} (user {user_id})")
+        
+        try:
+            # Fetch frame data from Redis
+            frame_data = self.redis_client.get(f"ocr:frame:{job_id}")
+            
+            if not frame_data:
+                logger.warning(f"Frame {job_id} not found (expired?)")
+                self._publish_error(job_id, "Frame data not found")
+                return
+            
+            # Default regions (can be customized per job)
+            regions = [
+                {'name': 'chat', 'x': 0, 'y': 0.7, 'width': 0.35, 'height': 0.25},
+                {'name': 'popup', 'x': 0, 'y': 0.1, 'width': 0.3, 'height': 0.4},
+            ]
+            
+            # Run OCR
+            ocr_results = self.ocr_engine.process_frame(frame_data, regions)
+            events = self.ocr_engine.detect_events(ocr_results)
+            
+            # Prepare result
+            result = {
+                'type': 'ocr_result',
+                'job_id': job_id,
+                'results': [
+                    {
+                        'region': r.region,
+                        'text': r.text,
+                        'processing_time_ms': r.processing_time_ms
+                    }
+                    for r in ocr_results
+                ],
+                'events': [
+                    {
+                        'event_type': e.event_type,
+                        'region': e.region,
+                        'parsed_data': e.parsed_data
+                    }
+                    for e in events
+                ],
+                'worker_id': self.worker_id,
+                'total_time_ms': (time.time() - start_time) * 1000
+            }
+            
+            # Publish result to Redis (10s expiry)
+            self.redis_client.setex(
+                f"ocr:result:{job_id}",
+                10,
+                json.dumps(result)
+            )
+            
+            self.jobs_processed += 1
+            logger.info(
+                f"✅ Job {job_id} complete in {result['total_time_ms']:.1f}ms "
+                f"(total: {self.jobs_processed})"
+            )
+            
+        except Exception as e:
+            logger.exception(f"Error processing job {job_id}: {e}")
+            self._publish_error(job_id, str(e))
+    
+    def _publish_error(self, job_id: str, error: str):
+        """Publish error result."""
+        result = {
+            'type': 'error',
+            'job_id': job_id,
+            'message': error,
+            'worker_id': self.worker_id
+        }
+        self.redis_client.setex(
+            f"ocr:result:{job_id}",
+            10,
+            json.dumps(result)
+        )
+    
+    def _heartbeat(self):
+        """Send heartbeat to Redis."""
+        self.redis_client.setex(
+            f"ocr:worker:{self.worker_id}",
+            60,
+            json.dumps({
+                'worker_id': self.worker_id,
+                'jobs_processed': self.jobs_processed,
+                'timestamp': time.time()
+            })
+        )
+
+if __name__ == '__main__':
+    import os
+    worker = OCRWorker(
+        redis_url=os.getenv('REDIS_URL', 'redis://redis:6379'),
+        worker_id=os.getenv('WORKER_ID', None)
+    )
+    worker.run()
     def preprocess_image(self, image: np.ndarray) -> np.ndarray:
         """Preprocess image for better OCR accuracy."""
         # Convert to grayscale if needed
@@ -1880,25 +2173,175 @@ export function useServerSideOCR(
         wsRef.current.send(blob);
       }
     }, 'image/jpeg', imageQuality);
-    
-  }, [imageQuality]);
+   yaml
+# docker-compose.yml - Add OCR microservice
+version: '3.8'
+
+services:
+  # ... existing services (db, redis, backend, frontend)
   
-  // Start scanning
-  const startScanning = useCallback(() => {
-    if (!stream) {
-      onError?.('No screen stream available');
-      return;
-    }
-    
-    connect();
-    setIsScanning(true);
-    
-    intervalRef.current = setInterval(captureAndSendFrame, scanIntervalMs);
-  }, [stream, connect, captureAndSendFrame, scanIntervalMs, onError]);
-  
-  // Stop scanning
-  const stopScanning = useCallback(() => {
-    setIsScanning(false);
+  ocr_service:
+    build: ./ocr_service
+    container_name: elitelupus_ocr_worker
+    restart: unless-stopped
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - WORKER_ID=${HOSTNAME:-worker-1}
+      - LOG_LEVEL=INFO
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'      # Limit CPU per worker
+          memory: 512M     # Limit RAM per worker
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import redis; r=redis.from_url('redis://redis:6379'); r.ping()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  app-network:
+    driver: bridge
+```
+
+**Scaling Commands:**
+
+```bash
+# Start with 1 worker (default)
+docker-compose up -d ocr_service
+
+# Scale to 3 workers for medium load
+docker-compose up -d --scale ocr_service=3
+
+# Scale to 5 workers for high load
+docker-compose up -d --scale ocr_service=5
+
+# Scale down to 2 workers
+docker-compose up -d --scale ocr_service=2
+
+# View worker status
+docker-compose ps ocr_service
+
+# View logs from all workers
+docker-compose logs -f ocr_service
+
+# View logs from specific worker
+docker logs elitelupus_ocr_worker_1
+```
+
+**Production Deployment (Kubernetes):**
+
+```yaml
+# k8s/ocr-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ocr-service
+spec:
+  replicas: 3  # Default 3 workers
+  selector:
+    matchLabels:
+      app: ocr-service
+  template:
+    metadata:
+      labels:
+        app: ocr-service
+    spec:
+      containers:
+      - name: ocr-worker
+        image: elitelupus/ocr-service:latest
+        env:
+        - name: REDIS_URL
+          value: "redis://redis-service:6379"
+        resources:
+     Resource Planning (Per OCR Worker)
+
+| Workers | Concurrent Users | Total RAM | Total CPU | Avg Latency |
+|---------|------------------|-----------|-----------|-------------|
+| 1 | 1-3 | 256 MB | 0.5 core | < 200ms |
+| 2 | 4-8 | 512 MB | 1 core | < 250ms |
+| 3 | 9-15 | 768 MB | 1.5 cores | < 300ms |
+| 5 | 16-30 | 1.25 GB | 2.5 cores | < 350ms |
+| 10 | 31-60 | 2.5 GB | 5 cores | < 400ms |
+| 20+ | 60+ | Scale horizontally | Scale horizontally | < 500ms |
+
+**Key Metrics:**
+- **Each worker**: ~256MB RAM, 0.5 CPU core
+- **Processing capacity**: ~2-3 users per worker
+- **Frame processing time**: 150-300ms per frame
+- **Queue throughput**: ~1000 jobs/minute per worker
+            command:
+            - python
+     Horizontal Scaling**: Add more OCR workers during peak hours
+   ```bash
+   docker-compose up -d --scale ocr_service=10
+   ```
+
+2. **Frame Difference Detection**: Only send frames when screen changes
+   ```typescript
+   // Client-side optimization
+   if (frameHashChanged(currentFrame, lastFrame)) {
+     sendToOCR(currentFrame);
+   }
+   ```
+
+3. **Resolution Reduction**: Scale down before sending (50% sufficient)
+   ```typescript
+   canvas.width = video.videoWidth * 0.5;
+   canvas.height = video.videoHeight * 0.5;
+   ```
+
+4. **Adaptive Scan Intervals**: Slow down when idle
+   ```typescript
+   const interval = hasActiveReport ? 1000 : 3000;  // Fast when active
+   ```
+
+5. **Worker Auto-scaling**: Use Kubernetes HPA for automatic scaling
+   - Scale up when CPU > 70%
+   - Scale down when CPU < 30%
+   - Min 2 workers, max 20 workers
+
+6. **Redis Optimization**: Use connection pooling and pipelining
+   ```python
+   # Use connection pool
+   pool = redis.ConnectionPool(host='redis', port=6379, db=0)
+   redis_client = redis.Redis(connection_pool=pool)
+   ```
+
+7. **Monitoring & Alerts**: Track worker health and queue depth
+   ```python
+   # Monitor queue depth
+   queue_depth = redis_client.llen('ocr:jobs')
+   if queue_depth > 100:
+       alert("OCR queue backlog - scale up workers")
+   ```
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ocr-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ocr-service
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70);
     
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -1949,22 +2392,119 @@ ocr_mode = models.CharField(
 <div className="flex items-center justify-between">
   <div>
     <h4 className="text-sm font-medium text-gray-900 dark:text-white">
-      OCR Processing Mode
-    </h4>
-    <p className="text-xs text-gray-500 dark:text-gray-400">
-      Client-side: Better privacy, may impact game performance.<br/>
-      Server-side: Lower CPU usage, requires network.
+      OCR Processing Mo
+   - WebSocket validates JWT token before accepting connection
+   - Each job includes user_id for audit trail
+   
+2. **Rate Limiting**: 
+   - Max 2 frames/second per user (enforced at WebSocket layer)
+   - Redis rate limiter: `INCR ocr:rate:{user_id}` with 1s expiry
+   
+3. **Frame Validation**: 
+   - Verify JPEG format and magic bytes
+   - Max size 500KB per frame
+   - Reject malformed data
+   
+4. **Privacy & Data Retention**:
+   - Frames stored in Redis with 10s TTL (auto-deletion)
+   - Workers process in-memory only - no disk writes
+   - Results stored with 10s TTL
+   - No logging of frame content
+   
+5. **Network Security**:
+   - WSS (WebSocket Secure) in production
+   - OCR workers isolated in private network
+   - Redis requires AUTH password
+   
+6. **Worker Isolation**:
+   - Each worker runs in separate container
+   - No shared file system
+   - Resource limits prevent DoS
+   
+7. **Audit Trail**:
+   ```python
+   # Log all OCR jobs
+   logger.info(f"OCR job {job_id} by user {user_id} - {len(frame)} bytes")
+   ```
     </p>
   </div>
   <select
     value={preferences.ocr_mode}
     onChange={(e) => handleChange('ocr_mode', e.target.value)}
-    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm"
-  >
-    <option value="client">Client-Side (Local)</option>
-    <option value="server">Server-Side (Remote)</option>
-  </select>
-</div>
+  # Monitoring & Observability
+
+#### Metrics to Track
+
+1. **Worker Metrics**:
+   - Active workers: `redis.keys("ocr:worker:*")`
+   - Jobs processed per worker
+   - Average processing time
+   - Error rate
+
+2. **Queue Metrics**:
+   - Queue depth: `redis.llen("ocr:jobs")`
+   - Jobs waiting > 5s
+   - Jobs timing out
+
+3. **Performance Metrics**:
+   - P50, P95, P99 latency
+   - Frame processing time
+   - Network transfer time
+
+4. **Health Dashboard**:
+   ```python
+   # backend/apps/counters/views.py - Admin endpoint
+   @api_view(['GET'])
+   @permission_classes([IsAdminUser])
+   def ocr_health(request):
+       redis_client = redis.from_url('redis://redis:6379')
+       
+       # Count active workers
+       worker_keys = redis_client.keys('ocr:worker:*')
+       workers = [
+           json.loads(redis_client.get(key))
+           for key in worker_keys
+       ]
+       
+       # Queue depth
+       queue_depth = redis_client.llen('ocr:jobs')
+       
+       return Response({
+           'status': 'healthy' if len(workers) > 0 else 'degraded',
+           'active_workers': len(workers),
+           'workers': workers,
+           'queue_depth': queue_depth,
+           'timestamp': time.time()
+       })
+   ```
+
+#### Logging
+
+```python
+# Structured logging in workers
+import structlog
+
+logger = structlog.get_logger()
+
+logger.info(
+    "ocr.job.complete",
+    job_id=job_id,
+    user_id=user_id,
+    processing_time_ms=processing_time,
+    worker_id=worker_id,
+    events_detected=len(events)
+)
+```
+
+---
+
+## Document History
+
+| Version | Date | Author | Changes |
+|---------|------|--------|---------|
+| 1.0 | 2026-01-02 | - | Initial specification |
+| 1.1 | 2026-01-02 | - | Added server-side OCR option for performance |
+| 1.2 | 2026-01-02 | - | Refactored OCR to separate scalable microservi
 ```
 
 ### Performance Considerations
@@ -2026,9 +2566,285 @@ ocr_worker:
 
 ---
 
+## System Administration - OCR Monitoring Dashboard
+
+### Overview
+
+SYSADMIN role gets access to a dedicated monitoring dashboard for the OCR microservice infrastructure. This provides real-time visibility into worker health, queue performance, and system capacity.
+
+### Access Control
+
+| Role | Access |
+|------|--------|
+| SYSADMIN | Full access (view, control, restart) |
+| Manager | View only |
+| All others | No access |
+
+### Page Location
+
+```
+/dashboard/admin/ocr-monitor
+```
+
+### Backend API Endpoints
+
+#### 1. OCR Health & Worker Status
+
+```python
+# backend/apps/counters/views.py
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+import redis
+import json
+from datetime import datetime, timedelta
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def ocr_health(request):
+    """Get OCR service health and worker status."""
+    # Only SYSADMIN can access
+    if request.user.role != 'SYSADMIN':
+        return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    
+    redis_client = redis.from_url('redis://redis:6379', decode_responses=True)
+    
+    try:
+        # Get all active workers
+        worker_keys = redis_client.keys('ocr:worker:*')
+        workers = []
+        for key in worker_keys:
+            worker_data = json.loads(redis_client.get(key))
+            workers.append({
+                'worker_id': worker_data['worker_id'],
+                'jobs_processed': worker_data['jobs_processed'],
+                'last_heartbeat': datetime.fromtimestamp(worker_data['timestamp']).isoformat(),
+                'uptime_seconds': time.time() - worker_data.get('started_at', worker_data['timestamp']),
+                'status': 'healthy' if time.time() - worker_data['timestamp'] < 60 else 'stale'
+            })
+        
+        # Get queue metrics
+        queue_depth = redis_client.llen('ocr:jobs')
+        
+        # Get recent job statistics (last 5 minutes)
+        job_stats_key = 'ocr:stats:recent'
+        recent_jobs = redis_client.lrange(job_stats_key, 0, -1)
+        recent_jobs_data = [json.loads(job) for job in recent_jobs]
+        
+        # Calculate metrics
+        total_jobs = sum(w['jobs_processed'] for w in workers)
+        avg_processing_time = (
+            sum(job['processing_time_ms'] for job in recent_jobs_data) / len(recent_jobs_data)
+            if recent_jobs_data else 0
+        )
+        
+        return Response({
+            'status': 'healthy' if len(workers) > 0 and queue_depth < 100 else 'degraded',
+            'workers': {
+                'active_count': len(workers),
+                'workers': workers,
+                'total_jobs_processed': total_jobs
+            },
+            'queue': {
+                'depth': queue_depth,
+                'status': 'normal' if queue_depth < 50 else 'high' if queue_depth < 100 else 'critical'
+            },
+            'performance': {
+                'avg_processing_time_ms': round(avg_processing_time, 2),
+                'jobs_last_5min': len(recent_jobs_data),
+                'throughput_per_min': len(recent_jobs_data) / 5 * 60
+            },
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return Response({
+            'status': 'error',
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def ocr_queue_jobs(request):
+    """Get list of jobs currently in queue."""
+    if request.user.role != 'SYSADMIN':
+        return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    
+    redis_client = redis.from_url('redis://redis:6379', decode_responses=True)
+    
+    # Get jobs from queue (first 100)
+    queue_jobs = redis_client.lrange('ocr:jobs', 0, 99)
+    
+    jobs = []
+    for job_json in queue_jobs:
+        job = json.loads(job_json)
+        jobs.append({
+            'job_id': job['job_id'],
+            'user_id': job['user_id'],
+            'frame_size': job['frame_size'],
+            'queued_at': datetime.fromtimestamp(job['timestamp']).isoformat(),
+            'wait_time_seconds': time.time() - job['timestamp']
+        })
+    
+    return Response({
+        'queue_depth': len(jobs),
+        'jobs': jobs,
+        'showing': f"1-{len(jobs)} of {redis_client.llen('ocr:jobs')}"
+    })
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def ocr_flush_queue(request):
+    """Emergency: Flush the OCR job queue."""
+    if request.user.role != 'SYSADMIN':
+        return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    
+    redis_client = redis.from_url('redis://redis:6379', decode_responses=True)
+    
+    queue_depth = redis_client.llen('ocr:jobs')
+    redis_client.delete('ocr:jobs')
+    
+    return Response({
+        'message': f'Flushed {queue_depth} jobs from queue',
+        'jobs_removed': queue_depth
+    })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def ocr_worker_history(request, worker_id):
+    """Get detailed history for a specific worker."""
+    if request.user.role != 'SYSADMIN':
+        return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    
+    redis_client = redis.from_url('redis://redis:6379', decode_responses=True)
+    
+    # Get worker info
+    worker_key = f'ocr:worker:{worker_id}'
+    worker_data = redis_client.get(worker_key)
+    
+    if not worker_data:
+        return Response({'error': 'Worker not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    worker = json.loads(worker_data)
+    
+    # Get job history for this worker
+    history_key = f'ocr:worker:{worker_id}:history'
+    history = redis_client.lrange(history_key, 0, 99)
+    job_history = [json.loads(job) for job in history]
+    
+    return Response({
+        'worker_id': worker_id,
+        'current_status': worker,
+        'job_history': job_history,
+        'total_jobs': worker['jobs_processed']
+    })
+```
+
+#### 2. URL Configuration
+
+```python
+# backend/apps/counters/urls.py (add these)
+
+urlpatterns = [
+    # ... existing patterns
+    
+    # OCR Monitoring (SYSADMIN only)
+    path('ocr/health/', views.ocr_health, name='ocr_health'),
+    path('ocr/queue/', views.ocr_queue_jobs, name='ocr_queue_jobs'),
+    path('ocr/queue/flush/', views.ocr_flush_queue, name='ocr_flush_queue'),
+    path('ocr/worker/<str:worker_id>/', views.ocr_worker_history, name='ocr_worker_history'),
+]
+```
+
+### Frontend Implementation
+
+Full implementation provided in spec with:
+- Real-time dashboard with auto-refresh
+- Worker status table
+- Queue inspection table  
+- Emergency queue flush
+- Formatted metrics and timestamps
+
+### UI Mockup
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  OCR Service Monitor                         Auto-refresh ☑  [HEALTHY]  │
+│  Real-time monitoring of OCR workers and queue status                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────┐│
+│  │Active Workers│  │ Queue Depth  │  │  Avg Time    │  │ Throughput ││
+│  │      3       │  │      12      │  │    245ms     │  │  180/min   ││
+│  │52 jobs total │  │Status: normal│  │  Per frame   │  │            ││
+│  └──────────────┘  └──────────────┘  └──────────────┘  └────────────┘│
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ Active Workers (3)                                              │  │
+│  ├──────────────┬────────┬───────────┬─────────┬──────────────────┤  │
+│  │ Worker ID    │ Status │ Jobs Done │ Uptime  │ Last Heartbeat   │  │
+│  ├──────────────┼────────┼───────────┼─────────┼──────────────────┤  │
+│  │ worker-1     │[healthy]│    24     │ 2h 15m  │ 3s ago          │  │
+│  │ worker-2     │[healthy]│    19     │ 2h 10m  │ 2s ago          │  │
+│  │ worker-3     │[healthy]│     9     │ 45m     │ 5s ago          │  │
+│  └──────────────┴────────┴───────────┴─────────┴──────────────────┘  │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐  │
+│  │ Queued Jobs (12)                             [Flush Queue]      │  │
+│  ├──────────────┬────────┬────────────┬──────────┬─────────────────┤  │
+│  │ Job ID       │User ID │ Frame Size │Wait Time │ Queued At       │  │
+│  ├──────────────┼────────┼────────────┼──────────┼─────────────────┤  │
+│  │ a3f4b2c1...  │   42   │  125.3 KB  │  2.1s    │ 5s ago         │  │
+│  │ d7e8f3a2...  │   18   │  98.7 KB   │  1.8s    │ 7s ago         │  │
+│  │ ...          │   ...  │  ...       │  ...     │ ...            │  │
+│  └──────────────┴────────┴────────────┴──────────┴─────────────────┘  │
+│                                                                         │
+│                    Last updated: 2s ago                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Features
+
+1. **Real-time Monitoring**:
+   - Worker count and health status
+   - Queue depth with status indicators (normal/high/critical)
+   - Average processing time
+   - Throughput (jobs per minute)
+
+2. **Worker Details**:
+   - Worker ID
+   - Health status (healthy/stale)
+   - Total jobs processed
+   - Uptime
+   - Last heartbeat timestamp
+
+3. **Queue Inspection**:
+   - View queued jobs (first 100)
+   - Job ID, user ID, frame size
+   - Wait time in queue
+   - Timestamp when queued
+
+4. **Emergency Actions**:
+   - Flush entire queue (with confirmation)
+   - Future: Restart worker, scale workers
+
+5. **Auto-refresh**:
+   - Toggle 5-second auto-refresh
+   - Manual refresh option
+
+6. **Status Indicators**:
+   - Color-coded health status (green/yellow/red)
+   - Queue status indicators
+   - Worker heartbeat freshness
+
+---
+
 ## Document History
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-01-02 | - | Initial specification |
 | 1.1 | 2026-01-02 | - | Added server-side OCR option for performance |
+| 1.2 | 2026-01-02 | - | Refactored OCR to separate scalable microservice |
+| 1.3 | 2026-01-02 | - | Added SYSADMIN OCR monitoring dashboard |
