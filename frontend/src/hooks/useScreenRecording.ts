@@ -97,6 +97,7 @@ export function useScreenRecording(options: RecordingOptions = {}) {
       });
 
       streamRef.current = stream;
+      setState(prev => ({ ...prev, hasPermission: true }));
 
       // Handle user stopping the share via browser UI
       stream.getVideoTracks()[0].addEventListener('ended', () => {
@@ -249,6 +250,7 @@ export function useScreenRecording(options: RecordingOptions = {}) {
 
   return {
     ...state,
+    stream: streamRef.current, // Expose stream directly
     startRecording,
     stopRecording,
     pauseRecording,

@@ -97,7 +97,7 @@ export function useActiveSit() {
   });
 
   // Screen OCR hook
-  const ocr = useScreenOCR(recording.getStream(), {
+  const ocr = useScreenOCR(recording.stream, {
     scanIntervalMs: state.preferences?.ocr_scan_interval_ms || 1500,
     enableChatRegion: state.preferences?.ocr_chat_region_enabled ?? true,
     enablePopupRegion: state.preferences?.ocr_popup_region_enabled ?? true,

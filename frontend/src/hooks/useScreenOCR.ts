@@ -154,7 +154,35 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
   // Connect video element to stream when it changes
   useEffect(() => {
     if (videoRef.current && stream) {
+      console.log('[OCR] 🎥 Connecting stream to video element...');
       videoRef.current.srcObject = stream;
+      
+      // Wait for video to be ready
+      const video = videoRef.current;
+      const onLoadedMetadata = () => {
+        console.log('[OCR] ✅ Video metadata loaded:', {
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight,
+          readyState: video.readyState
+        });
+      };
+      
+      const onCanPlay = () => {
+        console.log('[OCR] ✅ Video can play - ready for capture');
+      };
+      
+      video.addEventListener('loadedmetadata', onLoadedMetadata);
+      video.addEventListener('canplay', onCanPlay);
+      
+      // Force play
+      video.play().catch(err => {
+        console.error('[OCR] ❌ Failed to play video:', err);
+      });
+      
+      return () => {
+        video.removeEventListener('loadedmetadata', onLoadedMetadata);
+        video.removeEventListener('canplay', onCanPlay);
+      };
     }
   }, [stream]);
 
@@ -162,17 +190,35 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
   const captureRegion = useCallback((
     region: { x: number; y: number; width: number; height: number }
   ): ImageData | null => {
-    if (!canvasRef.current || !videoRef.current || !stream) return null;
+    if (!canvasRef.current || !videoRef.current || !stream) {
+      console.warn('[OCR] ⚠️ Cannot capture - missing elements:', {
+        hasCanvas: !!canvasRef.current,
+        hasVideo: !!videoRef.current,
+        hasStream: !!stream
+      });
+      return null;
+    }
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return null;
+    if (!ctx) {
+      console.warn('[OCR] ⚠️ Cannot get canvas context');
+      return null;
+    }
 
     // Get video dimensions
     const videoWidth = video.videoWidth;
     const videoHeight = video.videoHeight;
-    if (videoWidth === 0 || videoHeight === 0) return null;
+    if (videoWidth === 0 || videoHeight === 0) {
+      console.warn('[OCR] ⚠️ Video not ready:', {
+        videoWidth,
+        videoHeight,
+        readyState: video.readyState,
+        srcObject: !!video.srcObject
+      });
+      return null;
+    }
 
     // Calculate pixel coordinates from percentages
     const pixelX = Math.round(region.x * videoWidth);
@@ -373,15 +419,33 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
   }, [enableChatRegion, enablePopupRegion, scanRegion, onDetection]);
 
   // Start scanning
-  const startScanning = useCallback(async () => {
-    console.log('[OCR] 🚀 Starting OCR scanning...', { hasStream: !!stream, streamActive: stream?.active });
+  const startScanning = useCallback(async (providedStream?: MediaStream) => {
+    // Use provided stream or fall back to the one from props
+    const streamToUse = providedStream || stream;
     
-    if (!stream) {
+    console.log('[OCR] 🚀 Starting OCR scanning...', { 
+      hasStream: !!streamToUse, 
+      streamActive: streamToUse?.active,
+      providedStream: !!providedStream,
+      propsStream: !!stream
+    });
+    
+    if (!streamToUse) {
       const error = 'No screen stream available for OCR';
       console.error('[OCR] ❌', error);
       setState(prev => ({ ...prev, error }));
       if (onError) onError(error);
       return;
+    }
+
+    // Update the stream ref if a new one was provided
+    if (providedStream && videoRef.current) {
+      console.log('[OCR] 🎥 Updating video element with provided stream...');
+      videoRef.current.srcObject = providedStream;
+      // Force play
+      videoRef.current.play().catch(err => {
+        console.error('[OCR] ❌ Failed to play video:', err);
+      });
     }
 
     // Initialize worker if needed
@@ -393,6 +457,38 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
         return;
       }
       console.log('[OCR] ✅ Worker initialized');
+    }
+
+    // Wait for video to be ready before starting scans
+    const video = videoRef.current;
+    if (video) {
+      if (video.readyState < 2) {
+        console.log('[OCR] ⏳ Waiting for video to be ready (readyState: ' + video.readyState + ')...');
+        await new Promise<void>((resolve) => {
+          const checkReady = () => {
+            if (video.readyState >= 2) {
+              console.log('[OCR] ✅ Video ready:', {
+                videoWidth: video.videoWidth,
+                videoHeight: video.videoHeight,
+                readyState: video.readyState
+              });
+              resolve();
+            } else {
+              console.log('[OCR] ⏳ Video readyState:', video.readyState, '- waiting...');
+              setTimeout(checkReady, 100);
+            }
+          };
+          checkReady();
+        });
+      } else {
+        console.log('[OCR] ✅ Video already ready:', {
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight,
+          readyState: video.readyState
+        });
+      }
+    } else {
+      console.warn('[OCR] ⚠️ No video element available!');
     }
 
     isActiveRef.current = true;

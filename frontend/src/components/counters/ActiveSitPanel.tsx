@@ -109,14 +109,25 @@ export function ActiveSitPanel({ className = '', compact = false }: ActiveSitPan
                         // First, request screen capture permission and start stream
                         console.log('[UI] Requesting screen capture...');
                         await recording.startRecording();
-                        console.log('[UI] Screen capture started, stream active:', recording.stream?.active);
+                        console.log('[UI] Screen capture started');
                         
-                        // Wait for stream to be fully ready
+                        // Wait for stream to be fully ready and check it's available
                         await new Promise(resolve => setTimeout(resolve, 1000));
                         
+                        const currentStream = recording.getStream();
+                        console.log('[UI] Stream status:', { 
+                          hasStream: !!currentStream,
+                          active: currentStream?.active,
+                          tracks: currentStream?.getTracks().length 
+                        });
+                        
+                        if (!currentStream || !currentStream.active) {
+                          throw new Error('Screen capture stream not available');
+                        }
+                        
                         console.log('[UI] Starting OCR scanning...');
-                        await ocr.startScanning();
-                        console.log('[UI] OCR scanning started');
+                        await ocr.startScanning(currentStream); // Pass the stream directly
+                        console.log('[UI] OCR scanning started successfully');
                       } catch (err) {
                         console.error('[UI] Failed to start monitoring:', err);
                         alert('Failed to start monitoring: ' + (err instanceof Error ? err.message : 'Unknown error'));
