@@ -147,8 +147,9 @@ export function ActiveSitPanel({ className = '', compact = false }: ActiveSitPan
                     Monitoring: {ocr.scanCount} scans performed
                   </span>
                 </div>
-                <div className="text-xs text-gray-400 text-center">
-                  Looking for: "Elite Reports", "claimed", "closed", "report", "rating"
+                <div className="text-xs text-gray-400 text-center space-y-1">
+                  <div>Chat: "Elite Reports", "claimed", "closed", "report", "rating"</div>
+                  <div>Popup Buttons: "CLAIM REPORT", "CLOSE REPORT"</div>
                 </div>
               </div>
             </div>

@@ -235,7 +235,7 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
       // Parse the text for detection events
       let event: OCRDetectionEvent | null = null;
 
-      // Check for claim event
+      // Check for claim event (chat message)
       const claimMatch = text.match(OCR_PATTERNS.CLAIM_PATTERN);
       if (claimMatch) {
         event = {
@@ -250,7 +250,30 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
         };
       }
 
-      // Check for close event
+      // Check for claim button in popup (alternative detection)
+      if (!event && regionType === 'popup') {
+        const claimButtonMatch = text.match(OCR_PATTERNS.POPUP_CLAIM_BUTTON);
+        if (claimButtonMatch) {
+          // Also try to extract reporter/target info from popup
+          const reporterMatch = text.match(OCR_PATTERNS.POPUP_REPORTER);
+          const targetMatch = text.match(OCR_PATTERNS.POPUP_TARGET);
+          const reasonMatch = text.match(OCR_PATTERNS.POPUP_REASON);
+          
+          event = {
+            type: 'claim',
+            timestamp: new Date(),
+            detectionMethod: 'ocr_popup',
+            rawText: text,
+            parsedData: {
+              reporterName: reporterMatch?.[1]?.trim(),
+              targetName: targetMatch?.[1]?.trim(),
+              reason: reasonMatch?.[1]?.trim(),
+            },
+          };
+        }
+      }
+
+      // Check for close event (chat message)
       const closeMatch = text.match(OCR_PATTERNS.CLOSE_PATTERN);
       if (closeMatch) {
         event = {
@@ -262,6 +285,20 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
             reporterName: closeMatch[1],
           },
         };
+      }
+
+      // Check for close button in popup (alternative detection)
+      if (!event && regionType === 'popup') {
+        const closeButtonMatch = text.match(OCR_PATTERNS.POPUP_CLOSE_BUTTON);
+        if (closeButtonMatch) {
+          event = {
+            type: 'close',
+            timestamp: new Date(),
+            detectionMethod: 'ocr_popup',
+            rawText: text,
+            parsedData: {},
+          };
+        }
       }
 
       // Check for rating event
