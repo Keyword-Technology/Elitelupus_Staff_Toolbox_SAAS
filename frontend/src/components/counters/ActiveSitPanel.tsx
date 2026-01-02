@@ -60,18 +60,101 @@ export function ActiveSitPanel({ className = '', compact = false }: ActiveSitPan
     return null;
   }
 
-  // Compact idle state
-  if (!isActive && compact) {
+  // Check if we have a valid active sit (not just isActive flag)
+  const hasValidActiveSit = isActive && sit && sit.started_at && !isNaN(duration);
+
+  // Idle state - no active sit or invalid sit data
+  if (!hasValidActiveSit) {
     return (
-      <button
-        onClick={() => startSit()}
-        disabled={isLoading}
-        className={`flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 
-          text-white rounded-lg transition-colors disabled:opacity-50 ${className}`}
-      >
-        <VideoCameraIcon className="w-5 h-5" />
-        <span>Start Sit Recording</span>
-      </button>
+      <div className={`bg-dark-card rounded-lg border border-dark-border p-6 ${className}`}>
+        <div className="text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="p-4 bg-primary-500/20 rounded-full">
+              {ocr.isScanning ? (
+                <MagnifyingGlassIcon className="w-12 h-12 text-primary-400 animate-pulse" />
+              ) : (
+                <VideoCameraIcon className="w-12 h-12 text-primary-400" />
+              )}
+            </div>
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-white mb-2">
+              {ocr.isScanning ? 'OCR Monitoring Active' : 'Sit Recording Ready'}
+            </h3>
+            <p className="text-gray-400 text-sm mb-4">
+              {ocr.isScanning 
+                ? 'Scanning your screen for sit events. A sit will automatically start when detected.'
+                : preferences?.ocr_enabled 
+                  ? 'OCR monitoring will automatically detect when you claim a sit, or you can start manually.'
+                  : 'Click the button below to manually start recording a sit.'}
+            </p>
+          </div>
+          <div className="flex gap-3 justify-center">
+            {!ocr.isScanning ? (
+              <>
+                <button
+                  onClick={() => startSit()}
+                  disabled={isLoading}
+                  className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 
+                    text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <PlayIcon className="w-5 h-5" />
+                  <span>Start Sit Manually</span>
+                </button>
+                {preferences?.ocr_enabled && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        // First, request screen capture permission and start stream
+                        await recording.startRecording();
+                        // Give the stream a moment to initialize
+                        setTimeout(() => {
+                          ocr.startScanning();
+                        }, 500);
+                      } catch (err) {
+                        console.error('Failed to start monitoring:', err);
+                      }
+                    }}
+                    disabled={isLoading}
+                    className="flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 
+                      text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <MagnifyingGlassIcon className="w-5 h-5" />
+                    <span>Start OCR Monitoring</span>
+                  </button>
+                )}
+              </>
+            ) : (
+              <button
+                onClick={() => {
+                  ocr.stopScanning();
+                  recording.stopRecording();
+                }}
+                className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 
+                  text-white rounded-lg transition-colors"
+              >
+                <StopIcon className="w-5 h-5" />
+                <span>Stop Monitoring</span>
+              </button>
+            )}
+          </div>
+          {ocr.isScanning && (
+            <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 justify-center">
+                  <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  <span className="text-blue-400 text-sm font-medium">
+                    Monitoring: {ocr.scanCount} scans performed
+                  </span>
+                </div>
+                <div className="text-xs text-gray-400 text-center">
+                  Looking for: "Elite Reports", "claimed", "closed", "report", "rating"
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     );
   }
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { CounterCard } from '@/components/counters/CounterCard';
+import { ActiveSitPanel } from '@/components/counters/ActiveSitPanel';
 import { counterAPI, systemAPI } from '@/lib/api';
 import { useWebSocket } from '@/contexts/WebSocketContext';
 import { useFormatDate } from '@/hooks/useFormatDate';
@@ -88,6 +89,8 @@ export default function CountersPage() {
     <div className="space-y-6">
       {/* Header */}
 
+      {/* Active Sit Recording Panel */}
+      <ActiveSitPanel />
 
       {/* Counter Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

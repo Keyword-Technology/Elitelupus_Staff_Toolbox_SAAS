@@ -111,7 +111,7 @@ export function useActiveSit() {
     try {
       // Check if feature is enabled system-wide
       const enabledResponse = await sitAPI.isEnabled();
-      const isEnabled = enabledResponse.data?.system_enabled && enabledResponse.data?.user_enabled;
+      const isEnabled = enabledResponse.data?.system_enabled && enabledResponse.data?.user_recording_enabled;
       
       // Load user preferences
       let preferences = DEFAULT_PREFERENCES;
