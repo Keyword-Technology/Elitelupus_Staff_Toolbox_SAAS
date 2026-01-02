@@ -2840,6 +2840,817 @@ Full implementation provided in spec with:
 
 ---
 
+## System Administration - Live Screen Monitoring
+
+### Overview
+
+SYSADMIN role gets access to a live monitoring page showing real-time screen feeds from all staff members who have OCR detection actively running. This enables supervisors to verify staff are in valid sits, monitor compliance, and assist with technical issues.
+
+### Access Control
+
+| Role | Access |
+|------|--------|
+| SYSADMIN | Full access (view all screens) |
+| Manager | No access |
+| All others | No access |
+
+### Privacy & Consent
+
+- **Explicit Opt-in**: Users must enable OCR monitoring to be visible
+- **Active Indicator**: Clear visual indicator when screen is being shared
+- **User Control**: Users can stop sharing at any time
+- **Transparency**: Users are informed that SYSADMIN can view their screen during sits
+
+### Page Location
+
+```
+/dashboard/admin/live-monitors
+```
+
+### Features
+
+#### 1. Grid View - All Active Screens
+
+Display all staff members currently running OCR detection in a responsive grid layout:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Live Staff Monitoring                              [◉ Auto-Refresh] │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │
+│  │  🟢 [LIVE]   │  │  🟢 [LIVE]   │  │  🔴 [LIVE]   │              │
+│  │              │  │              │  │              │              │
+│  │   [Video]    │  │   [Video]    │  │   [Video]    │              │
+│  │   Preview    │  │   Preview    │  │   Preview    │              │
+│  │              │  │              │  │              │              │
+│  ├──────────────┤  ├──────────────┤  ├──────────────┤              │
+│  │ Admin1       │  │ Moderator2   │  │ Operator3    │              │
+│  │ ✅ In Sit    │  │ ✅ In Sit    │  │ ❌ No Sit    │              │
+│  │ 2m 34s       │  │ 15m 02s      │  │ Idle         │              │
+│  └──────────────┘  └──────────────┘  └──────────────┘              │
+│                                                                       │
+│  ┌──────────────┐  ┌──────────────┐                                 │
+│  │  🟢 [LIVE]   │  │  🟢 [LIVE]   │                                 │
+│  │              │  │              │                                 │
+│  │   [Video]    │  │   [Video]    │                                 │
+│  │   Preview    │  │   Preview    │                                 │
+│  │              │  │              │                                 │
+│  ├──────────────┤  ├──────────────┤                                 │
+│  │ SrMod4       │  │ Admin5       │                                 │
+│  │ ✅ In Sit    │  │ ✅ In Sit    │                                 │
+│  │ 45s          │  │ 8m 12s       │                                 │
+│  └──────────────┘  └──────────────┘                                 │
+│                                                                       │
+│                       Monitoring 5 staff members                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Card Information**:
+- **Live Indicator**: Green/Red dot showing stream status
+- **Video Preview**: Live video feed at ~320x180px (scaled down)
+- **Username**: Staff member name with role badge
+- **Sit Status**: ✅ In Sit / ❌ No Sit
+- **Timer**: Current sit duration or "Idle"
+- **Click Action**: Opens full-size popup modal
+
+#### 2. Full-Size Modal (Click to Expand)
+
+When clicking on a card, open a modal dialog with larger video feed:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  [×] Admin1 - Live Screen Monitor                                    │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│                                                                       │
+│                         [Large Video Feed]                            │
+│                           1280x720px                                  │
+│                                                                       │
+│                                                                       │
+├─────────────────────────────────────────────────────────────────────┤
+│  👤 Admin1 (Admin)                    🟢 Connected                   │
+│  📊 Sit Status: ✅ In Sit             ⏱️ Duration: 2m 45s            │
+│  🖥️ Resolution: 1920x1080            📡 FPS: ~1 frame/sec            │
+│  🎯 Last Detection: 2s ago            📊 Total Sits Today: 12        │
+│                                                                       │
+│  Recent Detections:                                                   │
+│  • 2s ago  - "Sitting with John Doe"                                 │
+│  • 34s ago - "Sitting with Jane Smith"                               │
+│  • 1m ago  - "No active sit detected"                                │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Modal Features**:
+- **Larger Video**: Display at 1280x720px or largest available
+- **Real-time Stats**: Connection status, FPS, resolution
+- **Sit Information**: Current sit duration, recent detections
+- **Detection History**: Last 5-10 OCR detection results
+- **Daily Summary**: Total sits counted today
+
+### Architecture
+
+#### Backend - WebSocket Feed Broadcaster
+
+```python
+# backend/apps/counters/consumers.py
+
+import json
+import base64
+from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.db import database_sync_to_async
+from django.core.cache import cache
+
+class ScreenMonitorConsumer(AsyncWebsocketConsumer):
+    """
+    WebSocket consumer for broadcasting staff screen feeds to SYSADMIN.
+    
+    Two connection types:
+    1. Staff (broadcaster): Sends video frames for monitoring
+    2. Admin (viewer): Receives all staff video frames
+    """
+    
+    async def connect(self):
+        self.user = self.scope['user']
+        
+        if not self.user.is_authenticated:
+            await self.close()
+            return
+        
+        # Get connection type from query params
+        self.connection_type = self.scope['url_route']['kwargs'].get('type', 'viewer')
+        
+        if self.connection_type == 'viewer':
+            # Admin viewing screens
+            if self.user.role != 'SYSADMIN':
+                await self.close()
+                return
+            
+            # Join monitoring room to receive all broadcasts
+            await self.channel_layer.group_add('screen_monitors', self.channel_name)
+            
+        elif self.connection_type == 'broadcaster':
+            # Staff sharing their screen
+            self.broadcaster_id = f"broadcaster_{self.user.id}"
+            
+            # Add to active broadcasters
+            await self.channel_layer.group_add('screen_broadcasters', self.channel_name)
+            
+            # Notify monitors that new broadcaster is online
+            await self.channel_layer.group_send(
+                'screen_monitors',
+                {
+                    'type': 'broadcaster_online',
+                    'user_id': self.user.id,
+                    'username': self.user.username,
+                    'role': self.user.role,
+                }
+            )
+            
+            # Track active broadcaster in cache
+            cache.set(f'broadcaster:{self.user.id}', {
+                'username': self.user.username,
+                'role': self.user.role,
+                'connected_at': datetime.now().isoformat(),
+            }, timeout=None)  # Persist until disconnect
+        
+        await self.accept()
+    
+    async def disconnect(self, close_code):
+        if self.connection_type == 'viewer':
+            await self.channel_layer.group_discard('screen_monitors', self.channel_name)
+        elif self.connection_type == 'broadcaster':
+            await self.channel_layer.group_discard('screen_broadcasters', self.channel_name)
+            
+            # Notify monitors that broadcaster is offline
+            await self.channel_layer.group_send(
+                'screen_monitors',
+                {
+                    'type': 'broadcaster_offline',
+                    'user_id': self.user.id,
+                }
+            )
+            
+            # Remove from cache
+            cache.delete(f'broadcaster:{self.user.id}')
+    
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        
+        if self.connection_type == 'broadcaster':
+            # Staff sending video frame
+            if data['type'] == 'video_frame':
+                # Broadcast frame to all monitors
+                await self.channel_layer.group_send(
+                    'screen_monitors',
+                    {
+                        'type': 'video_frame',
+                        'user_id': self.user.id,
+                        'username': self.user.username,
+                        'role': self.user.role,
+                        'frame_data': data['frame'],  # Base64 encoded JPEG
+                        'sit_status': data.get('sit_status', {}),
+                        'timestamp': data['timestamp'],
+                    }
+                )
+            
+            elif data['type'] == 'sit_status_update':
+                # Staff's sit status changed
+                await self.channel_layer.group_send(
+                    'screen_monitors',
+                    {
+                        'type': 'sit_status_update',
+                        'user_id': self.user.id,
+                        'sit_status': data['sit_status'],
+                    }
+                )
+    
+    # Handlers for messages from channel layer
+    async def video_frame(self, event):
+        """Send video frame to admin viewer."""
+        await self.send(text_data=json.dumps({
+            'type': 'video_frame',
+            'user_id': event['user_id'],
+            'username': event['username'],
+            'role': event['role'],
+            'frame': event['frame_data'],
+            'sit_status': event['sit_status'],
+            'timestamp': event['timestamp'],
+        }))
+    
+    async def broadcaster_online(self, event):
+        """Notify admin that staff started sharing."""
+        await self.send(text_data=json.dumps({
+            'type': 'broadcaster_online',
+            'user_id': event['user_id'],
+            'username': event['username'],
+            'role': event['role'],
+        }))
+    
+    async def broadcaster_offline(self, event):
+        """Notify admin that staff stopped sharing."""
+        await self.send(text_data=json.dumps({
+            'type': 'broadcaster_offline',
+            'user_id': event['user_id'],
+        }))
+    
+    async def sit_status_update(self, event):
+        """Notify admin of sit status change."""
+        await self.send(text_data=json.dumps({
+            'type': 'sit_status_update',
+            'user_id': event['user_id'],
+            'sit_status': event['sit_status'],
+        }))
+```
+
+#### Backend - REST API for Active Broadcasters
+
+```python
+# backend/apps/counters/views.py
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_active_broadcasters(request):
+    """Get list of all staff currently broadcasting their screens."""
+    # Only SYSADMIN can access
+    if request.user.role != 'SYSADMIN':
+        return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    
+    # Get all active broadcasters from cache
+    pattern = 'broadcaster:*'
+    keys = cache.keys(pattern)
+    
+    broadcasters = []
+    for key in keys:
+        data = cache.get(key)
+        if data:
+            user_id = int(key.split(':')[1])
+            broadcasters.append({
+                'user_id': user_id,
+                'username': data['username'],
+                'role': data['role'],
+                'connected_at': data['connected_at'],
+            })
+    
+    return Response({
+        'count': len(broadcasters),
+        'broadcasters': broadcasters,
+    })
+```
+
+#### Backend - WebSocket Routing
+
+```python
+# backend/apps/counters/routing.py
+
+from django.urls import path
+from . import consumers
+
+websocket_urlpatterns = [
+    path('ws/counters/', consumers.CounterConsumer.as_asgi()),
+    path('ws/screen-monitor/<str:type>/', consumers.ScreenMonitorConsumer.as_asgi()),
+]
+```
+
+#### Frontend - Staff Broadcaster Hook
+
+```typescript
+// frontend/src/hooks/useScreenBroadcast.ts
+
+import { useEffect, useRef } from 'react';
+import io from 'socket.io-client';
+
+interface SitStatus {
+  inSit: boolean;
+  sitDuration?: number;
+  detectedText?: string;
+}
+
+export function useScreenBroadcast(
+  mediaStream: MediaStream | null,
+  sitStatus: SitStatus,
+  enabled: boolean = true
+) {
+  const socketRef = useRef<any>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!enabled || !mediaStream) return;
+
+    // Connect to WebSocket as broadcaster
+    const token = localStorage.getItem('access_token');
+    socketRef.current = io(`${process.env.NEXT_PUBLIC_WS_URL}/ws/screen-monitor/broadcaster/`, {
+      auth: { token },
+      transports: ['websocket'],
+    });
+
+    socketRef.current.on('connect', () => {
+      console.log('[Broadcast] Connected to monitoring server');
+    });
+
+    // Setup video element for frame capture
+    const video = document.createElement('video');
+    video.srcObject = mediaStream;
+    video.play();
+    videoRef.current = video;
+
+    // Setup canvas for frame extraction
+    const canvas = document.createElement('canvas');
+    canvasRef.current = canvas;
+
+    video.onloadedmetadata = () => {
+      canvas.width = 320;  // Send small preview frames
+      canvas.height = 180;
+      
+      // Start sending frames at 1 FPS
+      intervalRef.current = setInterval(() => {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Draw current video frame to canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Convert to JPEG base64 (compressed)
+        canvas.toBlob((blob) => {
+          if (!blob) return;
+
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64 = reader.result as string;
+            
+            // Send frame to server
+            socketRef.current?.emit('video_frame', {
+              type: 'video_frame',
+              frame: base64.split(',')[1],  // Remove data:image/jpeg;base64, prefix
+              sit_status: sitStatus,
+              timestamp: Date.now(),
+            });
+          };
+          reader.readAsDataURL(blob);
+        }, 'image/jpeg', 0.6);  // 60% JPEG quality
+      }, 1000);  // 1 frame per second
+    };
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      socketRef.current?.disconnect();
+      videoRef.current?.pause();
+    };
+  }, [mediaStream, enabled]);
+
+  // Update sit status when it changes
+  useEffect(() => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('sit_status_update', {
+        type: 'sit_status_update',
+        sit_status: sitStatus,
+      });
+    }
+  }, [sitStatus]);
+}
+```
+
+#### Frontend - Admin Monitoring Page
+
+```typescript
+// frontend/src/app/dashboard/admin/live-monitors/page.tsx
+
+'use client';
+
+import { useEffect, useState, useRef } from 'react';
+import io from 'socket.io-client';
+import { XMarkIcon } from '@heroicons/react/24/outline';
+
+interface Broadcaster {
+  user_id: number;
+  username: string;
+  role: string;
+  connected_at: string;
+  lastFrame?: string;  // Base64 JPEG
+  sitStatus?: {
+    inSit: boolean;
+    sitDuration?: number;
+    detectedText?: string;
+  };
+  lastUpdate?: number;
+}
+
+export default function LiveMonitorsPage() {
+  const [broadcasters, setBroadcasters] = useState<Map<number, Broadcaster>>(new Map());
+  const [selectedBroadcaster, setSelectedBroadcaster] = useState<Broadcaster | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const socketRef = useRef<any>(null);
+
+  useEffect(() => {
+    // Fetch initial list of broadcasters
+    fetch('/api/counters/active-broadcasters/', {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+      },
+    })
+      .then(res => res.json())
+      .then(data => {
+        const map = new Map<number, Broadcaster>();
+        data.broadcasters.forEach((b: Broadcaster) => {
+          map.set(b.user_id, b);
+        });
+        setBroadcasters(map);
+      });
+
+    // Connect to WebSocket as viewer
+    const token = localStorage.getItem('access_token');
+    socketRef.current = io(`${process.env.NEXT_PUBLIC_WS_URL}/ws/screen-monitor/viewer/`, {
+      auth: { token },
+      transports: ['websocket'],
+    });
+
+    socketRef.current.on('connect', () => {
+      console.log('[Monitor] Connected to monitoring server');
+    });
+
+    socketRef.current.on('broadcaster_online', (data: any) => {
+      console.log('[Monitor] Broadcaster online:', data.username);
+      setBroadcasters(prev => {
+        const map = new Map(prev);
+        map.set(data.user_id, {
+          user_id: data.user_id,
+          username: data.username,
+          role: data.role,
+          connected_at: new Date().toISOString(),
+        });
+        return map;
+      });
+    });
+
+    socketRef.current.on('broadcaster_offline', (data: any) => {
+      console.log('[Monitor] Broadcaster offline:', data.user_id);
+      setBroadcasters(prev => {
+        const map = new Map(prev);
+        map.delete(data.user_id);
+        return map;
+      });
+      
+      // Close modal if viewing this broadcaster
+      if (selectedBroadcaster?.user_id === data.user_id) {
+        setSelectedBroadcaster(null);
+      }
+    });
+
+    socketRef.current.on('video_frame', (data: any) => {
+      setBroadcasters(prev => {
+        const map = new Map(prev);
+        const broadcaster = map.get(data.user_id);
+        if (broadcaster) {
+          map.set(data.user_id, {
+            ...broadcaster,
+            lastFrame: data.frame,
+            sitStatus: data.sit_status,
+            lastUpdate: data.timestamp,
+          });
+        }
+        return map;
+      });
+    });
+
+    socketRef.current.on('sit_status_update', (data: any) => {
+      setBroadcasters(prev => {
+        const map = new Map(prev);
+        const broadcaster = map.get(data.user_id);
+        if (broadcaster) {
+          map.set(data.user_id, {
+            ...broadcaster,
+            sitStatus: data.sit_status,
+          });
+        }
+        return map;
+      });
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, []);
+
+  const formatDuration = (ms?: number) => {
+    if (!ms) return 'Idle';
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}m ${secs}s`;
+  };
+
+  const broadcastersArray = Array.from(broadcasters.values());
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="mx-auto max-w-7xl">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Live Staff Monitoring</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Monitoring {broadcastersArray.length} staff member{broadcastersArray.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600"
+              />
+              <span className="text-sm text-gray-700">Auto-refresh</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Grid of broadcaster cards */}
+        {broadcastersArray.length === 0 ? (
+          <div className="rounded-lg bg-white p-12 text-center shadow">
+            <p className="text-gray-500">No staff members are currently sharing their screens</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {broadcastersArray.map(broadcaster => (
+              <div
+                key={broadcaster.user_id}
+                onClick={() => setSelectedBroadcaster(broadcaster)}
+                className="group cursor-pointer overflow-hidden rounded-lg bg-white shadow transition hover:shadow-lg"
+              >
+                {/* Live indicator */}
+                <div className="flex items-center gap-2 bg-gray-100 px-3 py-2">
+                  <div className={`h-2 w-2 rounded-full ${broadcaster.lastFrame ? 'bg-green-500' : 'bg-red-500'}`} />
+                  <span className="text-xs font-medium text-gray-700">LIVE</span>
+                </div>
+
+                {/* Video preview */}
+                <div className="relative aspect-video bg-gray-900">
+                  {broadcaster.lastFrame ? (
+                    <img
+                      src={`data:image/jpeg;base64,${broadcaster.lastFrame}`}
+                      alt={`${broadcaster.username}'s screen`}
+                      className="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-gray-400">
+                      No frame received
+                    </div>
+                  )}
+                  
+                  {/* Overlay on hover */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition group-hover:opacity-100">
+                    <span className="text-sm font-medium text-white">Click to expand</span>
+                  </div>
+                </div>
+
+                {/* Info */}
+                <div className="p-3">
+                  <p className="font-medium text-gray-900">{broadcaster.username}</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className={`text-lg ${broadcaster.sitStatus?.inSit ? 'text-green-600' : 'text-gray-400'}`}>
+                      {broadcaster.sitStatus?.inSit ? '✅' : '❌'}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      {broadcaster.sitStatus?.inSit ? 'In Sit' : 'No Sit'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {formatDuration(broadcaster.sitStatus?.sitDuration)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Full-size modal */}
+        {selectedBroadcaster && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+            <div className="w-full max-w-5xl overflow-hidden rounded-lg bg-white shadow-2xl">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b bg-gray-50 px-6 py-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {selectedBroadcaster.username} - Live Screen Monitor
+                  </h2>
+                  <p className="text-sm text-gray-500">{selectedBroadcaster.role}</p>
+                </div>
+                <button
+                  onClick={() => setSelectedBroadcaster(null)}
+                  className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                >
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Large video feed */}
+              <div className="relative aspect-video bg-gray-900">
+                {selectedBroadcaster.lastFrame ? (
+                  <img
+                    src={`data:image/jpeg;base64,${selectedBroadcaster.lastFrame}`}
+                    alt={`${selectedBroadcaster.username}'s screen`}
+                    className="h-full w-full object-contain"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-gray-400">
+                    Waiting for frames...
+                  </div>
+                )}
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-2 gap-4 border-t bg-gray-50 p-6 lg:grid-cols-4">
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Status</p>
+                  <p className="mt-1 flex items-center gap-2">
+                    <span className="text-lg">
+                      {selectedBroadcaster.sitStatus?.inSit ? '✅' : '❌'}
+                    </span>
+                    <span className="font-semibold text-gray-900">
+                      {selectedBroadcaster.sitStatus?.inSit ? 'In Sit' : 'No Sit'}
+                    </span>
+                  </p>
+                </div>
+                
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Duration</p>
+                  <p className="mt-1 font-semibold text-gray-900">
+                    {formatDuration(selectedBroadcaster.sitStatus?.sitDuration)}
+                  </p>
+                </div>
+                
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Connection</p>
+                  <p className="mt-1 flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-green-500" />
+                    <span className="font-semibold text-gray-900">Connected</span>
+                  </p>
+                </div>
+                
+                <div>
+                  <p className="text-xs font-medium text-gray-500">Last Update</p>
+                  <p className="mt-1 font-semibold text-gray-900">
+                    {selectedBroadcaster.lastUpdate
+                      ? `${Math.floor((Date.now() - selectedBroadcaster.lastUpdate) / 1000)}s ago`
+                      : 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Detection history */}
+              {selectedBroadcaster.sitStatus?.detectedText && (
+                <div className="border-t p-6">
+                  <h3 className="text-sm font-medium text-gray-700">Last Detection</h3>
+                  <p className="mt-2 rounded bg-gray-100 p-3 font-mono text-sm text-gray-800">
+                    {selectedBroadcaster.sitStatus.detectedText}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+#### Frontend - Integration with OCR Hook
+
+```typescript
+// frontend/src/hooks/useScreenOCR.ts (MODIFIED)
+
+// Add broadcasting support
+import { useScreenBroadcast } from './useScreenBroadcast';
+
+export function useScreenOCR() {
+  // ... existing OCR code ...
+
+  // Add broadcast hook (SYSADMIN will see these streams)
+  const [broadcastEnabled, setBroadcastEnabled] = useState(true);
+  
+  useScreenBroadcast(
+    mediaStream,
+    {
+      inSit: sitStatus.inSit,
+      sitDuration: sitStatus.duration,
+      detectedText: lastDetectedText,
+    },
+    broadcastEnabled && isScanning
+  );
+
+  return {
+    // ... existing returns ...
+    broadcastEnabled,
+    setBroadcastEnabled,
+  };
+}
+```
+
+### Security & Performance Considerations
+
+#### 1. **Privacy Protection**
+- Frames are sent at low quality (60% JPEG, 320x180px) to reduce bandwidth
+- Only 1 FPS to minimize data transfer
+- Users must explicitly start OCR monitoring (implicit consent)
+- Clear visual indicator shows when broadcasting
+
+#### 2. **Network Efficiency**
+- Small frame size (~5-15 KB per frame)
+- Low frame rate (1 FPS = ~60 KB/minute per user)
+- 10 concurrent broadcasters = ~600 KB/minute = ~10 KB/sec
+- WebSocket compression reduces bandwidth further
+
+#### 3. **Access Control**
+- Only SYSADMIN can view screens (enforced at WebSocket level)
+- JWT authentication required for both broadcaster and viewer connections
+- Django Channels permission checks on connect
+
+#### 4. **Scalability**
+- Redis Channel Layer handles message distribution
+- No frames stored on server (real-time only)
+- Minimal CPU impact (no server-side processing of frames)
+- Horizontal scaling possible with Redis cluster
+
+#### 5. **User Control**
+- Users can disable broadcasting via settings toggle
+- Stopping OCR monitoring automatically stops broadcast
+- No background broadcasting - only when actively in sit mode
+
+### Backend - URL Configuration
+
+```python
+# backend/config/urls.py
+
+urlpatterns = [
+    # ... existing patterns ...
+    path('api/counters/active-broadcasters/', views.get_active_broadcasters),
+]
+```
+
+### UI Navigation
+
+Add link to admin navigation:
+
+```typescript
+// frontend/src/components/layout/AdminNav.tsx
+
+{user.role === 'SYSADMIN' && (
+  <>
+    <NavLink href="/dashboard/admin/ocr-monitor">OCR Monitoring</NavLink>
+    <NavLink href="/dashboard/admin/live-monitors">Live Screens</NavLink>
+  </>
+)}
+```
+
+---
+
 ## Document History
 
 | Version | Date | Author | Changes |
@@ -2848,3 +3659,4 @@ Full implementation provided in spec with:
 | 1.1 | 2026-01-02 | - | Added server-side OCR option for performance |
 | 1.2 | 2026-01-02 | - | Refactored OCR to separate scalable microservice |
 | 1.3 | 2026-01-02 | - | Added SYSADMIN OCR monitoring dashboard |
+| 1.4 | 2026-01-02 | - | Added SYSADMIN live screen monitoring feature |
