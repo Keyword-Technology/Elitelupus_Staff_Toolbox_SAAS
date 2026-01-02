@@ -437,6 +437,25 @@ export function useActiveSit() {
     };
   }, []);
 
+  // Force reset sit state (for debugging stuck sits)
+  const forceReset = useCallback(() => {
+    console.log('[useActiveSit] 🔄 Force resetting sit state');
+    if (durationIntervalRef.current) {
+      clearInterval(durationIntervalRef.current);
+    }
+    sitIdRef.current = null;
+    setState({
+      isActive: false,
+      sit: null,
+      duration: 0,
+      isLoading: false,
+      error: null,
+      preferences: state.preferences,
+      isFeatureEnabled: state.isFeatureEnabled,
+      showPostSitModal: false,
+    });
+  }, [state.preferences, state.isFeatureEnabled]);
+
   return {
     ...state,
     recording,
@@ -448,6 +467,7 @@ export function useActiveSit() {
     cancelSit,
     completeSit,
     updatePreferences,
+    forceReset,
     closePostSitModal: () => setState(prev => ({ ...prev, showPostSitModal: false })),
   };
 }

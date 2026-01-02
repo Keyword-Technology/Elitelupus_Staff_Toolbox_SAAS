@@ -51,6 +51,7 @@ export function ActiveSitPanel({ className = '', compact = false }: ActiveSitPan
     closePostSitModal,
     completeSit,
     updateSit,
+    forceReset,
   } = useActiveSit();
 
   const [showSettings, setShowSettings] = useState(false);
@@ -68,8 +69,32 @@ export function ActiveSitPanel({ className = '', compact = false }: ActiveSitPan
 
   // Idle state - no active sit or invalid sit data
   if (!hasValidActiveSit) {
+    // Check for stuck state (isActive but no valid sit)
+    const isStuckState = isActive && (!sit || !sit.started_at);
+    
     return (
       <div className={`bg-dark-card rounded-lg border border-dark-border p-6 ${className}`}>
+        {isStuckState && (
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-red-400 font-semibold text-sm">⚠️ Stuck Sit Detected</p>
+                <p className="text-red-300/70 text-xs mt-1">
+                  Sit is marked as active but no valid data found. This can happen if OCR detection misfired.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  console.log('[ActiveSitPanel] Resetting stuck sit state');
+                  forceReset();
+                }}
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        )}
         <div className="text-center space-y-4">
           <div className="flex justify-center">
             <div className="p-4 bg-primary-500/20 rounded-full">
