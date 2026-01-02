@@ -86,9 +86,9 @@ export function ActiveSitPanel({ className = '', compact = false }: ActiveSitPan
             </h3>
             <p className="text-gray-400 text-sm mb-4">
               {ocr.isScanning 
-                ? 'Scanning your screen for sit events. A sit will automatically start when detected.'
+                ? 'Scanning your screen for sit events. A sit will automatically start when detected. Use "Adjust Regions" to fine-tune scan areas.'
                 : preferences?.ocr_enabled 
-                  ? 'OCR monitoring will automatically detect when you claim a sit, or you can start manually.'
+                  ? 'Start OCR monitoring to automatically detect when you claim a sit. You can adjust scan regions after starting monitoring.'
                   : 'Click the button below to manually start recording a sit.'}
             </p>
           </div>
@@ -105,61 +105,44 @@ export function ActiveSitPanel({ className = '', compact = false }: ActiveSitPan
                   <span>Start Sit Manually</span>
                 </button>
                 {preferences?.ocr_enabled && (
-                  <>
-                    <button
-                      onClick={async () => {
-                        console.log('[UI] Start OCR Monitoring clicked');
-                        try {
-                          // First, request screen capture permission and start stream
-                          console.log('[UI] Requesting screen capture...');
-                          await recording.startRecording();
-                          console.log('[UI] Screen capture started');
-                          
-                          // Wait for stream to be fully ready and check it's available
-                          await new Promise(resolve => setTimeout(resolve, 1000));
-                          
-                          const currentStream = recording.getStream();
-                        console.log('[UI] Stream status:', { 
-                          hasStream: !!currentStream,
-                          active: currentStream?.active,
-                          tracks: currentStream?.getTracks().length 
-                        });
+                  <button
+                    onClick={async () => {
+                      console.log('[UI] Start OCR Monitoring clicked');
+                      try {
+                        // First, request screen capture permission and start stream
+                        console.log('[UI] Requesting screen capture...');
+                        await recording.startRecording();
+                        console.log('[UI] Screen capture started');
                         
-                        if (!currentStream || !currentStream.active) {
-                          throw new Error('Screen capture stream not available');
-                        }
+                        // Wait for stream to be fully ready and check it's available
+                        await new Promise(resolve => setTimeout(resolve, 1000));
                         
-                        console.log('[UI] Starting OCR scanning...');
-                        await ocr.startScanning(currentStream); // Pass the stream directly
-                        console.log('[UI] OCR scanning started successfully');
-                      } catch (err) {
-                        console.error('[UI] Failed to start monitoring:', err);
-                        alert('Failed to start monitoring: ' + (err instanceof Error ? err.message : 'Unknown error'));
+                        const currentStream = recording.getStream();
+                      console.log('[UI] Stream status:', { 
+                        hasStream: !!currentStream,
+                        active: currentStream?.active,
+                        tracks: currentStream?.getTracks().length 
+                      });
+                      
+                      if (!currentStream || !currentStream.active) {
+                        throw new Error('Screen capture stream not available');
                       }
-                    }}
-                    disabled={isLoading || recording.isRecording}
-                    className="flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 
-                      text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                      <MagnifyingGlassIcon className="w-5 h-5" />
-                      <span>{recording.isRecording ? 'Initializing...' : 'Start OCR Monitoring'}</span>
-                    </button>
-                    <button
-                      onClick={async () => {
-                        // Start recording just to get the stream for preview
-                        if (!recording.isRecording) {
-                          await recording.startRecording();
-                          await new Promise(resolve => setTimeout(resolve, 500));
-                        }
-                        setShowRegionAdjuster(true);
-                      }}
-                      className="flex items-center gap-2 px-4 py-3 bg-gray-600 hover:bg-gray-700 
-                        text-white rounded-lg transition-colors"
-                      title="Adjust OCR scan regions"
-                    >
-                      <AdjustmentsHorizontalIcon className="w-5 h-5" />
-                    </button>
-                  </>
+                      
+                      console.log('[UI] Starting OCR scanning...');
+                      await ocr.startScanning(currentStream); // Pass the stream directly
+                      console.log('[UI] OCR scanning started successfully');
+                    } catch (err) {
+                      console.error('[UI] Failed to start monitoring:', err);
+                      alert('Failed to start monitoring: ' + (err instanceof Error ? err.message : 'Unknown error'));
+                    }
+                  }}
+                  disabled={isLoading || recording.isRecording}
+                  className="flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 
+                    text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <MagnifyingGlassIcon className="w-5 h-5" />
+                    <span>{recording.isRecording ? 'Initializing...' : 'Start OCR Monitoring'}</span>
+                  </button>
                 )}
               </>
             ) : (

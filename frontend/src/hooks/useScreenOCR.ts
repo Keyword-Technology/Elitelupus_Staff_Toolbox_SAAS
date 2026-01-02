@@ -6,8 +6,9 @@ import { createWorker, Worker } from 'tesseract.js';
 // OCR Detection patterns for Elitelupus servers
 export const OCR_PATTERNS = {
   // Chat message patterns - more flexible to handle OCR errors
-  CLAIM_PATTERN: /\[Elite Reports\]\s*(\w+)\s+claimed\s+(.+?)['']?s?\s+repo[rt]/i,
-  CLOSE_PATTERN: /You\s+have\s+closed\s+(.+?)['']?s?\s+repo[rt]/i,
+  // Made more lenient: allows for missing characters, flexible spacing, possessive variations
+  CLAIM_PATTERN: /\[Elite\s*Reports?\]\s*(\w+)\s+claim(?:ed)?\s+(.+?)['']?s?\s+rep(?:o[rt]?|or|ort)/i,
+  CLOSE_PATTERN: /You\s+have\s+clos(?:ed)?\s+(.+?)['']?s?\s+rep(?:o[rt]?|or|ort)/i,
   RATING_PATTERN: /\[Elite Admin Stats\]\s*Your performance has earned you\s*(\d+)\s*credits/i,
   
   // Popup detection patterns
@@ -333,7 +334,8 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
         console.log('[OCR] 🎯 CLAIM DETECTED:', {
           staffName: claimMatch[1],
           reporterName: claimMatch[2],
-          fullMatch: claimMatch[0]
+          fullMatch: claimMatch[0],
+          textLength: text.length
         });
         event = {
           type: 'claim',
@@ -345,6 +347,17 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
             reporterName: claimMatch[2],
           },
         };
+      } else {
+        // Enhanced debug: Show why the pattern didn't match if keywords are present
+        if (text.includes('Elite') && text.includes('claim') && text.includes('rep')) {
+          console.log('[OCR] ⚠️ Claim keywords found but pattern did NOT match. Text sample:', {
+            sample: text.substring(0, 300),
+            hasEliteReports: /Elite\s*Reports?/i.test(text),
+            hasClaim: /claim(?:ed)?/i.test(text),
+            hasReport: /rep(?:o[rt]?|or|ort)/i.test(text),
+            testPattern: OCR_PATTERNS.CLAIM_PATTERN.toString(),
+          });
+        }
       }
 
       // Check for claim button in popup (alternative detection)

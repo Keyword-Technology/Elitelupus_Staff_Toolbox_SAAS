@@ -76,6 +76,7 @@ export function useActiveSit() {
 
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const sitIdRef = useRef<string | null>(null);
+  const ocrDetectionCallbackRef = useRef<((event: OCRDetectionEvent) => void) | null>(null);
 
   // Screen recording hook
   const recording = useScreenRecording({
@@ -96,12 +97,19 @@ export function useActiveSit() {
     },
   });
 
-  // Screen OCR hook
+  // Screen OCR hook - use callback ref to avoid stale closures
   const ocr = useScreenOCR(recording.stream, {
     scanIntervalMs: state.preferences?.ocr_scan_interval_ms || 1500,
     enableChatRegion: state.preferences?.ocr_chat_region_enabled ?? true,
     enablePopupRegion: state.preferences?.ocr_popup_region_enabled ?? true,
-    onDetection: (event) => handleOCRDetection(event),
+    onDetection: (event) => {
+      console.log('[useActiveSit] OCR detection callback triggered:', event.type);
+      if (ocrDetectionCallbackRef.current) {
+        ocrDetectionCallbackRef.current(event);
+      } else {
+        console.warn('[useActiveSit] OCR detection callback ref is null!');
+      }
+    },
   });
 
   // Load preferences and check if feature is enabled
@@ -175,9 +183,22 @@ export function useActiveSit() {
 
   // Handle OCR detection events
   const handleOCRDetection = useCallback(async (event: OCRDetectionEvent) => {
-    if (!state.isFeatureEnabled || !state.preferences?.ocr_enabled) return;
+    console.log('[useActiveSit] handleOCRDetection called:', {
+      type: event.type,
+      isFeatureEnabled: state.isFeatureEnabled,
+      ocrEnabled: state.preferences?.ocr_enabled,
+      isActive: state.isActive,
+      reporterName: event.parsedData.reporterName,
+      staffName: event.parsedData.staffName,
+    });
+
+    if (!state.isFeatureEnabled || !state.preferences?.ocr_enabled) {
+      console.log('[useActiveSit] OCR detection ignored: feature disabled');
+      return;
+    }
 
     if (event.type === 'claim' && !state.isActive) {
+      console.log('[useActiveSit] 🎯 Claim detected - starting new sit');
       // Auto-start sit when claim detected
       const sitData: Partial<SitData> = {
         reporter_name: event.parsedData.reporterName || '',
@@ -189,22 +210,38 @@ export function useActiveSit() {
       };
 
       if (state.preferences.confirm_before_start) {
+        console.log('[useActiveSit] Showing confirmation modal');
         // Show confirmation before starting
         setState(prev => ({ ...prev, showPostSitModal: true }));
       } else {
+        console.log('[useActiveSit] Auto-starting sit without confirmation');
         await startSit(sitData);
       }
     } else if (event.type === 'close' && state.isActive) {
+      console.log('[useActiveSit] 🎯 Close detected - ending sit');
       // Auto-close sit when close detected
       await endSit();
     } else if (event.type === 'rating' && state.sit) {
+      console.log('[useActiveSit] 🎯 Rating detected - updating sit');
       // Update sit with rating
       await updateSit({
         player_rating_credits: event.parsedData.credits,
         player_rating: event.parsedData.stars,
       });
+    } else {
+      console.log('[useActiveSit] OCR detection ignored:', {
+        type: event.type,
+        isActive: state.isActive,
+        hasSit: !!state.sit,
+      });
     }
   }, [state.isActive, state.isFeatureEnabled, state.preferences, state.sit]);
+
+  // Update the OCR detection callback ref whenever handleOCRDetection changes
+  useEffect(() => {
+    console.log('[useActiveSit] Updating OCR detection callback ref');
+    ocrDetectionCallbackRef.current = handleOCRDetection;
+  }, [handleOCRDetection]);
 
   // Start a new sit
   const startSit = useCallback(async (sitData?: Partial<SitData>) => {
