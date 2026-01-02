@@ -79,22 +79,31 @@ export function useScreenRecording(options: RecordingOptions = {}) {
     };
   }, []);
 
-  const startRecording = useCallback(async () => {
+  const startRecording = useCallback(async (existingStream?: MediaStream) => {
     try {
       setState(prev => ({ ...prev, error: null }));
 
-      // Request screen capture
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          displaySurface: 'window',
-          frameRate: { ideal: 30, max: 60 },
-        },
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
-      });
+      let stream: MediaStream;
+      
+      // Use existing stream if provided (e.g., from OCR), otherwise request new one
+      if (existingStream && existingStream.active) {
+        console.log('[Recording] Using existing stream for recording');
+        stream = existingStream;
+      } else {
+        console.log('[Recording] Requesting new screen capture');
+        // Request screen capture
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            displaySurface: 'window',
+            frameRate: { ideal: 30, max: 60 },
+          },
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+          },
+        });
+      }
 
       streamRef.current = stream;
       setState(prev => ({ ...prev, hasPermission: true }));

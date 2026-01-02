@@ -341,13 +341,22 @@ export function useActiveSit() {
 
       startDurationTimer(Date.now());
 
-      // Auto-start recording if enabled
+      // Auto-start recording if enabled AND not already recording
+      // (When sit is detected via OCR, recording is already running from the OCR monitoring)
       if (state.preferences?.recording_enabled && state.preferences?.auto_start_recording) {
-        await recording.startRecording();
+        if (!recording.isRecording) {
+          console.log('[useActiveSit] Starting new recording');
+          await recording.startRecording();
+        } else {
+          console.log('[useActiveSit] Recording already active, not starting a new one');
+        }
         
-        // Start OCR if enabled
-        if (state.preferences?.ocr_enabled) {
+        // Start OCR if enabled AND not already scanning
+        if (state.preferences?.ocr_enabled && !ocr.isScanning) {
+          console.log('[useActiveSit] Starting OCR scanning');
           ocr.startScanning();
+        } else if (ocr.isScanning) {
+          console.log('[useActiveSit] OCR already scanning, not starting again');
         }
       }
 
