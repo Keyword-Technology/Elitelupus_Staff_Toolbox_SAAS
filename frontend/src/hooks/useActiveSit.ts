@@ -202,9 +202,9 @@ export function useActiveSit() {
       // Auto-start sit when claim detected
       const sitData: Partial<SitData> = {
         reporter_name: event.parsedData.reporterName || '',
-        reported_player: '',
-        report_type: '',
-        report_reason: '',
+        reported_player: event.parsedData.targetName || '',  // Use detected target name
+        report_type: event.parsedData.reportType || '',  // Use detected report type
+        report_reason: event.parsedData.reason || '',  // Use detected reason
         detection_method: event.detectionMethod,
         has_recording: false,
       };

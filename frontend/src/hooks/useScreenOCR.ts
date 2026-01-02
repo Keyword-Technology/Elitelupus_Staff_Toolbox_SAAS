@@ -11,11 +11,15 @@ export const OCR_PATTERNS = {
   CLOSE_PATTERN: /You\s+have\s+clos(?:ed)?\s+(.+?)['']?s?\s+rep(?:o[rt]?|or|ort)/i,
   RATING_PATTERN: /\[Elite Admin Stats\]\s*Your performance has earned you\s*(\d+)\s*credits/i,
   
-  // Popup detection patterns
-  POPUP_CLAIM_BUTTON: /CLAIM\s*REPORT/i,
-  POPUP_CLOSE_BUTTON: /CLOSE\s*REPORT/i,
-  POPUP_REPORTER: /Reporter:\s*(.+)/i,
-  POPUP_TARGET: /Accused:\s*(.+)/i,
+  // Popup detection patterns - matches actual game UI
+  // The game shows: "PlayerName's Report" with "Claim" and "Close" buttons
+  POPUP_REPORT_HEADER: /(.+?)['']?s?\s*Report/i,  // Matches "HeGe Jimbbo's Report", "GA Gambler's Report"
+  POPUP_CLAIM_BUTTON: /\bClaim\b/i,  // Just "Claim" button
+  POPUP_CLOSE_BUTTON: /\bClose\b/i,  // Just "Close" button
+  POPUP_GO_TO_BUTTON: /\bGo\s*To\b/i,  // "Go To" button
+  POPUP_BRING_BUTTON: /\bBring\b/i,  // "Bring" button
+  POPUP_REPORT_TYPE: /Report\s*Type:\s*(.+)/i,
+  POPUP_REPORTED_PLAYER: /Reported\s*Player:\s*(.+)/i,
   POPUP_REASON: /Reason:\s*(.+)/i,
 };
 
@@ -27,6 +31,7 @@ export interface OCRDetectionEvent {
   parsedData: {
     staffName?: string;
     reporterName?: string;
+    reportType?: string;  // Report type from popup (RDM, NLR, FailRP, etc.)
     targetName?: string;
     reason?: string;
     credits?: number;
@@ -360,14 +365,22 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
         }
       }
 
-      // Check for claim button in popup (alternative detection)
+      // Check for report popup with Claim button (alternative detection)
       if (!event && regionType === 'popup') {
-        const claimButtonMatch = text.match(OCR_PATTERNS.POPUP_CLAIM_BUTTON);
-        if (claimButtonMatch) {
-          console.log('[OCR] 🎯 CLAIM BUTTON DETECTED in popup');
-          // Also try to extract reporter/target info from popup
-          const reporterMatch = text.match(OCR_PATTERNS.POPUP_REPORTER);
-          const targetMatch = text.match(OCR_PATTERNS.POPUP_TARGET);
+        const hasClaimButton = OCR_PATTERNS.POPUP_CLAIM_BUTTON.test(text);
+        const reportHeaderMatch = text.match(OCR_PATTERNS.POPUP_REPORT_HEADER);
+        
+        if (hasClaimButton && reportHeaderMatch) {
+          const reporterName = reportHeaderMatch[1]?.trim();
+          console.log('[OCR] 🎯 CLAIMABLE REPORT DETECTED in popup:', {
+            reporterName,
+            hasClaimButton,
+            textPreview: text.substring(0, 200)
+          });
+          
+          // Extract additional info from popup
+          const reportTypeMatch = text.match(OCR_PATTERNS.POPUP_REPORT_TYPE);
+          const reportedPlayerMatch = text.match(OCR_PATTERNS.POPUP_REPORTED_PLAYER);
           const reasonMatch = text.match(OCR_PATTERNS.POPUP_REASON);
           
           event = {
@@ -376,11 +389,20 @@ export function useScreenOCR(stream: MediaStream | null, options: OCROptions = {
             detectionMethod: 'ocr_popup',
             rawText: text,
             parsedData: {
-              reporterName: reporterMatch?.[1]?.trim(),
-              targetName: targetMatch?.[1]?.trim(),
+              reporterName: reporterName,
+              reportType: reportTypeMatch?.[1]?.trim(),
+              targetName: reportedPlayerMatch?.[1]?.trim(),
               reason: reasonMatch?.[1]?.trim(),
             },
           };
+        } else if (hasClaimButton || reportHeaderMatch) {
+          // Debug: Has partial match but not both
+          console.log('[OCR] ⚠️ Partial report popup detected:', {
+            hasClaimButton,
+            hasReportHeader: !!reportHeaderMatch,
+            reporterName: reportHeaderMatch?.[1],
+            textSample: text.substring(0, 300)
+          });
         }
       }
 
