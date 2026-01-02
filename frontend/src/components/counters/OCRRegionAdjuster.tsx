@@ -21,8 +21,9 @@ interface OCRRegionAdjusterProps {
   onClose: () => void;
 }
 
-const STEP = 0.05; // 5% step for adjustments
-const MIN_SIZE = 0.1; // Minimum 10% size
+const STEP = 0.01; // 1% step for fine adjustments
+const MIN_SIZE = 0.05; // Minimum 5% size
+const RESIZE_HANDLE_SIZE = 12; // Size of resize handles in pixels
 
 export function OCRRegionAdjuster({ stream, onRegionsChange, onClose }: OCRRegionAdjusterProps) {
   // Load regions from localStorage or use defaults
@@ -46,6 +47,10 @@ export function OCRRegionAdjuster({ stream, onRegionsChange, onClose }: OCRRegio
   const [activeRegion, setActiveRegion] = useState<'chat' | 'popup'>('chat');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState<string | null>(null); // 'left', 'right', 'top', 'bottom'
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [regionStart, setRegionStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
 
   // Connect video to stream
   useEffect(() => {
@@ -96,6 +101,24 @@ export function OCRRegionAdjuster({ stream, onRegionsChange, onClose }: OCRRegio
         ctx.setLineDash(isActive ? [10, 5] : []);
         ctx.strokeRect(x, y, w, h);
 
+        // Draw resize handles if active
+        if (isActive) {
+          ctx.fillStyle = color;
+          const handleSize = RESIZE_HANDLE_SIZE;
+          
+          // Corner handles
+          ctx.fillRect(x - handleSize / 2, y - handleSize / 2, handleSize, handleSize);
+          ctx.fillRect(x + w - handleSize / 2, y - handleSize / 2, handleSize, handleSize);
+          ctx.fillRect(x - handleSize / 2, y + h - handleSize / 2, handleSize, handleSize);
+          ctx.fillRect(x + w - handleSize / 2, y + h - handleSize / 2, handleSize, handleSize);
+          
+          // Edge handles
+          ctx.fillRect(x + w / 2 - handleSize / 2, y - handleSize / 2, handleSize, handleSize);
+          ctx.fillRect(x + w / 2 - handleSize / 2, y + h - handleSize / 2, handleSize, handleSize);
+          ctx.fillRect(x - handleSize / 2, y + h / 2 - handleSize / 2, handleSize, handleSize);
+          ctx.fillRect(x + w - handleSize / 2, y + h / 2 - handleSize / 2, handleSize, handleSize);
+        }
+
         // Draw label
         ctx.fillStyle = color;
         ctx.fillRect(x, y - 30, 150, 30);
@@ -105,14 +128,11 @@ export function OCRRegionAdjuster({ stream, onRegionsChange, onClose }: OCRRegio
 
         // Draw dimensions
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(x, y + h + 5, 200, 25);
+        ctx.fillRect(x, y + h + 5, 220, 25);
         ctx.fillStyle = 'white';
         ctx.font = '12px monospace';
-        ctx.fillText(
-          `${(region.width * 100).toFixed(0)}% × ${(region.height * 100).toFixed(0)}%`,
-          x + 5,
-          y + h + 20
-        );
+        const dimText = `${(region.x * 100).toFixed(1)}%, ${(region.y * 100).toFixed(1)}% | ${(region.width * 100).toFixed(1)}% × ${(region.height * 100).toFixed(1)}%`;
+        ctx.fillText(dimText, x + 5, y + h + 20);
       };
 
       // Draw both regions
@@ -124,7 +144,7 @@ export function OCRRegionAdjuster({ stream, onRegionsChange, onClose }: OCRRegio
 
     const rafId = requestAnimationFrame(drawOverlay);
     return () => cancelAnimationFrame(rafId);
-  }, [regions, activeRegion]);
+  }, [regions, activeRegion, isDragging, isResizing]);
 
   // Save regions and notify parent
   const updateRegions = (newRegions: typeof regions) => {
@@ -156,6 +176,111 @@ export function OCRRegionAdjuster({ stream, onRegionsChange, onClose }: OCRRegio
       popup: { x: 0, y: 0.1, width: 0.3, height: 0.4 },
     };
     updateRegions(defaults);
+  };
+
+  // Mouse handlers for dragging and resizing
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clickX = (e.clientX - rect.left) * scaleX;
+    const clickY = (e.clientY - rect.top) * scaleY;
+
+    // Convert to normalized coordinates
+    const normX = clickX / canvas.width;
+    const normY = clickY / canvas.height;
+
+    const region = regions[activeRegion];
+    const regionX = region.x;
+    const regionY = region.y;
+    const regionW = region.width;
+    const regionH = region.height;
+
+    // Check if clicking on resize handles (edges)
+    const handleThreshold = RESIZE_HANDLE_SIZE / canvas.width;
+    const isNearLeft = Math.abs(normX - regionX) < handleThreshold;
+    const isNearRight = Math.abs(normX - (regionX + regionW)) < handleThreshold;
+    const isNearTop = Math.abs(normY - regionY) < handleThreshold / (canvas.height / canvas.width);
+    const isNearBottom = Math.abs(normY - (regionY + regionH)) < handleThreshold / (canvas.height / canvas.width);
+
+    // Check if inside region
+    const isInside = normX >= regionX && normX <= regionX + regionW &&
+                     normY >= regionY && normY <= regionY + regionH;
+
+    if (isInside) {
+      if (isNearLeft && !isNearRight) {
+        setIsResizing('left');
+      } else if (isNearRight && !isNearLeft) {
+        setIsResizing('right');
+      } else if (isNearTop && !isNearBottom) {
+        setIsResizing('top');
+      } else if (isNearBottom && !isNearTop) {
+        setIsResizing('bottom');
+      } else {
+        // Dragging the region
+        setIsDragging(true);
+      }
+      setDragStart({ x: normX, y: normY });
+      setRegionStart({ ...region });
+    }
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas || (!isDragging && !isResizing)) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const currentX = (e.clientX - rect.left) * scaleX;
+    const currentY = (e.clientY - rect.top) * scaleY;
+
+    const normX = currentX / canvas.width;
+    const normY = currentY / canvas.height;
+
+    const deltaX = normX - dragStart.x;
+    const deltaY = normY - dragStart.y;
+
+    const updated = { ...regions };
+    const region = updated[activeRegion];
+
+    if (isDragging) {
+      // Move the region
+      region.x = Math.max(0, Math.min(1 - region.width, regionStart.x + deltaX));
+      region.y = Math.max(0, Math.min(1 - region.height, regionStart.y + deltaY));
+    } else if (isResizing === 'left') {
+      const newX = Math.max(0, Math.min(regionStart.x + regionStart.width - MIN_SIZE, regionStart.x + deltaX));
+      const newWidth = regionStart.width - (newX - regionStart.x);
+      region.x = newX;
+      region.width = newWidth;
+    } else if (isResizing === 'right') {
+      region.width = Math.max(MIN_SIZE, Math.min(1 - region.x, regionStart.width + deltaX));
+    } else if (isResizing === 'top') {
+      const newY = Math.max(0, Math.min(regionStart.y + regionStart.height - MIN_SIZE, regionStart.y + deltaY));
+      const newHeight = regionStart.height - (newY - regionStart.y);
+      region.y = newY;
+      region.height = newHeight;
+    } else if (isResizing === 'bottom') {
+      region.height = Math.max(MIN_SIZE, Math.min(1 - region.y, regionStart.height + deltaY));
+    }
+
+    updateRegions(updated);
+  };
+
+  const handleCanvasMouseUp = () => {
+    setIsDragging(false);
+    setIsResizing(null);
+  };
+
+  // Update cursor based on position
+  const getCursorStyle = () => {
+    if (isDragging) return 'move';
+    if (isResizing === 'left' || isResizing === 'right') return 'ew-resize';
+    if (isResizing === 'top' || isResizing === 'bottom') return 'ns-resize';
+    return 'crosshair';
   };
 
   const region = regions[activeRegion];
@@ -193,6 +318,11 @@ export function OCRRegionAdjuster({ stream, onRegionsChange, onClose }: OCRRegio
             <canvas
               ref={canvasRef}
               className="w-full h-full object-contain"
+              style={{ cursor: getCursorStyle() }}
+              onMouseDown={handleCanvasMouseDown}
+              onMouseMove={handleCanvasMouseMove}
+              onMouseUp={handleCanvasMouseUp}
+              onMouseLeave={handleCanvasMouseUp}
             />
             {!stream && (
               <div className="absolute inset-0 flex items-center justify-center">
@@ -246,7 +376,7 @@ export function OCRRegionAdjuster({ stream, onRegionsChange, onClose }: OCRRegio
                   </button>
                   <div className="flex-1 text-center">
                     <span className="text-sm font-mono text-white">
-                      {(region.x * 100).toFixed(0)}%
+                      {(region.x * 100).toFixed(1)}%
                     </span>
                   </div>
                   <button
@@ -270,7 +400,7 @@ export function OCRRegionAdjuster({ stream, onRegionsChange, onClose }: OCRRegio
                   </button>
                   <div className="flex-1 text-center">
                     <span className="text-sm font-mono text-white">
-                      {(region.y * 100).toFixed(0)}%
+                      {(region.y * 100).toFixed(1)}%
                     </span>
                   </div>
                   <button
@@ -299,7 +429,7 @@ export function OCRRegionAdjuster({ stream, onRegionsChange, onClose }: OCRRegio
                   </button>
                   <div className="flex-1 text-center">
                     <span className="text-sm font-mono text-white">
-                      {(region.width * 100).toFixed(0)}%
+                      {(region.width * 100).toFixed(1)}%
                     </span>
                   </div>
                   <button
@@ -323,7 +453,7 @@ export function OCRRegionAdjuster({ stream, onRegionsChange, onClose }: OCRRegio
                   </button>
                   <div className="flex-1 text-center">
                     <span className="text-sm font-mono text-white">
-                      {(region.height * 100).toFixed(0)}%
+                      {(region.height * 100).toFixed(1)}%
                     </span>
                   </div>
                   <button
@@ -353,11 +483,16 @@ export function OCRRegionAdjuster({ stream, onRegionsChange, onClose }: OCRRegio
             </div>
 
             {/* Info */}
-            <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+            <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg space-y-2">
               <p className="text-xs text-blue-400">
-                <strong>Tip:</strong> The colored rectangles show what will be scanned. 
-                Adjust the regions to cover your game's chat area and sit notification cards.
+                <strong>💡 Controls:</strong>
               </p>
+              <ul className="text-xs text-blue-400 space-y-1 list-disc list-inside">
+                <li><strong>Drag</strong> the region to move it</li>
+                <li><strong>Drag edges</strong> to resize</li>
+                <li><strong>Use +/- buttons</strong> for fine adjustments (1%)</li>
+                <li>Regions show what will be scanned by OCR</li>
+              </ul>
             </div>
           </div>
         </div>
