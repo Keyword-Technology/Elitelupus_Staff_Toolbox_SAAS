@@ -282,7 +282,7 @@ export function useActiveSit() {
         setState(prev => ({ ...prev, showPostSitModal: true }));
       } else {
         console.log('[useActiveSit] Auto-starting sit without confirmation');
-        await startSit(sitData);
+        await startSit(sitData, true);  // Pass true to indicate this is from OCR detection
       }
     } else if (event.type === 'close' && state.isActive) {
       console.log('[useActiveSit] 🎯 Close detected - ending sit');
@@ -315,7 +315,7 @@ export function useActiveSit() {
   }, [handleOCRDetection]);
 
   // Start a new sit
-  const startSit = useCallback(async (sitData?: Partial<SitData>) => {
+  const startSit = useCallback(async (sitData?: Partial<SitData>, fromOCRDetection = false) => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
 
@@ -341,23 +341,19 @@ export function useActiveSit() {
 
       startDurationTimer(Date.now());
 
-      // Auto-start recording if enabled AND not already recording
-      // (When sit is detected via OCR, recording is already running from the OCR monitoring)
-      if (state.preferences?.recording_enabled && state.preferences?.auto_start_recording) {
-        if (!recording.isRecording) {
-          console.log('[useActiveSit] Starting new recording');
-          await recording.startRecording();
-        } else {
-          console.log('[useActiveSit] Recording already active, not starting a new one');
-        }
+      // Only auto-start recording/OCR if this is a MANUAL sit start (not from OCR detection)
+      // When sit is detected via OCR, recording and OCR are already running
+      if (!fromOCRDetection && state.preferences?.recording_enabled && state.preferences?.auto_start_recording) {
+        console.log('[useActiveSit] Manual sit start - starting recording');
+        await recording.startRecording();
         
-        // Start OCR if enabled AND not already scanning
-        if (state.preferences?.ocr_enabled && !ocr.isScanning) {
-          console.log('[useActiveSit] Starting OCR scanning');
+        // Start OCR if enabled
+        if (state.preferences?.ocr_enabled) {
+          console.log('[useActiveSit] Manual sit start - starting OCR');
           ocr.startScanning();
-        } else if (ocr.isScanning) {
-          console.log('[useActiveSit] OCR already scanning, not starting again');
         }
+      } else if (fromOCRDetection) {
+        console.log('[useActiveSit] Sit started from OCR detection - recording/OCR already active');
       }
 
       return newSit;
@@ -386,22 +382,20 @@ export function useActiveSit() {
     }
   }, [state.sit?.id]);
 
-  // End current sit
+  // End current sit (show outcome modal, but DON'T stop OCR - let it continue monitoring)
   const endSit = useCallback(async (outcome?: string, outcomeNotes?: string) => {
     if (!state.sit?.id) return;
 
     try {
       setState(prev => ({ ...prev, isLoading: true }));
 
-      // Stop recording first
+      // Stop recording first (creates the video blob)
       if (recording.isRecording) {
         recording.stopRecording();
       }
 
-      // Stop OCR scanning
-      if (ocr.isScanning) {
-        ocr.stopScanning();
-      }
+      // DON'T stop OCR scanning here - we want it to continue monitoring for the next sit
+      // OCR will keep running and detect new claims/closes
 
       // Clear duration timer
       if (durationIntervalRef.current) {
@@ -417,7 +411,7 @@ export function useActiveSit() {
         outcome_notes: outcomeNotes || '',
       });
 
-      // Show post-sit modal
+      // Show post-sit modal for outcome selection
       setState(prev => ({
         ...prev,
         showPostSitModal: true,
@@ -430,7 +424,7 @@ export function useActiveSit() {
         error: 'Failed to end sit',
       }));
     }
-  }, [state.sit?.id, state.duration, recording, ocr]);
+  }, [state.sit?.id, state.duration, recording]);
 
   // Cancel current sit (discard without saving)
   const cancelSit = useCallback(async () => {
@@ -473,8 +467,9 @@ export function useActiveSit() {
     }
   }, [state.sit?.id, recording, ocr]);
 
-  // Complete and close modal
+  // Complete and close modal - ready for next sit (OCR keeps running)
   const completeSit = useCallback(() => {
+    console.log('[useActiveSit] Completing sit - resetting state for next sit');
     sitIdRef.current = null;
     setState(prev => ({
       ...prev,
@@ -484,9 +479,12 @@ export function useActiveSit() {
       showPostSitModal: false,
     }));
 
-    // Discard recording preview
+    // Discard recording preview (free memory)
     recording.discardRecording();
     ocr.clearDetections();
+    
+    // OCR is still running - it will detect the next claim automatically
+    console.log('[useActiveSit] Ready for next sit - OCR still monitoring');
   }, [recording, ocr]);
 
   // Update preferences

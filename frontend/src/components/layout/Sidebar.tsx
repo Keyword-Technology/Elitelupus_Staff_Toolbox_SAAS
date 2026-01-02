@@ -15,12 +15,14 @@ import {
   MagnifyingGlassIcon,
   ClockIcon,
   VideoCameraIcon,
+  EyeIcon,
 } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Sit Counter', href: '/dashboard/counters', icon: ChartBarIcon },
+  { name: 'OCR Sits', href: '/dashboard/ocr-sits', icon: EyeIcon },
   { name: 'Sit History', href: '/dashboard/sits', icon: VideoCameraIcon },
   { name: 'Server Status', href: '/dashboard/servers', icon: ServerIcon },
   { name: 'Steam Lookup', href: '/dashboard/templates', icon: MagnifyingGlassIcon },
