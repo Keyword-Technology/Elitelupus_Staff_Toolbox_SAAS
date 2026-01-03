@@ -152,14 +152,18 @@ class ServerQueryService:
         # Build multiple lookup dictionaries for different name sources:
         # 1. Roster name (from Google Sheets)
         # 2. Steam name (from Steam API, synced periodically)
-        from apps.system_settings.models import SystemSetting
         from django.db.models import Q
         
         staff_queryset = StaffRoster.objects.filter(is_active=True).select_related('staff')
         
         # Exclude builders if system setting is enabled
-        if SystemSetting.exclude_builders():
-            staff_queryset = staff_queryset.exclude(Q(rank__icontains='builder'))
+        try:
+            from apps.system_settings.models import SystemSetting
+            if SystemSetting.exclude_builders():
+                staff_queryset = staff_queryset.exclude(Q(rank__icontains='builder'))
+        except Exception:
+            # Setting doesn't exist yet or database error - skip filtering
+            pass
         
         staff_roster = {}
         for entry in staff_queryset:

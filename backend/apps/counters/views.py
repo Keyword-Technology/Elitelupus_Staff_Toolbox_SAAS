@@ -229,8 +229,12 @@ class LeaderboardView(APIView):
         # Get all active staff users (excluding builders if setting enabled)
         users = User.objects.filter(is_active_staff=True)
         
-        if SystemSetting.exclude_builders():
-            users = users.exclude(Q(role__icontains='builder'))
+        try:
+            if SystemSetting.exclude_builders():
+                users = users.exclude(Q(role__icontains='builder'))
+        except Exception:
+            # Setting doesn't exist yet or database error - skip filtering
+            pass
         
         leaderboard = []
         for user in users:

@@ -33,7 +33,6 @@ class StaffRosterListView(generics.ListAPIView):
     pagination_class = StaffRosterPagination
     
     def get_queryset(self):
-        from apps.system_settings.models import SystemSetting
         from django.db.models import Q
 
         # By default, show only active staff
@@ -48,9 +47,13 @@ class StaffRosterListView(generics.ListAPIView):
             queryset = StaffRoster.objects.filter(is_active=True)
         
         # Exclude builders if system setting is enabled
-        if SystemSetting.exclude_builders():
-            queryset = queryset.exclude(Q(rank__icontains='builder'))
-        
+        try:
+            from apps.system_settings.models import SystemSetting
+            if SystemSetting.exclude_builders():
+                queryset = queryset.exclude(Q(rank__icontains='builder'))
+        except Exception:
+            # Setting doesn't exist yet or database error - skip filtering
+            pass
         # Filter by rank if provided
         rank = self.request.query_params.get('rank')
         if rank:
@@ -645,12 +648,16 @@ class ServerTimeLeaderboardView(APIView):
             staff_times[staff_id]['session_count'] += 1
         
         # Get roster info for active staff (excluding builders if setting enabled)
-        from apps.system_settings.models import SystemSetting
         roster_queryset = StaffRoster.objects.filter(is_active=True).select_related('staff')
         
-        if SystemSetting.exclude_builders():
+        try:
+            from apps.system_settings.models import SystemSetting
             from django.db.models import Q
-            roster_queryset = roster_queryset.exclude(Q(rank__icontains='builder'))
+            if SystemSetting.exclude_builders():
+                roster_queryset = roster_queryset.exclude(Q(rank__icontains='builder'))
+        except Exception:
+            # Setting doesn't exist yet or database error - skip filtering
+            pass
         
         roster_map = {}
         for roster in roster_queryset:
@@ -867,11 +874,15 @@ class RecentPromotionsView(APIView):
         ).select_related('staff', 'created_by').order_by('-event_date')
         
         # Exclude builder-related events if system setting is enabled
-        if SystemSetting.exclude_builders():
-            events = events.exclude(
-                Q(old_rank__icontains='builder') | 
-                Q(new_rank__icontains='builder')
-            )
+        try:
+            if SystemSetting.exclude_builders():
+                events = events.exclude(
+                    Q(old_rank__icontains='builder') | 
+                    Q(new_rank__icontains='builder')
+                )
+        except Exception:
+            # Setting doesn't exist yet or database error - skip filtering
+            pass
         
         # Categorize events by type
         categorized = {
