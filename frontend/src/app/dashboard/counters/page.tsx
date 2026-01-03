@@ -11,6 +11,7 @@ import {
   ClockIcon,
   CalendarIcon,
   ArrowTrendingUpIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -43,6 +44,8 @@ export default function CountersPage() {
   const [quotas, setQuotas] = useState<QuotaData | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isResetting, setIsResetting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const { isConnected, onCounterUpdate } = useWebSocket();
   const { formatDateTime } = useFormatDate();
   const queryClient = useQueryClient();
@@ -74,6 +77,26 @@ export default function CountersPage() {
       toast.error('Failed to load counter data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetWeeklySits = async () => {
+    if (!stats || stats.weekly_sits === 0) {
+      toast.error('No weekly sits to reset');
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      const response = await counterAPI.resetWeeklySits();
+      toast.success(`Weekly sit counter reset: -${response.data.previous_weekly_sits} sits`);
+      setShowResetConfirm(false);
+      // Refresh data to show updated stats
+      await fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to reset weekly sit counter');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -142,10 +165,21 @@ export default function CountersPage() {
 
       {/* Weekly Overview */}
       <div className="bg-dark-card rounded-lg border border-dark-border p-6">
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <ChartBarIcon className="w-5 h-5 text-primary-400" />
-          Weekly Overview
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <ChartBarIcon className="w-5 h-5 text-primary-400" />
+            Weekly Overview
+          </h2>
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            disabled={isResetting || !stats || stats.weekly_sits === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title={!stats || stats.weekly_sits === 0 ? 'No weekly sits to reset' : 'Reset weekly sit counter'}
+          >
+            <ArrowPathIcon className="w-4 h-4" />
+            <span className="text-sm font-medium">Reset Weekly Sits</span>
+          </button>
+        </div>
         <div className="grid grid-cols-2 gap-8">
           <div>
             <div className="flex items-center justify-between mb-2">
