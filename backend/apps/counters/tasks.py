@@ -1,10 +1,12 @@
 """
 Celery tasks for counter management.
 """
+import logging
+from datetime import timedelta
+
+from apps.utils import get_week_start
 from celery import shared_task
 from django.utils import timezone
-from datetime import timedelta
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -62,10 +64,83 @@ def check_daily_reset():
 
 
 @shared_task
+def check_weekly_reset():
+    """
+    Check and perform weekly counter resets on Saturday.
+    
+    This task runs every Saturday at midnight to:
+    1. Create weekly snapshots of sit/ticket counts
+    2. Archive the previous week's statistics
+    
+    The week runs Saturday-Friday, with Saturday being the reset day.
+    """
+    from .models import Counter, CounterHistory, CounterSnapshot
+    
+    today = timezone.now().date()
+    
+    # Only run on Saturday (weekday 5)
+    if today.weekday() != 5:
+        logger.info(f"Weekly reset skipped - not Saturday (today is weekday {today.weekday()})")
+        return
+    
+    # Calculate the week that just ended (last Saturday to yesterday/Friday)
+    last_week_start = get_week_start(today - timedelta(days=1))  # Get previous week's Saturday
+    last_week_end = last_week_start + timedelta(days=6)  # Friday
+    
+    logger.info(f"Weekly reset running for week: {last_week_start} to {last_week_end}")
+    
+    # Get all total counters to identify users
+    counters = Counter.objects.filter(period_type='total')
+    
+    users_processed = set()
+    weekly_snapshots_created = 0
+    
+    for counter in counters:
+        if counter.user_id in users_processed:
+            continue
+        
+        # Calculate weekly totals from history
+        weekly_history = CounterHistory.objects.filter(
+            user=counter.user,
+            timestamp__date__gte=last_week_start,
+            timestamp__date__lte=last_week_end,
+            action__in=['increment', 'decrement']
+        )
+        
+        weekly_sits = 0
+        for entry in weekly_history.filter(counter_type='sit'):
+            weekly_sits += (entry.new_value - entry.old_value)
+        
+        weekly_tickets = 0
+        for entry in weekly_history.filter(counter_type='ticket'):
+            weekly_tickets += (entry.new_value - entry.old_value)
+        
+        # Create weekly snapshot (using last day of week as the date)
+        if weekly_sits > 0 or weekly_tickets > 0:
+            CounterSnapshot.objects.update_or_create(
+                user=counter.user,
+                date=last_week_end,
+                defaults={
+                    'sit_count': weekly_sits,
+                    'ticket_count': weekly_tickets,
+                }
+            )
+            weekly_snapshots_created += 1
+        
+        users_processed.add(counter.user_id)
+    
+    logger.info(
+        f"Weekly reset completed: {len(users_processed)} users processed, "
+        f"{weekly_snapshots_created} weekly snapshots created"
+    )
+
+
+@shared_task
 def calculate_weekly_stats():
     """Calculate weekly statistics for leaderboard."""
-    from .models import Counter, CounterHistory
     from django.db.models import Sum
+
+    from .models import Counter, CounterHistory
     
     one_week_ago = timezone.now() - timedelta(days=7)
     

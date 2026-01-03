@@ -47,6 +47,11 @@ app.conf.beat_schedule = {
         'task': 'apps.counters.tasks.check_daily_reset',
         'schedule': crontab(hour=0, minute=0),  # Every day at midnight
     },
+    # Weekly sit counter reset (Saturday at midnight)
+    'weekly-sit-reset-saturday': {
+        'task': 'apps.counters.tasks.check_weekly_reset',
+        'schedule': crontab(hour=0, minute=0, day_of_week='saturday'),  # Saturday at midnight
+    },
     # Expire Steam profile notes every 5 minutes
     'expire-steam-profile-notes': {
         'task': 'apps.templates_manager.tasks.expire_steam_profile_notes',

@@ -1,6 +1,7 @@
 import asyncio
 
 from apps.accounts.permissions import IsManager, IsStaffManager, IsSysAdmin
+from apps.utils import get_week_start
 from django.conf import settings
 from rest_framework import generics, permissions, status
 from rest_framework.pagination import PageNumberPagination
@@ -588,9 +589,9 @@ class ServerTimeLeaderboardView(APIView):
         now = timezone.now()
         
         if period == 'weekly':
-            # Calculate week start (Monday)
-            week_start = now - timedelta(days=now.weekday())
-            week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Calculate week start (Saturday is reset day)
+            week_start = get_week_start(now)
+            week_start = week_start if isinstance(week_start, timezone.datetime) else timezone.datetime.combine(week_start, timezone.datetime.min.time(), tzinfo=now.tzinfo)
             
             # Apply offset
             week_start = week_start - timedelta(weeks=offset)
@@ -695,9 +696,9 @@ class StaffDailyBreakdownView(APIView):
         
         now = timezone.now()
         
-        # Calculate week start (Monday) for current week
-        current_week_start = now - timedelta(days=now.weekday())
-        current_week_start = current_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Calculate week start (Saturday is reset day) for current week
+        current_week_start = get_week_start(now)
+        current_week_start = current_week_start if isinstance(current_week_start, timezone.datetime) else timezone.datetime.combine(current_week_start, timezone.datetime.min.time(), tzinfo=now.tzinfo)
         
         # Calculate the requested week
         requested_week_start = current_week_start - timedelta(weeks=week_offset)

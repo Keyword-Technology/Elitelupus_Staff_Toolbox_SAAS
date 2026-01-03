@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from apps.utils import get_week_start
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.db.models import Avg, Count, F, Sum
@@ -142,7 +143,7 @@ class CounterStatsView(APIView):
     def get(self, request):
         user = request.user
         today = timezone.now().date()
-        week_start = today - timedelta(days=today.weekday())
+        week_start = get_week_start(today)  # Saturday is reset day
         
         # Total counts
         total_sits = Counter.objects.filter(
@@ -523,7 +524,7 @@ class SitStatsView(APIView):
     def get(self, request):
         user = request.user
         today = timezone.now().date()
-        week_start = today - timedelta(days=today.weekday())
+        week_start = get_week_start(today)  # Saturday is reset day
         month_start = today.replace(day=1)
         
         base_queryset = Sit.objects.filter(staff=user)

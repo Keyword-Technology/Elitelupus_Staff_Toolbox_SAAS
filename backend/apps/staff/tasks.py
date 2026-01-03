@@ -6,6 +6,7 @@ import logging
 import time
 
 import requests
+from apps.utils import get_week_start
 from celery import shared_task
 from django.conf import settings
 
@@ -382,8 +383,8 @@ def aggregate_server_sessions():
                     )
                     aggregated_count += 1
             
-            # Weekly aggregation
-            week_start = today - timedelta(days=today.weekday())
+            # Weekly aggregation (Saturday is reset day)
+            week_start = get_week_start(today)
             week_end = week_start + timedelta(days=6)
             
             for server in servers:
