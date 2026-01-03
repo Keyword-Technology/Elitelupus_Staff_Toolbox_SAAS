@@ -76,7 +76,18 @@ class ServerQueryService:
             
             # Query server info
             info = a2s.info(address, timeout=5)
-            players = a2s.players(address, timeout=5)
+            
+            # Try to query players, but handle decompression errors gracefully
+            players = []
+            try:
+                players = a2s.players(address, timeout=5)
+            except OSError as e:
+                # Handle bz2 decompression errors (Invalid data stream)
+                if 'Invalid data stream' in str(e):
+                    logger.warning(f"Player list query failed for {server.name} (bz2 decompression error). Server info still retrieved successfully.")
+                    # Continue with empty player list - server is still online, we just can't get players
+                else:
+                    raise  # Re-raise if it's a different OSError
             
             # Update server record
             server.server_name = info.server_name
@@ -88,7 +99,7 @@ class ServerQueryService:
             server.last_successful_query = timezone.now()
             server.save()
             
-            # Update players
+            # Update players (may be empty list if player query failed)
             self._update_server_players(server, players)
             
             # Log status
