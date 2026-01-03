@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect } from 'react';
+import { sitAPI } from '@/lib/api';
 import {
   HomeIcon,
   ChartBarIcon,
@@ -17,12 +19,18 @@ import {
   VideoCameraIcon,
   EyeIcon,
 } from '@heroicons/react/24/outline';
-import { useState } from 'react';
 
-const navigation = [
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  requiresOCR?: boolean;
+}
+
+const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Sit Counter', href: '/dashboard/counters', icon: ChartBarIcon },
-  { name: 'OCR Sits', href: '/dashboard/ocr-sits', icon: EyeIcon },
+  { name: 'OCR Sits', href: '/dashboard/ocr-sits', icon: EyeIcon, requiresOCR: true },
   { name: 'Sit History', href: '/dashboard/sits', icon: VideoCameraIcon },
   { name: 'Server Status', href: '/dashboard/servers', icon: ServerIcon },
   { name: 'Steam Lookup', href: '/dashboard/templates', icon: MagnifyingGlassIcon },
@@ -36,6 +44,28 @@ export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [ocrEnabled, setOcrEnabled] = useState(false);
+
+  // Check if OCR feature is enabled system-wide
+  useEffect(() => {
+    const checkOCREnabled = async () => {
+      try {
+        const response = await sitAPI.isEnabled();
+        setOcrEnabled(response.data?.system_enabled && response.data?.ocr_system_enabled);
+      } catch {
+        setOcrEnabled(false);
+      }
+    };
+    checkOCREnabled();
+  }, []);
+
+  // Filter navigation based on feature flags
+  const filteredNavigation = navigation.filter(item => {
+    if (item.requiresOCR && !ocrEnabled) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <>
@@ -91,7 +121,7 @@ export function Sidebar() {
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-            {navigation.map((item) => {
+            {filteredNavigation.map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link

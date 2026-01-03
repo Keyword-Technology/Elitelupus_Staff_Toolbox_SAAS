@@ -225,15 +225,14 @@ class SetupWizardView(APIView):
         from apps.system_settings.models import SystemSetting
 
         # Get system settings
-        sit_recording_enabled = SystemSetting.objects.filter(
-            key='sit_recording_enabled',
-            is_active=True
-        ).first()
+        sit_recording_enabled = SystemSetting.get_setting_value('sit_recording_enabled', default=False)
+        ocr_enabled = SystemSetting.get_setting_value('sit_recording_ocr_enabled', default=False)
         
         return Response({
             'setup_completed': request.user.setup_completed,
             'system_settings': {
-                'sit_recording_available': sit_recording_enabled.value.lower() == 'true' if sit_recording_enabled else False,
+                'sit_recording_available': sit_recording_enabled,
+                'ocr_available': ocr_enabled,
             }
         })
 

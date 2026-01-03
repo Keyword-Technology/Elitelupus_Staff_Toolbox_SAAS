@@ -270,14 +270,18 @@ class SitRecordingEnabledView(APIView):
     def get(self, request):
         from apps.system_settings.models import SystemSetting
 
-        # Check system-wide setting using the static method
-        system_enabled = SystemSetting.get_setting_value('sit_recording_enabled', default=True)
+        # Check system-wide settings using the static method
+        # Main feature toggle - controls entire OCR/recording system visibility
+        system_enabled = SystemSetting.get_setting_value('sit_recording_enabled', default=False)
+        # OCR sub-feature toggle
+        ocr_system_enabled = SystemSetting.get_setting_value('sit_recording_ocr_enabled', default=False)
         
         # Check user preference
         user_prefs, _ = UserSitPreferences.objects.get_or_create(user=request.user)
         
         return Response({
             'system_enabled': system_enabled,
+            'ocr_system_enabled': ocr_system_enabled,
             'user_recording_enabled': user_prefs.recording_enabled,
             'user_ocr_enabled': user_prefs.ocr_enabled,
             'is_fully_enabled': system_enabled and user_prefs.recording_enabled,

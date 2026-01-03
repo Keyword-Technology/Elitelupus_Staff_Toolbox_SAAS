@@ -25,14 +25,17 @@ interface SetupWizardData {
 
 interface SystemSettings {
   sit_recording_available: boolean;
+  ocr_available: boolean;
 }
 
-const STEPS = [
+// Base steps - Features step will be conditionally added
+const BASE_STEPS = [
   { id: 1, name: 'Timezone', icon: ClockIcon },
   { id: 2, name: 'Email', icon: EnvelopeIcon },
   { id: 3, name: 'Password', icon: LockClosedIcon },
-  { id: 4, name: 'Features', icon: VideoCameraIcon },
 ];
+
+const FEATURES_STEP = { id: 4, name: 'Features', icon: VideoCameraIcon };
 
 export function SetupWizard() {
   const router = useRouter();
@@ -51,6 +54,11 @@ export function SetupWizard() {
   });
 
   const [showPassword, setShowPassword] = useState(false);
+
+  // Dynamically build steps based on system settings
+  const STEPS = systemSettings?.sit_recording_available || systemSettings?.ocr_available
+    ? [...BASE_STEPS, FEATURES_STEP]
+    : BASE_STEPS;
 
   useEffect(() => {
     // Fetch system settings and timezones

@@ -95,7 +95,7 @@ export default function SettingsPage() {
       const [socialRes, tzRes, sitEnabledRes, sitPrefsRes] = await Promise.all([
         authAPI.socialStatus(),
         authAPI.timezones(),
-        sitAPI.isEnabled().catch(() => ({ data: { system_enabled: false } })),
+        sitAPI.isEnabled().catch(() => ({ data: { system_enabled: false, ocr_system_enabled: false } })),
         sitAPI.getPreferences().catch(() => ({ data: null })),
       ]);
       setSocialStatus(socialRes.data);
@@ -220,17 +220,20 @@ export default function SettingsPage() {
           <LinkIcon className="w-5 h-5" />
           Connected Accounts
         </button>
-        <button
-          onClick={() => setActiveTab('sit-recording')}
-          className={`pb-3 px-1 font-medium transition-colors flex items-center gap-2 ${
-            activeTab === 'sit-recording'
-              ? 'text-primary-400 border-b-2 border-primary-400'
-              : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          <VideoCameraIcon className="w-5 h-5" />
-          Sit Recording
-        </button>
+        {/* Only show Sit Recording tab if feature is enabled system-wide */}
+        {sitRecordingSystemEnabled && (
+          <button
+            onClick={() => setActiveTab('sit-recording')}
+            className={`pb-3 px-1 font-medium transition-colors flex items-center gap-2 ${
+              activeTab === 'sit-recording'
+                ? 'text-primary-400 border-b-2 border-primary-400'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <VideoCameraIcon className="w-5 h-5" />
+            Sit Recording
+          </button>
+        )}
       </div>
 
       {/* Profile Tab */}
