@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { staffAPI } from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   ArrowUpIcon,
   ArrowDownIcon,
@@ -13,6 +14,7 @@ import {
   ChevronRightIcon,
   SparklesIcon,
   CalendarIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -68,9 +70,14 @@ interface PromotionsData {
 
 export default function RecentPromotionsPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [data, setData] = useState<PromotionsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [offset, setOffset] = useState(0);
+  const [deletingEventId, setDeletingEventId] = useState<number | null>(null);
+
+  // Check if user is SYSADMIN (role_priority 0)
+  const isSysAdmin = user?.role_priority === 0;
 
   useEffect(() => {
     fetchData();
@@ -113,6 +120,30 @@ export default function RecentPromotionsPage() {
     if (eventType === 'promoted' || isPromotion) return 'border-green-500/30 bg-green-500/5';
     if (eventType === 'demoted' || isDemotion) return 'border-red-500/30 bg-red-500/5';
     return 'border-yellow-500/30 bg-yellow-500/5';
+  };
+
+  const handleDeleteEvent = async (eventId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
+      return;
+    }
+    
+    setDeletingEventId(eventId);
+    try {
+      await staffAPI.deleteHistoryEvent(eventId);
+      toast.success('Event deleted');
+      // Refresh data
+      fetchData();
+    } catch (error: any) {
+      if (error.response?.status === 403) {
+        toast.error('Only SYSADMIN can delete events');
+      } else {
+        toast.error('Failed to delete event');
+      }
+    } finally {
+      setDeletingEventId(null);
+    }
   };
 
   const EventCard = ({ event }: { event: HistoryEvent }) => (
@@ -170,8 +201,26 @@ export default function RecentPromotionsPage() {
             <p className="text-gray-400 text-xs mt-1">{event.notes}</p>
           )}
         </div>
-        <div className="text-right text-xs text-gray-500">
-          {formatDate(event.event_date)}
+        <div className="flex items-start gap-2">
+          <div className="text-right text-xs text-gray-500">
+            {formatDate(event.event_date)}
+          </div>
+          
+          {/* Delete button - SYSADMIN only */}
+          {isSysAdmin && (
+            <button
+              onClick={(e) => handleDeleteEvent(event.id, e)}
+              disabled={deletingEventId === event.id}
+              className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+              title="Delete event"
+            >
+              {deletingEventId === event.id ? (
+                <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <TrashIcon className="w-4 h-4" />
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

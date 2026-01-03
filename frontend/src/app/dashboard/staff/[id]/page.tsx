@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { staffAPI } from '@/lib/api';
 import { useFormatDate } from '@/hooks/useFormatDate';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   ArrowLeftIcon,
   ClockIcon,
@@ -16,6 +17,7 @@ import {
   ArrowRightIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
@@ -109,10 +111,15 @@ export default function StaffDetailsPage() {
   const router = useRouter();
   const staffId = params?.id as string;
   const { formatDateTime, formatDate, formatTime } = useFormatDate();
+  const { user } = useAuth();
   
   const [loading, setLoading] = useState(true);
   const [details, setDetails] = useState<StaffDetails | null>(null);
   const [sessionsFilter, setSessionsFilter] = useState<'all' | 'active'>('all');
+  const [deletingEventId, setDeletingEventId] = useState<number | null>(null);
+  
+  // Check if user is SYSADMIN (role_priority 0)
+  const isSysAdmin = user?.role_priority === 0;
   
   // Daily breakdown state
   const [dailyBreakdown, setDailyBreakdown] = useState<DailyBreakdownData | null>(null);
@@ -156,6 +163,28 @@ export default function StaffDetailsPage() {
       console.error('Failed to fetch daily breakdown:', error);
     } finally {
       setBreakdownLoading(false);
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: number) => {
+    if (!confirm('Are you sure you want to delete this timeline event? This action cannot be undone.')) {
+      return;
+    }
+    
+    setDeletingEventId(eventId);
+    try {
+      await staffAPI.deleteHistoryEvent(eventId);
+      toast.success('Timeline event deleted');
+      // Refresh details to update the timeline
+      fetchDetails();
+    } catch (error: any) {
+      if (error.response?.status === 403) {
+        toast.error('Only SYSADMIN can delete timeline events');
+      } else {
+        toast.error('Failed to delete timeline event');
+      }
+    } finally {
+      setDeletingEventId(null);
     }
   };
 
@@ -704,14 +733,35 @@ export default function StaffDetailsPage() {
                     )}
                   </div>
                   
-                  {/* Date */}
-                  <div className="text-right">
-                    <div className="text-sm text-gray-400">
-                      {formatDate(event.event_date)}
+                  {/* Date and Delete Button */}
+                  <div className="text-right flex items-start gap-2">
+                    <div>
+                      <div className="text-sm text-gray-400">
+                        {formatDate(event.event_date)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {formatTime(event.event_date)}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {formatTime(event.event_date)}
-                    </div>
+                    
+                    {/* Delete button - SYSADMIN only */}
+                    {isSysAdmin && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteEvent(event.id);
+                        }}
+                        disabled={deletingEventId === event.id}
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                        title="Delete event"
+                      >
+                        {deletingEventId === event.id ? (
+                          <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <TrashIcon className="w-4 h-4" />
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

@@ -903,3 +903,29 @@ class RecentPromotionsView(APIView):
             'events': categorized,
             'all_events': StaffHistoryEventSerializer(events, many=True).data,
         })
+
+
+class DeleteHistoryEventView(APIView):
+    """
+    Delete a staff history event. SYSADMIN only.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsSysAdmin]
+
+    def delete(self, request, event_id):
+        from .models import StaffHistoryEvent
+        
+        try:
+            event = StaffHistoryEvent.objects.get(id=event_id)
+            staff_name = event.staff.name
+            event_type = event.get_event_type_display()
+            event.delete()
+            
+            return Response({
+                'message': f'Deleted {event_type} event for {staff_name}',
+                'deleted_id': event_id,
+            })
+        except StaffHistoryEvent.DoesNotExist:
+            return Response(
+                {'error': 'History event not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )

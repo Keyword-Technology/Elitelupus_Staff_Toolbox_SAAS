@@ -92,6 +92,8 @@ export const staffAPI = {
     api.get('/staff/server-time-leaderboard/', { params: { period: period || 'weekly', offset: offset || 0 } }),
   recentPromotions: (offset?: number) =>
     api.get('/staff/recent-promotions/', { params: { offset: offset || 0 } }),
+  deleteHistoryEvent: (eventId: number) =>
+    api.delete(`/staff/history-event/${eventId}/`),
 };
 
 export const counterAPI = {
