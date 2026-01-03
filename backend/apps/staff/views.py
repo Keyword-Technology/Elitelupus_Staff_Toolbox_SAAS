@@ -808,3 +808,98 @@ class StaffDailyBreakdownView(APIView):
             'total_previous_formatted': f"{total_previous_hours}h {total_previous_mins}m" if total_previous_hours > 0 else f"{total_previous_mins}m",
             'max_day': days[max_day] if max_day is not None else None,
         })
+
+
+class RecentPromotionsView(APIView):
+    """
+    Get recent staff role changes grouped by week.
+    Shows promotions, demotions, joins, removals, etc.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from collections import defaultdict
+        from datetime import timedelta
+
+        from django.db.models import Q
+
+        from .models import StaffHistoryEvent
+        from .serializers import StaffHistoryEventSerializer
+
+        # Get week offset from query params (0 = current week, 1 = last week, etc.)
+        week_offset = int(request.query_params.get('offset', 0))
+        
+        # Calculate week boundaries (Monday-Sunday)
+        today = timezone.now().date()
+        current_week_start = today - timedelta(days=today.weekday())  # Monday
+        
+        # Apply offset
+        requested_week_start = current_week_start - timedelta(weeks=week_offset)
+        requested_week_end = requested_week_start + timedelta(days=6)  # Sunday
+        
+        # Convert to datetime for filtering
+        week_start_dt = timezone.make_aware(
+            timezone.datetime.combine(requested_week_start, timezone.datetime.min.time())
+        )
+        week_end_dt = timezone.make_aware(
+            timezone.datetime.combine(requested_week_end, timezone.datetime.max.time())
+        )
+        
+        # Get all events for this week
+        events = StaffHistoryEvent.objects.filter(
+            event_date__gte=week_start_dt,
+            event_date__lte=week_end_dt
+        ).select_related('staff', 'created_by').order_by('-event_date')
+        
+        # Categorize events by type
+        categorized = {
+            'promotions': [],
+            'demotions': [],
+            'joins': [],
+            'removals': [],
+            'rejoined': [],
+            'role_changes': [],
+        }
+        
+        for event in events:
+            serialized = StaffHistoryEventSerializer(event).data
+            
+            if event.event_type == 'promoted':
+                categorized['promotions'].append(serialized)
+            elif event.event_type == 'demoted':
+                categorized['demotions'].append(serialized)
+            elif event.event_type == 'joined':
+                categorized['joins'].append(serialized)
+            elif event.event_type in ['removed', 'left']:
+                categorized['removals'].append(serialized)
+            elif event.event_type == 'rejoined':
+                categorized['rejoined'].append(serialized)
+            elif event.event_type == 'role_change':
+                # Classify based on priority change
+                if event.is_promotion:
+                    categorized['promotions'].append(serialized)
+                elif event.is_demotion:
+                    categorized['demotions'].append(serialized)
+                else:
+                    categorized['role_changes'].append(serialized)
+        
+        # Summary stats
+        total_events = events.count()
+        
+        return Response({
+            'week_offset': week_offset,
+            'week_start': requested_week_start.isoformat(),
+            'week_end': requested_week_end.isoformat(),
+            'week_label': f"Week of {requested_week_start.strftime('%b %d, %Y')}",
+            'total_events': total_events,
+            'summary': {
+                'promotions': len(categorized['promotions']),
+                'demotions': len(categorized['demotions']),
+                'joins': len(categorized['joins']),
+                'removals': len(categorized['removals']),
+                'rejoined': len(categorized['rejoined']),
+                'role_changes': len(categorized['role_changes']),
+            },
+            'events': categorized,
+            'all_events': StaffHistoryEventSerializer(events, many=True).data,
+        })

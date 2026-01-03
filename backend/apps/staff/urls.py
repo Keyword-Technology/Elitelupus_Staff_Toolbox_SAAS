@@ -2,11 +2,11 @@ from django.urls import re_path
 
 from .views import (BackfillLastSeenView, DiscordBotStatusView,
                     DiscordStatusSyncView, FixLastSeenView, MyStaffProfileView,
-                    RolePrioritiesView, ServerTimeLeaderboardView,
-                    StaffDailyBreakdownView, StaffDetailsView,
-                    StaffRosterDetailView, StaffRosterListView,
-                    StaffSessionsView, StaffStatsView, StaffSyncLogListView,
-                    StaffSyncView, SteamNameSyncView)
+                    RecentPromotionsView, RolePrioritiesView,
+                    ServerTimeLeaderboardView, StaffDailyBreakdownView,
+                    StaffDetailsView, StaffRosterDetailView,
+                    StaffRosterListView, StaffSessionsView, StaffStatsView,
+                    StaffSyncLogListView, StaffSyncView, SteamNameSyncView)
 
 urlpatterns = [
     re_path(r'^roster/?$', StaffRosterListView.as_view(), name='staff_roster_list'),
@@ -25,4 +25,5 @@ urlpatterns = [
     re_path(r'^backfill-last-seen/?$', BackfillLastSeenView.as_view(), name='backfill_last_seen'),
     re_path(r'^fix-last-seen/?$', FixLastSeenView.as_view(), name='fix_last_seen'),
     re_path(r'^server-time-leaderboard/?$', ServerTimeLeaderboardView.as_view(), name='server_time_leaderboard'),
+    re_path(r'^recent-promotions/?$', RecentPromotionsView.as_view(), name='recent_promotions'),
 ]

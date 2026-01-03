@@ -18,6 +18,7 @@ import {
   ClockIcon,
   VideoCameraIcon,
   EyeIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 
 interface NavItem {
@@ -38,6 +39,7 @@ const navigation: NavItem[] = [
   { name: 'Staff Roster', href: '/dashboard/staff', icon: UserGroupIcon },
   { name: 'Leaderboard', href: '/dashboard/leaderboard', icon: TrophyIcon },
   { name: 'Server Time', href: '/dashboard/leaderboard/server-time', icon: ClockIcon },
+  { name: 'Recent Promotions', href: '/dashboard/recent-promotions', icon: SparklesIcon },
 ];
 
 export function Sidebar() {

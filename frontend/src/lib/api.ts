@@ -90,6 +90,8 @@ export const staffAPI = {
     api.get(`/staff/roster/${id}/daily-breakdown/`, { params: { week_offset: weekOffset || 0 } }),
   serverTimeLeaderboard: (period?: string, offset?: number) =>
     api.get('/staff/server-time-leaderboard/', { params: { period: period || 'weekly', offset: offset || 0 } }),
+  recentPromotions: (offset?: number) =>
+    api.get('/staff/recent-promotions/', { params: { offset: offset || 0 } }),
 };
 
 export const counterAPI = {
