@@ -282,6 +282,48 @@ export default function CountersPage() {
           )}
         </div>
       </div>
+
+      {/* Reset Confirmation Modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-dark-card rounded-lg border border-dark-border p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold text-white mb-4">
+              Reset Weekly Sit Counter?
+            </h3>
+            <p className="text-gray-300 mb-4">
+              This will reset your weekly sit count from{' '}
+              <span className="font-bold text-blue-400">{stats?.weekly_sits || 0}</span> to{' '}
+              <span className="font-bold text-blue-400">0</span>.
+            </p>
+            <p className="text-sm text-yellow-400 mb-6 bg-yellow-400/10 p-3 rounded-lg border border-yellow-400/20">
+              ⚠️ This action will subtract {stats?.weekly_sits || 0} sits from your total counter and cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                disabled={isResetting}
+                className="flex-1 px-4 py-2 bg-dark-bg hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResetWeeklySits}
+                disabled={isResetting}
+                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isResetting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                    Resetting...
+                  </>
+                ) : (
+                  'Reset Counter'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
