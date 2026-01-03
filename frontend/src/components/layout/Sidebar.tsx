@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { sitAPI } from '@/lib/api';
+import { Disclosure } from '@headlessui/react';
 import {
   HomeIcon,
   ChartBarIcon,
@@ -19,6 +20,7 @@ import {
   VideoCameraIcon,
   EyeIcon,
   SparklesIcon,
+  ChevronDownIcon,
 } from '@heroicons/react/24/outline';
 
 interface NavItem {
@@ -28,18 +30,42 @@ interface NavItem {
   requiresOCR?: boolean;
 }
 
-const navigation: NavItem[] = [
+interface NavGroup {
+  name: string;
+  icon: React.ComponentType<{ className?: string }>;
+  items: NavItem[];
+}
+
+type NavigationItem = NavItem | NavGroup;
+
+function isNavGroup(item: NavigationItem): item is NavGroup {
+  return 'items' in item;
+}
+
+const navigation: NavigationItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-  { name: 'Sit Counter', href: '/dashboard/counters', icon: ChartBarIcon },
-  { name: 'OCR Sits', href: '/dashboard/ocr-sits', icon: EyeIcon, requiresOCR: true },
-  { name: 'Sit History', href: '/dashboard/sits', icon: VideoCameraIcon },
+  {
+    name: 'Sit Tracking',
+    icon: ChartBarIcon,
+    items: [
+      { name: 'Sit Counter', href: '/dashboard/counters', icon: ChartBarIcon },
+      { name: 'OCR Sits', href: '/dashboard/ocr-sits', icon: EyeIcon, requiresOCR: true },
+      { name: 'Sit History', href: '/dashboard/sits', icon: VideoCameraIcon },
+    ],
+  },
+  {
+    name: 'Statistics',
+    icon: TrophyIcon,
+    items: [
+      { name: 'Leaderboard', href: '/dashboard/leaderboard', icon: TrophyIcon },
+      { name: 'Server Time', href: '/dashboard/leaderboard/server-time', icon: ClockIcon },
+      { name: 'Recent Promotions', href: '/dashboard/recent-promotions', icon: SparklesIcon },
+    ],
+  },
   { name: 'Server Status', href: '/dashboard/servers', icon: ServerIcon },
   { name: 'Steam Lookup', href: '/dashboard/templates', icon: MagnifyingGlassIcon },
   { name: 'Rules', href: '/dashboard/rules', icon: BookOpenIcon },
   { name: 'Staff Roster', href: '/dashboard/staff', icon: UserGroupIcon },
-  { name: 'Leaderboard', href: '/dashboard/leaderboard', icon: TrophyIcon },
-  { name: 'Server Time', href: '/dashboard/leaderboard/server-time', icon: ClockIcon },
-  { name: 'Recent Promotions', href: '/dashboard/recent-promotions', icon: SparklesIcon },
 ];
 
 export function Sidebar() {
@@ -62,7 +88,23 @@ export function Sidebar() {
   }, []);
 
   // Filter navigation based on feature flags
-  const filteredNavigation = navigation.filter(item => {
+  const filteredNavigation = navigation.map(item => {
+    if (isNavGroup(item)) {
+      // Filter items within groups
+      const filteredItems = item.items.filter(subItem => {
+        if (subItem.requiresOCR && !ocrEnabled) {
+          return false;
+        }
+        return true;
+      });
+      return { ...item, items: filteredItems };
+    }
+    return item;
+  }).filter(item => {
+    if (isNavGroup(item)) {
+      // Only show group if it has items
+      return item.items.length > 0;
+    }
     if (item.requiresOCR && !ocrEnabled) {
       return false;
     }
