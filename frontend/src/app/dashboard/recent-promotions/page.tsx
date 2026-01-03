@@ -133,8 +133,40 @@ export default function RecentPromotionsPage() {
     try {
       await staffAPI.deleteHistoryEvent(eventId);
       toast.success('Event deleted');
-      // Refresh data
-      fetchData();
+      
+      // Update local state by removing the deleted event
+      if (data) {
+        // Filter out the deleted event from all_events
+        const updatedAllEvents = data.all_events.filter(event => event.id !== eventId);
+        
+        // Update categorized events
+        const updatedCategorizedEvents: CategorizedEvents = {
+          promotions: data.events.promotions.filter(event => event.id !== eventId),
+          demotions: data.events.demotions.filter(event => event.id !== eventId),
+          joins: data.events.joins.filter(event => event.id !== eventId),
+          removals: data.events.removals.filter(event => event.id !== eventId),
+          rejoined: data.events.rejoined.filter(event => event.id !== eventId),
+          role_changes: data.events.role_changes.filter(event => event.id !== eventId),
+        };
+        
+        // Update summary counts
+        const updatedSummary: Summary = {
+          promotions: updatedCategorizedEvents.promotions.length,
+          demotions: updatedCategorizedEvents.demotions.length,
+          joins: updatedCategorizedEvents.joins.length,
+          removals: updatedCategorizedEvents.removals.length,
+          rejoined: updatedCategorizedEvents.rejoined.length,
+          role_changes: updatedCategorizedEvents.role_changes.length,
+        };
+        
+        setData({
+          ...data,
+          all_events: updatedAllEvents,
+          events: updatedCategorizedEvents,
+          summary: updatedSummary,
+          total_events: updatedAllEvents.length,
+        });
+      }
     } catch (error: any) {
       if (error.response?.status === 403) {
         toast.error('Only SYSADMIN can delete events');
