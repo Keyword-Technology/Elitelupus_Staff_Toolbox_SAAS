@@ -148,12 +148,21 @@ class ServerQueryService:
         # Clear old players
         ServerPlayer.objects.filter(server=server).delete()
         
-        # Get staff list for matching
+        # Get staff list for matching (excluding builders if setting enabled)
         # Build multiple lookup dictionaries for different name sources:
         # 1. Roster name (from Google Sheets)
         # 2. Steam name (from Steam API, synced periodically)
+        from apps.system_settings.models import SystemSetting
+        from django.db.models import Q
+        
+        staff_queryset = StaffRoster.objects.filter(is_active=True).select_related('staff')
+        
+        # Exclude builders if system setting is enabled
+        if SystemSetting.exclude_builders():
+            staff_queryset = staff_queryset.exclude(Q(rank__icontains='builder'))
+        
         staff_roster = {}
-        for entry in StaffRoster.objects.filter(is_active=True).select_related('staff'):
+        for entry in staff_queryset:
             # Key by roster name (lowercase)
             staff_roster[entry.name.lower()] = entry
             

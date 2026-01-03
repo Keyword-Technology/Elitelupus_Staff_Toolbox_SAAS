@@ -88,6 +88,18 @@ class SystemSetting(models.Model):
             return setting.value
         except (SystemSetting.DoesNotExist, ValueError):
             return default
+    
+    @staticmethod
+    def exclude_builders():
+        """Check if builders should be excluded from staff lists and indicators."""
+        return SystemSetting.get_setting_value('exclude_builders', default=True)
+    
+    @staticmethod
+    def is_builder_role(role):
+        """Check if a role is a builder role."""
+        if not role:
+            return False
+        return 'builder' in role.lower()
 
 
 class ManagedServer(models.Model):

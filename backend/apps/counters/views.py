@@ -220,11 +220,17 @@ class LeaderboardView(APIView):
         period = request.query_params.get('period', 'total')
         counter_type = request.query_params.get('type', 'all')
         
+        from apps.system_settings.models import SystemSetting
         from django.contrib.auth import get_user_model
+        from django.db.models import Q
+        
         User = get_user_model()
         
-        # Get all active staff users
+        # Get all active staff users (excluding builders if setting enabled)
         users = User.objects.filter(is_active_staff=True)
+        
+        if SystemSetting.exclude_builders():
+            users = users.exclude(Q(role__icontains='builder'))
         
         leaderboard = []
         for user in users:

@@ -33,6 +33,9 @@ class StaffRosterListView(generics.ListAPIView):
     pagination_class = StaffRosterPagination
     
     def get_queryset(self):
+        from apps.system_settings.models import SystemSetting
+        from django.db.models import Q
+
         # By default, show only active staff
         # Allow showing inactive/legacy staff with ?show_inactive=true
         show_inactive = self.request.query_params.get('show_inactive', 'false').lower() == 'true'
@@ -44,6 +47,10 @@ class StaffRosterListView(generics.ListAPIView):
             # Default: only active staff
             queryset = StaffRoster.objects.filter(is_active=True)
         
+        # Exclude builders if system setting is enabled
+        if SystemSetting.exclude_builders():
+            queryset = queryset.exclude(Q(rank__icontains='builder'))
+        
         # Filter by rank if provided
         rank = self.request.query_params.get('rank')
         if rank:
@@ -52,7 +59,6 @@ class StaffRosterListView(generics.ListAPIView):
         # Search by name or Steam ID (name is on related Staff model)
         search = self.request.query_params.get('search')
         if search:
-            from django.db.models import Q
             queryset = queryset.filter(
                 Q(staff__name__icontains=search) |
                 Q(staff__steam_id__icontains=search)
@@ -638,9 +644,16 @@ class ServerTimeLeaderboardView(APIView):
             staff_times[staff_id]['total_seconds'] += session.duration
             staff_times[staff_id]['session_count'] += 1
         
-        # Get roster info for active staff
+        # Get roster info for active staff (excluding builders if setting enabled)
+        from apps.system_settings.models import SystemSetting
+        roster_queryset = StaffRoster.objects.filter(is_active=True).select_related('staff')
+        
+        if SystemSetting.exclude_builders():
+            from django.db.models import Q
+            roster_queryset = roster_queryset.exclude(Q(rank__icontains='builder'))
+        
         roster_map = {}
-        for roster in StaffRoster.objects.filter(is_active=True).select_related('staff'):
+        for roster in roster_queryset:
             roster_map[roster.staff_id] = roster
         
         # Build leaderboard
@@ -822,6 +835,7 @@ class RecentPromotionsView(APIView):
         from collections import defaultdict
         from datetime import timedelta
 
+        from apps.system_settings.models import SystemSetting
         from django.db.models import Q
 
         from .models import StaffHistoryEvent
@@ -851,6 +865,13 @@ class RecentPromotionsView(APIView):
             event_date__gte=week_start_dt,
             event_date__lte=week_end_dt
         ).select_related('staff', 'created_by').order_by('-event_date')
+        
+        # Exclude builder-related events if system setting is enabled
+        if SystemSetting.exclude_builders():
+            events = events.exclude(
+                Q(old_rank__icontains='builder') | 
+                Q(new_rank__icontains='builder')
+            )
         
         # Categorize events by type
         categorized = {
