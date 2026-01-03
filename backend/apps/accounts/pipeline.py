@@ -50,13 +50,13 @@ def create_or_link_user(backend, user, response, *args, **kwargs):
             # Check staff roster for Discord account with matching Steam ID
             from apps.staff.models import StaffRoster
             roster_entry = StaffRoster.objects.filter(
-                steam_id=steam_id,
+                staff__steam_id=steam_id,
                 is_active=True
-            ).exclude(discord_id__isnull=True).exclude(discord_id='').first()
+            ).select_related('staff').exclude(staff__discord_id__isnull=True).exclude(staff__discord_id='').first()
             
-            if roster_entry and roster_entry.discord_id:
+            if roster_entry and roster_entry.staff.discord_id:
                 # Check if a user exists with this Discord ID
-                existing_user = User.objects.filter(discord_id=roster_entry.discord_id).first()
+                existing_user = User.objects.filter(discord_id=roster_entry.staff.discord_id).first()
                 if existing_user:
                     # Link the Steam account to the existing Discord user
                     existing_user.steam_id = steam_id
@@ -127,13 +127,13 @@ def create_or_link_user(backend, user, response, *args, **kwargs):
             # Check staff roster for Steam account with matching Discord ID
             from apps.staff.models import StaffRoster
             roster_entry = StaffRoster.objects.filter(
-                discord_id=discord_id,
+                staff__discord_id=discord_id,
                 is_active=True
-            ).exclude(steam_id__isnull=True).exclude(steam_id='').first()
+            ).select_related('staff').exclude(staff__steam_id__isnull=True).exclude(staff__steam_id='').first()
             
-            if roster_entry and roster_entry.steam_id:
+            if roster_entry and roster_entry.staff.steam_id:
                 # Check if a user exists with this Steam ID
-                existing_user = User.objects.filter(steam_id=roster_entry.steam_id).first()
+                existing_user = User.objects.filter(steam_id=roster_entry.staff.steam_id).first()
                 if existing_user:
                     # Link the Discord account to the existing Steam user
                     existing_user.discord_id = discord_id
