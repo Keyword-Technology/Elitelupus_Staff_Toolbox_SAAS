@@ -166,23 +166,74 @@ export function Sidebar() {
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
             {filteredNavigation.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={() => setIsMobileOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
+              if (isNavGroup(item)) {
+                // Render as dropdown group
+                const isAnyChildActive = item.items.some(subItem => pathname === subItem.href);
+                return (
+                  <Disclosure key={item.name} defaultOpen={isAnyChildActive}>
+                    {({ open }) => (
+                      <>
+                        <Disclosure.Button
+                          className={`flex items-center justify-between w-full gap-3 px-3 py-2 rounded-lg transition-colors
                             ${
-                              isActive
-                                ? 'bg-primary-600 text-white'
+                              isAnyChildActive
+                                ? 'bg-dark-bg text-white'
                                 : 'text-gray-400 hover:bg-dark-bg hover:text-white'
                             }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  {item.name}
-                </Link>
-              );
+                        >
+                          <div className="flex items-center gap-3">
+                            <item.icon className="w-5 h-5" />
+                            {item.name}
+                          </div>
+                          <ChevronDownIcon 
+                            className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`}
+                          />
+                        </Disclosure.Button>
+                        <Disclosure.Panel className="ml-6 mt-1 space-y-1">
+                          {item.items.map((subItem) => {
+                            const isActive = pathname === subItem.href;
+                            return (
+                              <Link
+                                key={subItem.name}
+                                href={subItem.href}
+                                onClick={() => setIsMobileOpen(false)}
+                                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
+                                  ${
+                                    isActive
+                                      ? 'bg-primary-600 text-white'
+                                      : 'text-gray-400 hover:bg-dark-bg hover:text-white'
+                                  }`}
+                              >
+                                <subItem.icon className="w-4 h-4" />
+                                {subItem.name}
+                              </Link>
+                            );
+                          })}
+                        </Disclosure.Panel>
+                      </>
+                    )}
+                  </Disclosure>
+                );
+              } else {
+                // Render as regular link
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={() => setIsMobileOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors
+                              ${
+                                isActive
+                                  ? 'bg-primary-600 text-white'
+                                  : 'text-gray-400 hover:bg-dark-bg hover:text-white'
+                              }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    {item.name}
+                  </Link>
+                );
+              }
             })}
           </nav>
 
