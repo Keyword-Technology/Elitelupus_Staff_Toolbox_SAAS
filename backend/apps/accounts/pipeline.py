@@ -88,19 +88,19 @@ def create_or_link_user(backend, user, response, *args, **kwargs):
                     logger.info(f"Linked Steam account to existing user {existing_user.username} via email")
                     return {'user': existing_user}
             
-            # Create new user
-            if is_new:
-                user = User.objects.create_user(
-                    username=f"steam_{steam_id_64}",
-                    display_name=steam_name,
-                    steam_id=steam_id,
-                    steam_id_64=steam_id_64,
-                    steam_profile_url=steam_profile,
-                    steam_avatar=steam_avatar,
-                    avatar_url=steam_avatar,
-                    email=email,
-                )
-                return {'user': user, 'is_new': True}
+            # Create new user - no existing user found, so create one
+            user = User.objects.create_user(
+                username=f"steam_{steam_id_64}",
+                display_name=steam_name,
+                steam_id=steam_id,
+                steam_id_64=steam_id_64,
+                steam_profile_url=steam_profile,
+                steam_avatar=steam_avatar,
+                avatar_url=steam_avatar,
+                email=email,
+            )
+            logger.info(f"Created new user {user.username} via Steam authentication")
+            return {'user': user, 'is_new': True}
     
     elif backend.name == 'discord':
         discord_id = response.get('id')
@@ -162,19 +162,19 @@ def create_or_link_user(backend, user, response, *args, **kwargs):
                     logger.info(f"Linked Discord account to existing user {existing_user.username} via email")
                     return {'user': existing_user}
             
-            # Create new user
-            if is_new:
-                user = User.objects.create_user(
-                    username=f"discord_{discord_id}",
-                    email=email,
-                    display_name=discord_username,
-                    discord_id=discord_id,
-                    discord_username=discord_username,
-                    discord_discriminator=discord_discriminator,
-                    discord_avatar=discord_avatar,
-                    avatar_url=discord_avatar,
-                )
-                return {'user': user, 'is_new': True}
+            # Create new user - no existing user found, so create one
+            user = User.objects.create_user(
+                username=f"discord_{discord_id}",
+                email=email,
+                display_name=discord_username,
+                discord_id=discord_id,
+                discord_username=discord_username,
+                discord_discriminator=discord_discriminator,
+                discord_avatar=discord_avatar,
+                avatar_url=discord_avatar,
+            )
+            logger.info(f"Created new user {user.username} via Discord authentication")
+            return {'user': user, 'is_new': True}
     
     return {'user': user}
 
@@ -184,6 +184,8 @@ def sync_staff_role(backend, user, response, *args, **kwargs):
     Sync user's staff role from the Google Sheet roster.
     This runs after user creation/linking.
     """
+    from social_core.exceptions import AuthForbidden
+    
     if not user:
         return
     
@@ -237,13 +239,15 @@ def sync_staff_role(backend, user, response, *args, **kwargs):
                 user.save()
                 logger.warning(f"User {user.username} not in staff roster - access blocked")
                 # Raise an exception to prevent login and trigger error redirect
-                from social_core.exceptions import AuthForbidden
                 raise AuthForbidden(
                     backend,
                     "You are not authorized to access this application. "
                     "Only staff members listed in the roster can log in. "
                     "Please contact an administrator if you believe this is an error."
                 )
+    except AuthForbidden:
+        # Re-raise AuthForbidden - this is intentional to block non-roster users
+        raise
     except Exception as e:
         logger.error(f"Error syncing staff role: {e}")
 
