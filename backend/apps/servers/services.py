@@ -77,15 +77,78 @@ class ServerQueryService:
             # Query server info
             info = a2s.info(address, timeout=5)
             
-            # Try to query players, but handle decompression errors gracefully
+            # Try to query players with multiple fallback methods
             players = []
+            query_method = "none"
+            
+            # Method 1: Try standard a2s library
             try:
                 players = a2s.players(address, timeout=5)
+                query_method = "a2s"
+                logger.debug(f"Successfully queried {len(players)} players using python-a2s")
             except OSError as e:
-                # Handle bz2 decompression errors (Invalid data stream)
+                # Handle bz2 decompression errors - try alternative libraries
                 if 'Invalid data stream' in str(e):
-                    logger.warning(f"Player list query failed for {server.name} (bz2 decompression error). Server info still retrieved successfully.")
-                    # Continue with empty player list - server is still online, we just can't get players
+                    logger.warning(f"python-a2s failed for {server.name} (bz2 decompression error), trying alternative libraries...")
+                    
+                    # Method 2: Try python-valve library
+                    try:
+                        import valve.source.a2s
+                        valve_server = valve.source.a2s.ServerQuerier(address, timeout=5)
+                        valve_players = valve_server.players()
+                        
+                        # Convert valve player format to a2s format
+                        players = []
+                        for vp in valve_players['players']:
+                            # Create a simple object to match a2s player structure
+                            class Player:
+                                def __init__(self, name, score, duration):
+                                    self.name = name
+                                    self.score = score
+                                    self.duration = duration
+                            
+                            players.append(Player(
+                                name=vp.get('name', ''),
+                                score=vp.get('score', 0),
+                                duration=vp.get('duration', 0)
+                            ))
+                        
+                        query_method = "valve"
+                        logger.info(f"Successfully queried {len(players)} players using python-valve library")
+                        
+                    except Exception as valve_error:
+                        logger.warning(f"python-valve also failed: {valve_error}")
+                        
+                        # Method 3: Try raw socket query with no decompression
+                        try:
+                            import socket
+                            import struct
+                            
+                            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                            sock.settimeout(5)
+                            
+                            # Send challenge request
+                            sock.sendto(b'\xFF\xFF\xFF\xFF\x55\xFF\xFF\xFF\xFF', address)
+                            data, _ = sock.recvfrom(1400)
+                            
+                            # If we got a challenge, send it back
+                            if len(data) > 5 and data[4:5] == b'\x41':
+                                challenge = data[5:9]
+                                sock.sendto(b'\xFF\xFF\xFF\xFF\x55' + challenge, address)
+                                
+                                # Try to receive player data (may be fragmented)
+                                data, _ = sock.recvfrom(65535)
+                                
+                                # Just check if we got player response header
+                                if len(data) > 6 and data[4:5] == b'\x44':
+                                    player_count = struct.unpack('<B', data[5:6])[0]
+                                    logger.info(f"Raw socket query detected {player_count} players (detailed parsing skipped)")
+                                    query_method = "raw"
+                            
+                            sock.close()
+                        except Exception as raw_error:
+                            logger.warning(f"Raw socket query also failed: {raw_error}")
+                
                 else:
                     raise  # Re-raise if it's a different OSError
             
