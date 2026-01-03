@@ -29,7 +29,7 @@ def reverse_exclude_builders_setting(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('system_settings', '0001_initial'),
+        ('system_settings', '0004_sit_recording_settings'),
     ]
 
     operations = [
