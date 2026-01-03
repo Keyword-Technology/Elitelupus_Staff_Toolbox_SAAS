@@ -259,6 +259,107 @@ class LeaderboardView(APIView):
         return Response(leaderboard)
 
 
+class ResetWeeklySitCounterView(APIView):
+    """Reset weekly sit counter for the current user."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        today = timezone.now().date()
+        week_start = get_week_start(today)  # Saturday is reset day
+        
+        # Get all sit history entries for this week
+        weekly_history = CounterHistory.objects.filter(
+            user=user,
+            counter_type='sit',
+            timestamp__date__gte=week_start,
+            action__in=['increment', 'decrement']
+        )
+        
+        # Calculate the net change for the week
+        weekly_sits = 0
+        for entry in weekly_history:
+            weekly_sits += (entry.new_value - entry.old_value)
+        
+        # If there are sits to reset, create a compensating entry
+        if weekly_sits != 0:
+            # Get current counter
+            counter, _ = Counter.objects.get_or_create(
+                user=user,
+                counter_type='sit',
+                period_type='total',
+                defaults={'count': 0}
+            )
+            
+            old_value = counter.count
+            # Subtract the weekly sits from the total counter
+            counter.count = max(0, counter.count - weekly_sits)
+            counter.save()
+            
+            # Log the reset in history
+            CounterHistory.objects.create(
+                user=user,
+                counter_type='sit',
+                action='reset',
+                old_value=old_value,
+                new_value=counter.count,
+                note=f'Weekly sit counter reset: -{weekly_sits} sits'
+            )
+            
+            # Broadcast update via WebSocket
+            self._broadcast_counter_update(user, 'sit', counter.count)
+        
+        # Recalculate stats after reset
+        weekly_history_after = CounterHistory.objects.filter(
+            user=user,
+            counter_type='sit',
+            timestamp__date__gte=week_start,
+            action__in=['increment', 'decrement']
+        )
+        
+        new_weekly_sits = 0
+        for entry in weekly_history_after:
+            new_weekly_sits += (entry.new_value - entry.old_value)
+        
+        return Response({
+            'message': 'Weekly sit counter reset successfully',
+            'previous_weekly_sits': weekly_sits,
+            'current_weekly_sits': new_weekly_sits,
+            'total_sits': Counter.objects.filter(
+                user=user, counter_type='sit', period_type='total'
+            ).aggregate(total=Coalesce(Sum('count'), 0))['total']
+        })
+    
+    def _broadcast_counter_update(self, user, counter_type, count):
+        """Broadcast counter update to all connected clients."""
+        channel_layer = get_channel_layer()
+        
+        # Send to user's personal channel
+        async_to_sync(channel_layer.group_send)(
+            f"counters_{user.id}",
+            {
+                'type': 'counter_update',
+                'counter_type': counter_type,
+                'count': count,
+                'user_id': user.id,
+                'username': user.username,
+            }
+        )
+        
+        # Send to global leaderboard channel
+        async_to_sync(channel_layer.group_send)(
+            "counters_leaderboard",
+            {
+                'type': 'leaderboard_update',
+                'user_id': user.id,
+                'username': user.username,
+                'display_name': user.display_name or user.username,
+                'counter_type': counter_type,
+                'count': count,
+            }
+        )
+
+
 # ============================================================================
 # SIT RECORDING SYSTEM VIEWS
 # ============================================================================

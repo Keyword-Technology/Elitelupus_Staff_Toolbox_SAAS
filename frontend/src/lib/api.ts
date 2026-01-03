@@ -105,6 +105,7 @@ export const counterAPI = {
     api.get('/counters/history/', { params: { type } }),
   leaderboard: (period?: string, type?: string) =>
     api.get('/counters/leaderboard/', { params: { period, type } }),
+  resetWeeklySits: () => api.post('/counters/reset-weekly-sits/'),
 };
 
 // Sit Recording API

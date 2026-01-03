@@ -2,10 +2,11 @@ from django.urls import re_path
 
 from .views import (ActiveSitView, CounterHistoryView,  # Sit Recording System
                     CounterStatsView, CounterUpdateView, LeaderboardView,
-                    MyCountersView, SitDetailView, SitListCreateView,
-                    SitNoteDeleteView, SitNoteListCreateView,
-                    SitRecordingEnabledView, SitRecordingUploadView,
-                    SitStatsView, UserSitPreferencesView)
+                    MyCountersView, ResetWeeklySitCounterView, SitDetailView,
+                    SitListCreateView, SitNoteDeleteView,
+                    SitNoteListCreateView, SitRecordingEnabledView,
+                    SitRecordingUploadView, SitStatsView,
+                    UserSitPreferencesView)
 
 urlpatterns = [
     # Legacy counter endpoints (unchanged)
@@ -14,6 +15,7 @@ urlpatterns = [
     re_path(r'^stats/?$', CounterStatsView.as_view(), name='counter_stats'),
     re_path(r'^history/?$', CounterHistoryView.as_view(), name='counter_history'),
     re_path(r'^leaderboard/?$', LeaderboardView.as_view(), name='leaderboard'),
+    re_path(r'^reset-weekly-sits/?$', ResetWeeklySitCounterView.as_view(), name='reset_weekly_sits'),
     
     # Sit Recording System endpoints
     re_path(r'^sits/enabled/?$', SitRecordingEnabledView.as_view(), name='sit_recording_enabled'),
