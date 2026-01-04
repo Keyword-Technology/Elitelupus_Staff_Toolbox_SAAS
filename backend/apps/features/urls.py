@@ -1,14 +1,8 @@
 from django.urls import re_path
 
-from .views import (
-    FeatureCommentDetailView,
-    FeatureCommentListCreateView,
-    FeatureCreateView,
-    FeatureDetailView,
-    FeatureListView,
-    FeatureManageView,
-    FeatureStatsView,
-)
+from .views import (FeatureCommentDetailView, FeatureCommentListCreateView,
+                    FeatureCreateView, FeatureDetailView, FeatureListView,
+                    FeatureManageView, FeatureStatsView)
 
 urlpatterns = [
     # Public endpoints (all authenticated users)

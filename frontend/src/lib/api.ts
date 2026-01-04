@@ -244,3 +244,23 @@ export const systemAPI = {
   // Audit Logs
   auditLogs: () => api.get('/system/audit-logs/'),
 };
+
+export const featuresAPI = {
+  // Public endpoints (all authenticated users)
+  list: (status?: string) => api.get('/features/', { params: status ? { status } : {} }),
+  get: (id: number) => api.get(`/features/${id}/`),
+  stats: () => api.get('/features/stats/'),
+  
+  // Comments (all authenticated users can create)
+  getComments: (featureId: number) => api.get(`/features/${featureId}/comments/`),
+  createComment: (featureId: number, content: string) => 
+    api.post(`/features/${featureId}/comments/`, { content }),
+  updateComment: (commentId: number, content: string) => 
+    api.patch(`/features/comments/${commentId}/`, { content }),
+  deleteComment: (commentId: number) => api.delete(`/features/comments/${commentId}/`),
+  
+  // Admin endpoints (SYSADMIN only)
+  create: (data: any) => api.post('/features/create/', data),
+  update: (id: number, data: any) => api.patch(`/features/${id}/manage/`, data),
+  delete: (id: number) => api.delete(`/features/${id}/manage/`),
+};

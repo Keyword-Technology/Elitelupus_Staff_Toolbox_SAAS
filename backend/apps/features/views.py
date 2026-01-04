@@ -1,19 +1,13 @@
+from apps.accounts.permissions import IsSysAdmin
 from django.db.models import Count
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.permissions import IsSysAdmin
-
 from .models import Feature, FeatureComment
-from .serializers import (
-    FeatureCommentCreateSerializer,
-    FeatureCommentSerializer,
-    FeatureDetailSerializer,
-    FeatureListSerializer,
-    FeatureWriteSerializer,
-)
-
+from .serializers import (FeatureCommentCreateSerializer,
+                          FeatureCommentSerializer, FeatureDetailSerializer,
+                          FeatureListSerializer, FeatureWriteSerializer)
 
 # ==================== PUBLIC VIEWS (Authenticated users) ====================
 

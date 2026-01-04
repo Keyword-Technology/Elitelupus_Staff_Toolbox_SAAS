@@ -21,6 +21,7 @@ import {
   EyeIcon,
   SparklesIcon,
   ChevronDownIcon,
+  LightBulbIcon,
 } from '@heroicons/react/24/outline';
 
 interface NavItem {
@@ -66,6 +67,7 @@ const navigation: NavigationItem[] = [
   { name: 'Steam Lookup', href: '/dashboard/templates', icon: MagnifyingGlassIcon },
   { name: 'Rules', href: '/dashboard/rules', icon: BookOpenIcon },
   { name: 'Staff Roster', href: '/dashboard/staff', icon: UserGroupIcon },
+  { name: 'Future Features', href: '/dashboard/features', icon: LightBulbIcon },
 ];
 
 export function Sidebar() {
