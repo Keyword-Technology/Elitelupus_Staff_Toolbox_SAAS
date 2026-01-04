@@ -1,5 +1,5 @@
 from apps.accounts.permissions import IsSysAdmin
-from django.db.models import Count
+from django.db.models import Case, Count, IntegerField, When
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,9 +18,19 @@ class FeatureListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
+        # Define priority ordering: critical=1, high=2, medium=3, low=4
+        priority_order = Case(
+            When(priority='critical', then=1),
+            When(priority='high', then=2),
+            When(priority='medium', then=3),
+            When(priority='low', then=4),
+            output_field=IntegerField(),
+        )
+        
         queryset = Feature.objects.annotate(
-            comment_count=Count('comments')
-        ).select_related('created_by')
+            comment_count=Count('comments'),
+            priority_order=priority_order
+        ).select_related('created_by').order_by('priority_order', 'order', '-created_at')
         
         # Filter by status if provided
         status_filter = self.request.query_params.get('status')

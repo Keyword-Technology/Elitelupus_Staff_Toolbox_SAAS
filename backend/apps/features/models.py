@@ -56,7 +56,7 @@ class Feature(models.Model):
     order = models.IntegerField(default=0, verbose_name='Display Order')
     
     class Meta:
-        ordering = ['-priority', 'order', '-created_at']
+        ordering = ['order', '-created_at']
         verbose_name = 'Feature'
         verbose_name_plural = 'Features'
     
