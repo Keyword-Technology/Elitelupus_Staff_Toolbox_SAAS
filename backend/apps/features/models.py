@@ -62,10 +62,6 @@ class Feature(models.Model):
     
     def __str__(self):
         return self.title
-    
-    @property
-    def comment_count(self):
-        return self.comments.count()
 
 
 class FeatureComment(models.Model):
