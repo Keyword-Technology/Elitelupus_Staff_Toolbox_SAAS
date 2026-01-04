@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'apps.templates_manager',
     'apps.rules',
     'apps.system_settings',
+    'apps.features',
 ]
 
 MIDDLEWARE = [

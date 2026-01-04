@@ -24,6 +24,7 @@ urlpatterns = [
     re_path(r'^api/templates/?', include('apps.templates_manager.urls')),
     re_path(r'^api/rules/?', include('apps.rules.urls')),
     re_path(r'^api/system/?', include('apps.system_settings.urls')),
+    re_path(r'^api/features/?', include('apps.features.urls')),
     
     # OAuth (Steam, Discord, etc.)
     path('api/oauth/', include('social_django.urls', namespace='social')),

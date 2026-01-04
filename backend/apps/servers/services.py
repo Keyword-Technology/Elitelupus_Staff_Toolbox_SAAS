@@ -90,9 +90,6 @@ class ServerQueryService:
                 # This is a known issue with some GMod servers sending corrupted compressed data
                 logger.warning(f"Failed to query players for {server.name}: {type(e).__name__}: {e}")
                 logger.info(f"Server will still be marked as online based on info query, but detailed player list unavailable")
-                
-                else:
-                    raise  # Re-raise if it's a different OSError
             
             # Update server record
             server.server_name = info.server_name
