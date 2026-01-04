@@ -105,9 +105,11 @@ export default function FutureFeatures() {
     try {
       setLoading(true);
       const response = await featuresAPI.list(statusFilter || undefined);
-      setFeatures(response.data);
+      // Ensure we have an array
+      setFeatures(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       toast.error('Failed to load features');
+      setFeatures([]);
     } finally {
       setLoading(false);
     }
@@ -116,7 +118,12 @@ export default function FutureFeatures() {
   const loadFeatureDetail = async (id: number) => {
     try {
       const response = await featuresAPI.get(id);
-      setSelectedFeature(response.data);
+      // Ensure comments is an array
+      const data = response.data;
+      if (data && !Array.isArray(data.comments)) {
+        data.comments = [];
+      }
+      setSelectedFeature(data);
     } catch (error) {
       toast.error('Failed to load feature details');
     }
