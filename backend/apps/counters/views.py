@@ -1,3 +1,4 @@
+import datetime
 from datetime import timedelta
 
 from apps.utils import get_week_start
@@ -170,20 +171,46 @@ class CounterStatsView(APIView):
         for entry in today_history.filter(counter_type='ticket'):
             today_tickets += (entry.new_value - entry.old_value)
         
-        # Weekly counts - include both increment and decrement
-        weekly_history = CounterHistory.objects.filter(
+        # Get the sit counter to check for weekly reset timestamp
+        sit_counter = Counter.objects.filter(
             user=user,
+            counter_type='sit',
+            period_type='total'
+        ).first()
+        
+        # Determine the cutoff time for weekly calculation
+        # If there was a reset this week, only count sits after that reset
+        # Otherwise, count from the week start
+        weekly_cutoff = week_start
+        if sit_counter and sit_counter.weekly_reset_timestamp:
+            reset_date = sit_counter.weekly_reset_timestamp.date()
+            # Only use reset timestamp if it's within this week
+            if reset_date >= week_start:
+                weekly_cutoff = sit_counter.weekly_reset_timestamp
+        
+        # Weekly sits - only count entries after the cutoff (reset timestamp or week start)
+        weekly_sit_history = CounterHistory.objects.filter(
+            user=user,
+            counter_type='sit',
+            timestamp__gte=weekly_cutoff,
+            action__in=['increment', 'decrement']
+        )
+        
+        # Calculate net change for week
+        weekly_sits = 0
+        for entry in weekly_sit_history:
+            weekly_sits += (entry.new_value - entry.old_value)
+        
+        # Weekly tickets - use week_start (no reset feature for tickets)
+        weekly_ticket_history = CounterHistory.objects.filter(
+            user=user,
+            counter_type='ticket',
             timestamp__date__gte=week_start,
             action__in=['increment', 'decrement']
         )
         
-        # Calculate net change for week (new_value - old_value is already signed correctly)
-        weekly_sits = 0
-        for entry in weekly_history.filter(counter_type='sit'):
-            weekly_sits += (entry.new_value - entry.old_value)
-        
         weekly_tickets = 0
-        for entry in weekly_history.filter(counter_type='ticket'):
+        for entry in weekly_ticket_history:
             weekly_tickets += (entry.new_value - entry.old_value)
         
         return Response({
@@ -276,68 +303,60 @@ class ResetWeeklySitCounterView(APIView):
     def post(self, request):
         user = request.user
         today = timezone.now().date()
+        now = timezone.now()
         week_start = get_week_start(today)  # Saturday is reset day
         
-        # Get all sit history entries for this week
+        # Get or create the sit counter
+        counter, _ = Counter.objects.get_or_create(
+            user=user,
+            counter_type='sit',
+            period_type='total',
+            defaults={'count': 0}
+        )
+        
+        # Get the last reset timestamp to calculate previous weekly sits
+        last_reset = counter.weekly_reset_timestamp or timezone.make_aware(
+            datetime.datetime.combine(week_start, datetime.time.min)
+        )
+        
+        # Calculate sits since the last reset (or since week start if never reset)
         weekly_history = CounterHistory.objects.filter(
             user=user,
             counter_type='sit',
-            timestamp__date__gte=week_start,
+            timestamp__gte=last_reset,
             action__in=['increment', 'decrement']
         )
         
-        # Calculate the net change for the week
-        weekly_sits = 0
+        # Calculate the net change since last reset
+        previous_weekly_sits = 0
         for entry in weekly_history:
-            weekly_sits += (entry.new_value - entry.old_value)
+            previous_weekly_sits += (entry.new_value - entry.old_value)
         
-        # If there are sits to reset, create a compensating entry
-        if weekly_sits != 0:
-            # Get current counter
-            counter, _ = Counter.objects.get_or_create(
-                user=user,
-                counter_type='sit',
-                period_type='total',
-                defaults={'count': 0}
-            )
-            
-            old_value = counter.count
-            # Subtract the weekly sits from the total counter
-            counter.count = max(0, counter.count - weekly_sits)
-            counter.save()
-            
-            # Log the reset in history
-            CounterHistory.objects.create(
-                user=user,
-                counter_type='sit',
-                action='reset',
-                old_value=old_value,
-                new_value=counter.count,
-                note=f'Weekly sit counter reset: -{weekly_sits} sits'
-            )
-            
-            # Broadcast update via WebSocket
-            self._broadcast_counter_update(user, 'sit', counter.count)
+        # Set the reset timestamp to now
+        counter.weekly_reset_timestamp = now
+        counter.save()
         
-        # Recalculate stats after reset
-        weekly_history_after = CounterHistory.objects.filter(
+        # Log the reset in history for audit purposes (doesn't affect counter value)
+        CounterHistory.objects.create(
             user=user,
             counter_type='sit',
-            timestamp__date__gte=week_start,
-            action__in=['increment', 'decrement']
+            action='reset',
+            old_value=counter.count,
+            new_value=counter.count,  # Total counter stays the same
+            note=f'Weekly sit counter reset: {previous_weekly_sits} sits archived'
         )
         
-        new_weekly_sits = 0
-        for entry in weekly_history_after:
-            new_weekly_sits += (entry.new_value - entry.old_value)
+        # Get total sits
+        total_sits = counter.count
+        
+        # Broadcast update via WebSocket (total counter unchanged, but UI will show 0 weekly)
+        self._broadcast_counter_update(user, 'sit', total_sits)
         
         return Response({
             'message': 'Weekly sit counter reset successfully',
-            'previous_weekly_sits': weekly_sits,
-            'current_weekly_sits': new_weekly_sits,
-            'total_sits': Counter.objects.filter(
-                user=user, counter_type='sit', period_type='total'
-            ).aggregate(total=Coalesce(Sum('count'), 0))['total']
+            'previous_weekly_sits': previous_weekly_sits,
+            'current_weekly_sits': 0,  # After reset, weekly count is 0
+            'total_sits': total_sits
         })
     
     def _broadcast_counter_update(self, user, counter_type, count):

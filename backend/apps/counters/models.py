@@ -24,6 +24,9 @@ class Counter(models.Model):
     period_start = models.DateField(null=True, blank=True)
     period_type = models.CharField(max_length=20, default='total')  # daily, weekly, monthly, total
     
+    # Track when weekly counter was last reset (for weekly sit calculations)
+    weekly_reset_timestamp = models.DateTimeField(null=True, blank=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
