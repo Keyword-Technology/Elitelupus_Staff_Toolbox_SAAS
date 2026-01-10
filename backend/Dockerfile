@@ -21,9 +21,8 @@ COPY backend/ .
 # Copy version file from root
 COPY versions.ini /app/versions.ini
 
-# Set permissions for entrypoint
-RUN chmod +x /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Set permissions for entrypoint (now in /app/)
+RUN chmod +x /app/entrypoint.sh
 
 # Run the application
-CMD ["/entrypoint.sh"]
+CMD ["/app/entrypoint.sh"]
