@@ -44,8 +44,6 @@ export default function CountersPage() {
   const [quotas, setQuotas] = useState<QuotaData | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isResetting, setIsResetting] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const { isConnected, onCounterUpdate } = useWebSocket();
   const { formatDateTime } = useFormatDate();
   const queryClient = useQueryClient();
@@ -77,26 +75,6 @@ export default function CountersPage() {
       toast.error('Failed to load counter data');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleResetWeeklySits = async () => {
-    if (!stats || stats.weekly_sits === 0) {
-      toast.error('No weekly sits to reset');
-      return;
-    }
-
-    setIsResetting(true);
-    try {
-      const response = await counterAPI.resetWeeklySits();
-      toast.success(`Weekly sit counter reset: -${response.data.previous_weekly_sits} sits`);
-      setShowResetConfirm(false);
-      // Refresh data to show updated stats
-      await fetchData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to reset weekly sit counter');
-    } finally {
-      setIsResetting(false);
     }
   };
 
@@ -165,20 +143,11 @@ export default function CountersPage() {
 
       {/* Weekly Overview */}
       <div className="bg-dark-card rounded-lg border border-dark-border p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center mb-4">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             <ChartBarIcon className="w-5 h-5 text-primary-400" />
             Weekly Overview
           </h2>
-          <button
-            onClick={() => setShowResetConfirm(true)}
-            disabled={isResetting || !stats || stats.weekly_sits === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title={!stats || stats.weekly_sits === 0 ? 'No weekly sits to reset' : 'Reset weekly sit counter'}
-          >
-            <ArrowPathIcon className="w-4 h-4" />
-            <span className="text-sm font-medium">Reset Weekly Sits</span>
-          </button>
         </div>
         <div className="grid grid-cols-2 gap-8">
           <div>
@@ -282,48 +251,6 @@ export default function CountersPage() {
           )}
         </div>
       </div>
-
-      {/* Reset Confirmation Modal */}
-      {showResetConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-dark-card rounded-lg border border-dark-border p-6 max-w-md w-full">
-            <h3 className="text-xl font-semibold text-white mb-4">
-              Reset Weekly Sit Counter?
-            </h3>
-            <p className="text-gray-300 mb-4">
-              This will reset your weekly sit count from{' '}
-              <span className="font-bold text-blue-400">{stats?.weekly_sits || 0}</span> to{' '}
-              <span className="font-bold text-blue-400">0</span>.
-            </p>
-            <p className="text-sm text-yellow-400 mb-6 bg-yellow-400/10 p-3 rounded-lg border border-yellow-400/20">
-              ⚠️ This action will subtract {stats?.weekly_sits || 0} sits from your total counter and cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowResetConfirm(false)}
-                disabled={isResetting}
-                className="flex-1 px-4 py-2 bg-dark-bg hover:bg-dark-border text-white rounded-lg transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleResetWeeklySits}
-                disabled={isResetting}
-                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isResetting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                    Resetting...
-                  </>
-                ) : (
-                  'Reset Counter'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

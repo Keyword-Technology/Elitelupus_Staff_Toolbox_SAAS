@@ -109,8 +109,8 @@ export function CounterCard({ title, count: initialCount, todayCount, type, quot
         </button>
         
         <div className="text-center">
-          <span className="text-5xl font-bold text-white">{count}</span>
-          <p className="text-sm text-gray-400 mt-1">Total {title}</p>
+          <span className="text-5xl font-bold text-white">{weeklyCount ?? 0}</span>
+          <p className="text-sm text-gray-400 mt-1">Total (This Week)</p>
         </div>
         
         <button
