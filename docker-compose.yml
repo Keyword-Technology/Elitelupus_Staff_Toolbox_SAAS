@@ -43,8 +43,8 @@ services:
   # Django Backend
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: elitelupus_backend
     restart: unless-stopped
     environment:
@@ -128,8 +128,8 @@ services:
   # Celery Worker (Background Tasks)
   celery:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: elitelupus_celery
     restart: unless-stopped
     environment:
@@ -157,8 +157,8 @@ services:
   # Celery Beat (Scheduled Tasks)
   celery-beat:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: elitelupus_celery_beat
     restart: unless-stopped
     environment:

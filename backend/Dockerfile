@@ -12,17 +12,17 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project
-COPY . .
+# Copy project files from backend directory
+COPY backend/ .
 
-# Copy version file from parent directory
-COPY ../versions.ini /app/versions.ini
+# Copy version file from root
+COPY versions.ini /app/versions.ini
 
-# Copy and set permissions for entrypoint
-COPY entrypoint.sh /entrypoint.sh
+# Set permissions for entrypoint
+RUN chmod +x /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Run the application
