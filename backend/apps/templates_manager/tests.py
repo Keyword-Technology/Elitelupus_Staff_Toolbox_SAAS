@@ -6,9 +6,51 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 
 from .models import SteamProfileSearch, SteamProfileBookmark
-from .serializers import SteamProfileBookmarkSerializer, SteamProfileBookmarkCreateSerializer
+from .serializers import (
+    SteamProfileBookmarkSerializer,
+    SteamProfileBookmarkCreateSerializer,
+    validate_tags_field
+)
 
 User = get_user_model()
+
+
+class ValidateTagsFieldTestCase(TestCase):
+    """Test case for the shared validate_tags_field function."""
+    
+    def test_filters_empty_strings(self):
+        """Test that empty strings are filtered from tags array."""
+        result = validate_tags_field(['', 'valid-tag', '', '  ', 'another-tag', ''])
+        
+        self.assertEqual(len(result), 2)
+        self.assertIn('valid-tag', result)
+        self.assertIn('another-tag', result)
+        self.assertNotIn('', result)
+        self.assertNotIn('  ', result)
+    
+    def test_trims_whitespace(self):
+        """Test that tags are trimmed of leading/trailing whitespace."""
+        result = validate_tags_field(['  tag1  ', ' tag2', 'tag3 '])
+        
+        self.assertEqual(result, ['tag1', 'tag2', 'tag3'])
+    
+    def test_handles_empty_list(self):
+        """Test that empty list is handled correctly."""
+        result = validate_tags_field([])
+        
+        self.assertEqual(result, [])
+    
+    def test_handles_none(self):
+        """Test that None value is handled correctly."""
+        result = validate_tags_field(None)
+        
+        self.assertEqual(result, [])
+    
+    def test_handles_all_empty(self):
+        """Test that all empty strings returns empty list."""
+        result = validate_tags_field(['', '  ', '', '   '])
+        
+        self.assertEqual(result, [])
 
 
 class SteamProfileBookmarkSerializerTestCase(TestCase):
@@ -36,12 +78,8 @@ class SteamProfileBookmarkSerializerTestCase(TestCase):
             tags=['', 'valid-tag', '', '  ', 'another-tag', '']
         )
         
-        # Serialize the bookmark
+        # Test the validate_tags method directly
         serializer = SteamProfileBookmarkSerializer(bookmark)
-        
-        # Verify empty tags are not in the serialized data
-        # Note: The validation happens on update/create, not on read
-        # So we need to test the validate_tags method directly
         validated_tags = serializer.validate_tags(['', 'valid-tag', '', '  ', 'another-tag', ''])
         
         self.assertEqual(len(validated_tags), 2)
@@ -49,38 +87,6 @@ class SteamProfileBookmarkSerializerTestCase(TestCase):
         self.assertIn('another-tag', validated_tags)
         self.assertNotIn('', validated_tags)
         self.assertNotIn('  ', validated_tags)
-    
-    def test_validate_tags_trims_whitespace(self):
-        """Test that tags are trimmed of leading/trailing whitespace."""
-        serializer = SteamProfileBookmarkSerializer()
-        
-        validated_tags = serializer.validate_tags(['  tag1  ', ' tag2', 'tag3 '])
-        
-        self.assertEqual(validated_tags, ['tag1', 'tag2', 'tag3'])
-    
-    def test_validate_tags_handles_empty_list(self):
-        """Test that empty list is handled correctly."""
-        serializer = SteamProfileBookmarkSerializer()
-        
-        validated_tags = serializer.validate_tags([])
-        
-        self.assertEqual(validated_tags, [])
-    
-    def test_validate_tags_handles_none(self):
-        """Test that None value is handled correctly."""
-        serializer = SteamProfileBookmarkSerializer()
-        
-        validated_tags = serializer.validate_tags(None)
-        
-        self.assertEqual(validated_tags, [])
-    
-    def test_validate_tags_handles_all_empty(self):
-        """Test that all empty strings returns empty list."""
-        serializer = SteamProfileBookmarkSerializer()
-        
-        validated_tags = serializer.validate_tags(['', '  ', '', '   '])
-        
-        self.assertEqual(validated_tags, [])
 
 
 class SteamProfileBookmarkCreateSerializerTestCase(TestCase):

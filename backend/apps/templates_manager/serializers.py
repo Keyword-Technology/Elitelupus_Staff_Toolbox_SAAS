@@ -7,6 +7,25 @@ from .models import (BanExtensionTemplate, PlayerReportTemplate,
                      TemplateCategory, TemplateComment)
 
 
+def validate_tags_field(value):
+    """
+    Shared validation logic for tags fields.
+    Filters out empty or blank tags and trims whitespace.
+    """
+    if not value:
+        return []
+    
+    # Filter and strip tags in a single pass
+    cleaned_tags = []
+    for tag in value:
+        if tag:  # Skip None/empty values
+            stripped = tag.strip()
+            if stripped:  # Only include non-empty stripped values
+                cleaned_tags.append(stripped)
+    
+    return cleaned_tags
+
+
 class SteamProfileSearchSerializer(serializers.ModelSerializer):
     """Serializer for Steam profile search records."""
     
@@ -230,9 +249,7 @@ class SteamProfileBookmarkSerializer(serializers.ModelSerializer):
     
     def validate_tags(self, value):
         """Filter out empty or blank tags."""
-        if value:
-            return [tag.strip() for tag in value if tag and tag.strip()]
-        return []
+        return validate_tags_field(value)
     
     def get_steam_profile_data(self, obj):
         """Include basic Steam profile data."""
@@ -259,9 +276,7 @@ class SteamProfileBookmarkCreateSerializer(serializers.ModelSerializer):
     
     def validate_tags(self, value):
         """Filter out empty or blank tags."""
-        if value:
-            return [tag.strip() for tag in value if tag and tag.strip()]
-        return []
+        return validate_tags_field(value)
     
     def create(self, validated_data):
         steam_id_64 = validated_data.pop('steam_id_64')
