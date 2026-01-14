@@ -39,17 +39,53 @@ Implemented a two-layer fix:
 ```
 
 ### 2. Backend Validation (serializers.py)
-- Added `validate_tags()` method to both `SteamProfileBookmarkSerializer` and `SteamProfileBookmarkCreateSerializer`
+- Created shared `validate_tags_field()` function to eliminate code duplication between serializers
+- Implemented single-pass optimization to avoid redundant `.strip()` operations
+- Both `SteamProfileBookmarkSerializer` and `SteamProfileBookmarkCreateSerializer` now use the shared function
 - This method filters out empty strings and trims whitespace from valid tags
 - Prevents invalid tags from being saved to the database in the first place
 
+**Optimization Details:**
+The original list comprehension approach called `.strip()` twice per tag:
+```python
+# Old approach (inefficient)
+[tag.strip() for tag in value if tag and tag.strip()]  # .strip() called twice!
+```
+
+The new single-pass approach calls `.strip()` only once:
+```python
+# New approach (efficient)
+for tag in value:
+    if tag:
+        stripped = tag.strip()  # .strip() called only once
+        if stripped:
+            cleaned_tags.append(stripped)
+```
+
 **Implementation:**
 ```python
-def validate_tags(self, value):
-    """Filter out empty or blank tags."""
-    if value:
-        return [tag.strip() for tag in value if tag and tag.strip()]
-    return []
+def validate_tags_field(value):
+    """
+    Shared validation logic for tags fields.
+    Filters out empty or blank tags and trims whitespace.
+    
+    Uses a single-pass algorithm to avoid redundant operations:
+    - Each tag is processed only once
+    - .strip() is called only once per tag
+    - Early return for None/empty values minimizes processing
+    """
+    if not value:
+        return []
+    
+    # Filter and strip tags in a single pass
+    cleaned_tags = []
+    for tag in value:
+        if tag:  # Skip None/empty values
+            stripped = tag.strip()
+            if stripped:  # Only include non-empty stripped values
+                cleaned_tags.append(stripped)
+    
+    return cleaned_tags
 ```
 
 ## Files Modified

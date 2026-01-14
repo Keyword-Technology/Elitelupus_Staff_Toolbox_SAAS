@@ -11,6 +11,11 @@ def validate_tags_field(value):
     """
     Shared validation logic for tags fields.
     Filters out empty or blank tags and trims whitespace.
+    
+    Uses a single-pass algorithm to avoid redundant operations:
+    - Each tag is processed only once
+    - .strip() is called only once per tag (not twice in condition + list comprehension)
+    - Early return for None/empty values minimizes unnecessary processing
     """
     if not value:
         return []
