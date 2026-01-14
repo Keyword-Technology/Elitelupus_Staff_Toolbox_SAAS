@@ -126,11 +126,13 @@ export default function SteamBookmarksFloatingButton({ onSelectBookmark }: Steam
                         <p class="text-sm text-gray-700 mt-2 italic">"${bookmark.note}"</p>
                       ` : ''}
                       
-                      ${bookmark.tags && bookmark.tags.length > 0 ? `
+                      ${bookmark.tags && bookmark.tags.filter(tag => tag && tag.trim()).length > 0 ? `
                         <div class="flex flex-wrap gap-1 mt-2">
-                          ${bookmark.tags.map(tag => `
-                            <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">${tag}</span>
-                          `).join('')}
+                          ${bookmark.tags
+                            .filter(tag => tag && tag.trim())
+                            .map(tag => `
+                              <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">${tag}</span>
+                            `).join('')}
                         </div>
                       ` : ''}
                       
@@ -385,16 +387,18 @@ function BookmarkCard({ bookmark, onSelect, onDelete, onTogglePin }: BookmarkCar
       )}
 
       {/* Tags */}
-      {bookmark.tags && bookmark.tags.length > 0 && (
+      {bookmark.tags && bookmark.tags.filter((tag) => tag && tag.trim()).length > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
-          {bookmark.tags.map((tag, idx) => (
-            <span
-              key={idx}
-              className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700"
-            >
-              {tag}
-            </span>
-          ))}
+          {bookmark.tags
+            .filter((tag) => tag && tag.trim())
+            .map((tag, idx) => (
+              <span
+                key={idx}
+                className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700"
+              >
+                {tag}
+              </span>
+            ))}
         </div>
       )}
 

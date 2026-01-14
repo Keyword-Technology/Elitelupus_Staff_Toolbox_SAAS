@@ -228,6 +228,12 @@ class SteamProfileBookmarkSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['user', 'created_at', 'updated_at']
     
+    def validate_tags(self, value):
+        """Filter out empty or blank tags."""
+        if value:
+            return [tag.strip() for tag in value if tag and tag.strip()]
+        return []
+    
     def get_steam_profile_data(self, obj):
         """Include basic Steam profile data."""
         return {
@@ -250,6 +256,12 @@ class SteamProfileBookmarkCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SteamProfileBookmark
         fields = ['steam_id_64', 'note', 'tags', 'is_pinned']
+    
+    def validate_tags(self, value):
+        """Filter out empty or blank tags."""
+        if value:
+            return [tag.strip() for tag in value if tag and tag.strip()]
+        return []
     
     def create(self, validated_data):
         steam_id_64 = validated_data.pop('steam_id_64')
